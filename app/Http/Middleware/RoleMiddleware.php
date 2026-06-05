@@ -12,15 +12,23 @@ class RoleMiddleware
         $user = $request->user();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'Bạn chưa đăng nhập',
-            ], 401);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Bạn chưa đăng nhập',
+                ], 401);
+            }
+
+            return redirect()->route('login');
         }
 
-        if (!in_array($user->role, $roles)) {
-            return response()->json([
-                'message' => 'Bạn không có quyền truy cập chức năng này',
-            ], 403);
+        if (!in_array($user->role, $roles, true)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Bạn không có quyền truy cập chức năng này',
+                ], 403);
+            }
+
+            abort(403, 'Bạn không có quyền truy cập trang này');
         }
 
         return $next($request);
