@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Homi – Đặt phòng khách sạn</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #1a5fc8 0%, #2f80ed 50%, #56a0f5 100%);
+      color: #fff;
+      padding: 5rem 0 4rem;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: .75rem; line-height: 1.2; }
+    .hero p  { font-size: 1.15rem; opacity: .88; margin-bottom: 2.5rem; }
+
+    /* SEARCH BOX */
+    .search-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 40px rgba(0,0,0,.18);
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      gap: 1rem;
+      align-items: end;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+    .search-box .form-label { color: #333; }
+    .search-box .btn { height: 44px; white-space: nowrap; }
+
+    /* STATS */
+    .stats-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 1.1rem 0;
+    }
+    .stats-bar .container {
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+    }
+    .stat-item { text-align: center; }
+    .stat-item .num { font-size: 1.6rem; font-weight: 800; color: var(--blue); }
+    .stat-item .lbl { font-size: .82rem; color: var(--muted); }
+
+    /* SECTION TITLE */
+    .section-title {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .section-title h2 { font-size: 1.7rem; font-weight: 800; margin-bottom: .4rem; }
+    .section-title p  { color: var(--muted); font-size: .95rem; }
+
+    /* HOTEL CARDS */
+    .hotel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    .hotel-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .hotel-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .hotel-card-img {
+      height: 190px;
+      background: linear-gradient(135deg, #c3deff 0%, #eaf4ff 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+      position: relative;
+    }
+    .hotel-card-img .badge {
+      position: absolute;
+      top: .75rem;
+      right: .75rem;
+    }
+    .hotel-card-body { padding: 1rem 1.1rem 1.25rem; }
+    .hotel-card-name { font-size: 1rem; font-weight: 700; margin-bottom: .2rem; }
+    .hotel-card-loc  { font-size: .83rem; color: var(--muted); margin-bottom: .6rem; }
+    .hotel-card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: .75rem; }
+    .hotel-price { font-size: 1rem; font-weight: 700; color: var(--blue); }
+    .hotel-price span { font-size: .78rem; font-weight: 400; color: var(--muted); }
+
+    /* AMENITY CHIPS */
+    .amenity-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+    .chip {
+      background: var(--blue-light);
+      color: var(--blue-dark);
+      border-radius: 20px;
+      padding: .2rem .65rem;
+      font-size: .76rem;
+      font-weight: 500;
+    }
+
+    /* CATEGORIES */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .category-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      text-decoration: none;
+    }
+    .category-card:hover {
+      border-color: var(--blue);
+      background: var(--blue-light);
+      transform: translateY(-2px);
+      text-decoration: none;
+    }
+    .category-card .icon { font-size: 2rem; margin-bottom: .5rem; }
+    .category-card h4 { font-size: .92rem; font-weight: 700; color: var(--text); margin-bottom: .2rem; }
+    .category-card p  { font-size: .78rem; color: var(--muted); }
+
+    /* FEATURES */
+    .feature-section {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 3rem 0;
+      margin: 2rem 0;
+    }
+    .feature-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2rem; text-align: center; }
+    .feature-icon { font-size: 2.2rem; margin-bottom: .75rem; }
+    .feature-grid h3 { font-size: 1rem; font-weight: 700; margin-bottom: .35rem; }
+    .feature-grid p  { font-size: .88rem; color: var(--muted); }
+
+    @media(max-width:900px){
+      .search-box { grid-template-columns: 1fr 1fr; }
+      .hotel-grid { grid-template-columns: 1fr 1fr; }
+      .category-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media(max-width:600px){
+      .hero h1 { font-size: 2rem; }
+      .search-box { grid-template-columns: 1fr; }
+      .hotel-grid { grid-template-columns: 1fr; }
+      .stats-bar .container { gap: 1.5rem; flex-wrap: wrap; }
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a class="navbar-brand" href="index.html">Homi <span>Hotels</span></a>
+  <ul class="navbar-nav">
+    <li><a href="hotels.html">Khách sạn</a></li>
+    <li><a href="my-bookings.html">Đặt phòng của tôi</a></li>
+    <li><a href="login.html">Đăng nhập</a></li>
+    <li><a href="register.html" class="btn-nav-cta">Đăng ký</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <h1>Tìm khách sạn hoàn hảo<br>cho chuyến đi của bạn</h1>
+    <p>Hơn 500 khách sạn trên toàn quốc – giá tốt nhất, dịch vụ tuyệt vời</p>
+
+    <div class="search-box">
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="color:#555">Điểm đến</label>
+        <input class="form-control" type="text" placeholder="Tên khách sạn hoặc thành phố…">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="color:#555">Nhận phòng</label>
+        <input class="form-control" type="date">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="color:#555">Trả phòng</label>
+        <input class="form-control" type="date">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="color:#555">Số khách</label>
+        <select class="form-control">
+          <option>1 khách</option>
+          <option>2 khách</option>
+          <option>3 khách</option>
+          <option>4+ khách</option>
+        </select>
+      </div>
+      <a href="hotels.html" class="btn btn-primary btn-lg">🔍 Tìm kiếm</a>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="stat-item">
+      <div class="num">500+</div>
+      <div class="lbl">Khách sạn</div>
+    </div>
+    <div class="stat-item">
+      <div class="num">63</div>
+      <div class="lbl">Tỉnh thành</div>
+    </div>
+    <div class="stat-item">
+      <div class="num">50K+</div>
+      <div class="lbl">Lượt đặt phòng</div>
+    </div>
+    <div class="stat-item">
+      <div class="num">4.8★</div>
+      <div class="lbl">Đánh giá trung bình</div>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORIES -->
+<section class="section">
+  <div class="container">
+    <div class="section-title">
+      <h2>Khám phá theo điểm đến</h2>
+      <p>Các thành phố du lịch nổi tiếng nhất Việt Nam</p>
+    </div>
+    <div class="category-grid">
+      <a href="hotels.html?city=hanoi" class="category-card">
+        <div class="icon">🏛️</div>
+        <h4>Hà Nội</h4>
+        <p>120+ khách sạn</p>
+      </a>
+      <a href="hotels.html?city=hcm" class="category-card">
+        <div class="icon">🌆</div>
+        <h4>TP. Hồ Chí Minh</h4>
+        <p>180+ khách sạn</p>
+      </a>
+      <a href="hotels.html?city=danang" class="category-card">
+        <div class="icon">🏖️</div>
+        <h4>Đà Nẵng</h4>
+        <p>90+ khách sạn</p>
+      </a>
+      <a href="hotels.html?city=hoian" class="category-card">
+        <div class="icon">🏮</div>
+        <h4>Hội An</h4>
+        <p>65+ khách sạn</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURED HOTELS -->
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="flex-between mb-2">
+      <div>
+        <h2 style="font-size:1.5rem;font-weight:800">Khách sạn nổi bật</h2>
+        <p class="text-muted" style="font-size:.9rem">Được khách hàng yêu thích nhất tuần này</p>
+      </div>
+      <a href="hotels.html" class="btn btn-secondary">Xem tất cả →</a>
+    </div>
+
+    <div class="hotel-grid">
+      <!-- Card 1 -->
+      <div class="hotel-card">
+        <div class="hotel-card-img">🏨
+          <span class="badge badge-blue">Mới</span>
+        </div>
+        <div class="hotel-card-body">
+          <div class="hotel-card-name">Intercontinental Hanoi</div>
+          <div class="hotel-card-loc">📍 Hoàn Kiếm, Hà Nội</div>
+          <div class="stars">★★★★★</div>
+          <div class="amenity-chips">
+            <span class="chip">WiFi</span>
+            <span class="chip">Hồ bơi</span>
+            <span class="chip">Spa</span>
+            <span class="chip">Nhà hàng</span>
+          </div>
+          <div class="hotel-card-meta">
+            <div class="hotel-price">1.200.000đ <span>/ đêm</span></div>
+            <a href="hotel-detail.html" class="btn btn-primary btn-sm">Xem phòng</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="hotel-card">
+        <div class="hotel-card-img" style="background:linear-gradient(135deg,#ffe0b2,#fff3e0)">🌴
+          <span class="badge badge-confirmed">Phổ biến</span>
+        </div>
+        <div class="hotel-card-body">
+          <div class="hotel-card-name">Vinpearl Resort & Spa</div>
+          <div class="hotel-card-loc">📍 Bãi Trường, Phú Quốc</div>
+          <div class="stars">★★★★★</div>
+          <div class="amenity-chips">
+            <span class="chip">Bãi biển riêng</span>
+            <span class="chip">Hồ bơi</span>
+            <span class="chip">Gym</span>
+          </div>
+          <div class="hotel-card-meta">
+            <div class="hotel-price">2.500.000đ <span>/ đêm</span></div>
+            <a href="hotel-detail.html" class="btn btn-primary btn-sm">Xem phòng</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="hotel-card">
+        <div class="hotel-card-img" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9)">🌿</div>
+        <div class="hotel-card-body">
+          <div class="hotel-card-name">Pullman Danang Beach Resort</div>
+          <div class="hotel-card-loc">📍 Mỹ Khê, Đà Nẵng</div>
+          <div class="stars">★★★★<span class="stars-muted">★</span></div>
+          <div class="amenity-chips">
+            <span class="chip">WiFi</span>
+            <span class="chip">Hồ bơi</span>
+            <span class="chip">Bar</span>
+          </div>
+          <div class="hotel-card-meta">
+            <div class="hotel-price">890.000đ <span>/ đêm</span></div>
+            <a href="hotel-detail.html" class="btn btn-primary btn-sm">Xem phòng</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<div class="feature-section">
+  <div class="container">
+    <div class="feature-grid">
+      <div>
+        <div class="feature-icon">🔒</div>
+        <h3>Đặt phòng an toàn</h3>
+        <p>Thanh toán bảo mật, xác nhận tức thì qua email và SMS</p>
+      </div>
+      <div>
+        <div class="feature-icon">💰</div>
+        <h3>Giá tốt nhất</h3>
+        <p>So sánh hàng trăm khách sạn, đảm bảo giá thấp nhất thị trường</p>
+      </div>
+      <div>
+        <div class="feature-icon">🎧</div>
+        <h3>Hỗ trợ 24/7</h3>
+        <p>Đội ngũ hỗ trợ luôn sẵn sàng giải quyết mọi vấn đề của bạn</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">Homi Hotels</div>
+        <p style="font-size:.88rem;line-height:1.7">Nền tảng đặt phòng khách sạn trực tuyến hàng đầu Việt Nam. Hơn 500 khách sạn, giá tốt nhất.</p>
+      </div>
+      <div>
+        <h4>Dịch vụ</h4>
+        <ul>
+          <li><a href="hotels.html">Tìm khách sạn</a></li>
+          <li><a href="my-bookings.html">Đặt phòng của tôi</a></li>
+          <li><a href="#">Khuyến mãi</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Hỗ trợ</h4>
+        <ul>
+          <li><a href="#">Trung tâm trợ giúp</a></li>
+          <li><a href="#">Chính sách hủy</a></li>
+          <li><a href="#">Liên hệ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Công ty</h4>
+        <ul>
+          <li><a href="#">Về chúng tôi</a></li>
+          <li><a href="#">Điều khoản</a></li>
+          <li><a href="#">Bảo mật</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Homi Hotels. All rights reserved.</span>
+      <span>Made with ❤️ in Vietnam</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
