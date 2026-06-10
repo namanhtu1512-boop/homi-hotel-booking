@@ -3,108 +3,97 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Models\User;
+use App\Traits\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
-        ]);
+    use ApiResponse;
 
+    public function register(RegisterRequest $request): JsonResponse
+    {
         $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'phone' => $data['phone'] ?? null,
-            'address' => $data['address'] ?? null,
-            'password' => Hash::make($data['password']),
-            'role' => 'customer',
-            'status' => 'active',
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'phone'    => $request->phone,
+            'address'  => $request->address,
+            'password' => Hash::make($request->password),
+            'role'     => 'customer',
+            'status'   => 'active',
         ]);
 
         $token = $user->createToken('homi_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Đăng ký tài khoản thành công',
-            'user' => $user,
+        return $this->created([
+            'user'  => $user,
             'token' => $token,
-        ], 201);
+        ], 'Đăng ký tài khoản thành công.');
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $user = User::where('email', $request->email)->first();
 
-        $user = User::where('email', $data['email'])->first();
-
-        if (!$user || !Hash::check($data['password'], $user->password)) {
-            return response()->json([
-                'message' => 'Email hoặc mật khẩu không đúng',
-            ], 401);
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return $this->error('Email hoặc mật khẩu không đúng.', 401);
         }
 
-        if ($user->status !== 'active') {
-            return response()->json([
-                'message' => 'Tài khoản đã bị khóa',
-            ], 403);
+        if ($user->status === 'locked') {
+            return $this->error('Tài khoản đã bị khóa.', 403);
         }
 
         $token = $user->createToken('homi_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Đăng nhập thành công',
-            'user' => $user,
+        return $this->success([
+            'user'  => $user,
             'token' => $token,
-        ]);
+        ], 'Đăng nhập thành công.');
     }
 
-    public function me(Request $request)
+    public function me(Request $request): JsonResponse
     {
-        return response()->json([
-            'user' => $request->user(),
-        ]);
+        return $this->success(['user' => $request->user()]);
     }
 
-    public function updateProfile(Request $request)
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $request->user()->update($request->validated());
+
+        return $this->success(['user' => $request->user()->fresh()], 'Cập nhật hồ sơ thành công.');
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
         $user = $request->user();
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'email',
-                Rule::unique('users', 'email')->ignore($user->id),
-            ],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:255'],
-        ]);
+        if (!Hash::check($request->current_password, $user->password)) {
+            return $this->error('Mật khẩu hiện tại không đúng.', 422);
+        }
 
-        $user->update($data);
+        $user->update(['password' => Hash::make($request->password)]);
 
-        return response()->json([
-            'message' => 'Cập nhật hồ sơ thành công',
-            'user' => $user,
-        ]);
+        // Thu hồi tất cả token, buộc đăng nhập lại
+        $user->tokens()->delete();
+
+        return $this->success(message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.');
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
 
-        return response()->json([
-            'message' => 'Đăng xuất thành công',
-        ]);
+        if ($token instanceof PersonalAccessToken) {
+            $token->delete();
+        }
+
+        return $this->success(message: 'Đăng xuất thành công.');
     }
 }

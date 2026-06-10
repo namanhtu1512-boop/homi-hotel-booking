@@ -1,58 +1,165 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Homi - Website Đặt Phòng Khách Sạn
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend API cho hệ thống đặt phòng khách sạn Homi.  
+Công nghệ: **Laravel 13**, MySQL, Laravel Sanctum, REST API `/api/v1`.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Yêu cầu môi trường
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Phần mềm | Phiên bản tối thiểu |
+|---|---|
+| PHP | 8.2+ |
+| Composer | 2.x |
+| MySQL | 8.0+ |
+| Node.js (tùy chọn, cho frontend) | 18+ |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Cài đặt
 
 ```bash
-composer require laravel/boost --dev
+# 1. Clone repository
+git clone <repo-url>
+cd homi-hotel-booking
 
-php artisan boost:install
+# 2. Cài đặt dependencies
+composer install
+
+# 3. Sao chép file cấu hình
+cp .env.example .env
+
+# 4. Tạo application key
+php artisan key:generate
+
+# 5. Cấu hình database trong .env
+# DB_DATABASE=homi
+# DB_USERNAME=root
+# DB_PASSWORD=
+
+# 6. Chạy migration và seed dữ liệu mẫu
+php artisan migrate --seed
+
+# 7. Khởi động server local
+php artisan serve
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+API sẽ chạy tại: `http://localhost:8000/api/v1`
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Tài khoản demo (sau khi seed)
 
-## Code of Conduct
+| Role | Email | Mật khẩu |
+|---|---|---|
+| Admin | admin@homi.vn | password |
+| Staff | staff@homi.vn | password |
+| Customer | customer@homi.vn | password |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## Cấu trúc thư mục chính
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```
+app/
+├── Http/
+│   ├── Controllers/Api/   # API Controllers (versioned)
+│   ├── Requests/          # FormRequest validation theo module
+│   └── Middleware/        # RoleMiddleware, ...
+├── Models/                # Eloquent Models
+├── Services/              # Business logic
+├── Repositories/          # Database queries (nếu dùng)
+└── Traits/
+    └── ApiResponse.php    # Chuẩn response JSON dùng chung
+routes/
+├── api.php                # API routes, prefix /api/v1
+└── web.php                # Web routes (Blade)
+database/
+├── migrations/
+└── seeders/
+```
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Chuẩn Response API
+
+Mọi API đều trả về JSON theo định dạng thống nhất:
+
+**Thành công:**
+```json
+{
+  "success": true,
+  "message": "...",
+  "data": { ... }
+}
+```
+
+**Lỗi:**
+```json
+{
+  "success": false,
+  "message": "...",
+  "errors": { ... }
+}
+```
+
+**Phân trang:**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [ ... ],
+    "meta": {
+      "current_page": 1,
+      "per_page": 15,
+      "total": 100,
+      "last_page": 7
+    }
+  }
+}
+```
+
+---
+
+## Mã lỗi HTTP
+
+| Mã | Ý nghĩa |
+|---|---|
+| 200 | Thành công |
+| 201 | Tạo mới thành công |
+| 401 | Chưa đăng nhập / sai thông tin đăng nhập |
+| 403 | Không có quyền |
+| 404 | Không tìm thấy |
+| 422 | Dữ liệu không hợp lệ (validation) |
+| 500 | Lỗi server |
+
+---
+
+## API Endpoints (v1)
+
+### Auth
+| Method | Endpoint | Mô tả | Auth |
+|---|---|---|---|
+| POST | `/api/v1/register` | Đăng ký | Không |
+| POST | `/api/v1/login` | Đăng nhập | Không |
+| GET | `/api/v1/me` | Thông tin tài khoản | Bearer token |
+| PUT | `/api/v1/profile` | Cập nhật hồ sơ | Bearer token |
+| POST | `/api/v1/logout` | Đăng xuất | Bearer token |
+
+---
+
+## Chạy kiểm thử
+
+```bash
+php artisan test
+```
+
+---
+
+## Quy trình Git
+
+- Branch chính: `main`
+- Mỗi tính năng tạo branch riêng: `feature/<tên>`
+- Mỗi bug fix: `fix/<tên>`
+- Tạo Pull Request, cần ít nhất 1 người review trước khi merge
+- Xem mẫu PR tại: `.github/PULL_REQUEST_TEMPLATE.md`
