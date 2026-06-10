@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -138,16 +138,19 @@
 
 <!-- NAVBAR -->
 <nav class="navbar">
-  <a class="navbar-brand" href="index.html">Homi <span>Hotels</span></a>
-  <ul class="navbar-nav">
-    <li><a href="hotels.html">Khách sạn</a></li>
-    <li><a href="my-bookings.html" class="active">Đặt phòng của tôi</a></li>
-    <li>
-      <form action="login.html" method="get" style="display:inline">
-        <button class="navbar-nav" style="padding:.45rem .85rem;border-radius:6px">Đăng xuất</button>
-      </form>
-    </li>
-  </ul>
+  <a class="navbar-brand" href="index.html">🏨 Homi <span>Hotels</span></a>
+  <div class="navbar-right">
+    <div class="navbar-collapse">
+      <ul class="navbar-nav">
+        <li><a href="hotels.html">Khách sạn</a></li>
+        <li><a href="my-bookings.html" class="active">Đặt phòng của tôi</a></li>
+        <li><a href="profile.html">Tài khoản</a></li>
+        <li><a href="login.html">Đăng xuất</a></li>
+      </ul>
+    </div>
+    <button class="theme-toggle">🌙</button>
+    <button class="hamburger"><span></span><span></span><span></span></button>
+  </div>
 </nav>
 
 <!-- PAGE HERO -->
@@ -361,5 +364,6 @@ function confirmCancel() {
   }
 }
 </script>
+<script src="js/app.js"></script>
 </body>
 </html>

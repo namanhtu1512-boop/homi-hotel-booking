@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard · Homi</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display:flex; min-height:100vh; flex-direction:column; }
+
+    /* SIDEBAR */
+    .admin-layout { display:flex; flex:1; }
+    .admin-sidebar {
+      width:240px; flex-shrink:0;
+      background:var(--footer-bg); color:rgba(255,255,255,.85);
+      display:flex; flex-direction:column;
+      position:sticky; top:62px; height:calc(100vh - 62px); overflow-y:auto;
+      transition:background var(--transition);
+    }
+    .sidebar-section { padding:.5rem 0; border-bottom:1px solid rgba(255,255,255,.08); }
+    .sidebar-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:rgba(255,255,255,.4); padding:.6rem 1.1rem .3rem; }
+    .sidebar-link {
+      display:flex; align-items:center; gap:.75rem;
+      padding:.68rem 1.1rem; font-size:.88rem; color:rgba(255,255,255,.78);
+      cursor:pointer; transition:background var(--transition), color var(--transition);
+      border-left:3px solid transparent; text-decoration:none;
+    }
+    .sidebar-link:hover { background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
+    .sidebar-link.active { background:rgba(47,128,237,.3); color:#fff; border-left-color:var(--blue); }
+    .sidebar-link .icon { font-size:1rem; width:20px; text-align:center; }
+    .sidebar-badge { margin-left:auto; background:var(--red); color:#fff; border-radius:20px; padding:.1rem .5rem; font-size:.72rem; font-weight:700; }
+
+    /* MAIN */
+    .admin-main { flex:1; padding:1.5rem; overflow-x:hidden; }
+
+    /* KPI CARDS */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+    .kpi-card {
+      background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-lg);
+      padding:1.1rem 1.25rem; box-shadow:var(--shadow); position:relative; overflow:hidden;
+      transition:transform var(--transition), box-shadow var(--transition);
+    }
+    .kpi-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+    .kpi-card::after { content:''; position:absolute; right:-10px; top:-10px; width:70px; height:70px; border-radius:50%; opacity:.08; }
+    .kpi-card.blue::after  { background:var(--blue); }
+    .kpi-card.green::after { background:var(--green); }
+    .kpi-card.orange::after{ background:var(--orange); }
+    .kpi-card.red::after   { background:var(--red); }
+    .kpi-icon { font-size:1.6rem; margin-bottom:.6rem; }
+    .kpi-num  { font-size:1.75rem; font-weight:800; line-height:1; margin-bottom:.25rem; }
+    .kpi-label{ font-size:.8rem; color:var(--muted); }
+    .kpi-trend{ font-size:.78rem; margin-top:.4rem; font-weight:600; }
+    .kpi-trend.up   { color:var(--green); }
+    .kpi-trend.down { color:var(--red); }
+
+    /* CHART PLACEHOLDER */
+    .chart-row { display:grid; grid-template-columns:2fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+    .chart-card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem; box-shadow:var(--shadow); }
+    .chart-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .chart-header h3 { font-size:.95rem; font-weight:700; }
+    .chart-area { height:180px; background:var(--bg2); border-radius:var(--radius); display:flex; align-items:flex-end; gap:6px; padding:.75rem .5rem .5rem; overflow:hidden; }
+    .bar {
+      flex:1; border-radius:4px 4px 0 0; cursor:pointer;
+      transition:opacity var(--transition), transform var(--transition);
+      position:relative; background:var(--blue);
+      min-width:0;
+    }
+    .bar:hover { opacity:.8; transform:scaleY(1.03); transform-origin:bottom; }
+    .donut-wrap { height:180px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:.5rem; }
+    .donut {
+      width:120px; height:120px; border-radius:50%;
+      background:conic-gradient(var(--blue) 0% 45%, var(--green) 45% 75%, var(--orange) 75% 90%, var(--red) 90% 100%);
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:inset 0 0 0 30px var(--card-bg);
+      font-size:.9rem; font-weight:700; position:relative;
+    }
+    .donut-legend { display:flex; flex-direction:column; gap:.3rem; font-size:.78rem; }
+    .legend-item { display:flex; align-items:center; gap:.5rem; }
+    .legend-dot { width:10px; height:10px; border-radius:50%; }
+
+    /* RECENT TABLE */
+    .table-card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); margin-bottom:1.5rem; }
+    .table-card-header { padding:.9rem 1.25rem; background:var(--blue-light); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; font-weight:700; font-size:.9rem; }
+
+    /* HOTELS TABLE */
+    .hotel-mini { display:flex; align-items:center; gap:.6rem; }
+    .hotel-mini-icon { width:32px; height:32px; border-radius:6px; background:var(--blue-light); display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+
+    /* QUICK ACTIONS */
+    .quick-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:.75rem; margin-bottom:1.5rem; }
+    .qa-btn {
+      background:var(--card-bg); border:1.5px solid var(--border); border-radius:var(--radius-lg);
+      padding:1rem; text-align:center; cursor:pointer; transition:all var(--transition); text-decoration:none; display:block;
+    }
+    .qa-btn:hover { border-color:var(--blue); background:var(--blue-light); transform:translateY(-2px); text-decoration:none; }
+    .qa-btn .icon { font-size:1.6rem; margin-bottom:.4rem; }
+    .qa-btn p { font-size:.8rem; font-weight:600; color:var(--text2); margin:0; }
+
+    @media(max-width:900px){
+      .admin-sidebar { display:none; }
+      .kpi-grid { grid-template-columns:1fr 1fr; }
+      .chart-row { grid-template-columns:1fr; }
+      .quick-actions { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="index.html">🏨 Homi <span>Admin</span></a>
+  <div class="navbar-right">
+    <div class="navbar-collapse">
+      <ul class="navbar-nav">
+        <li><a href="index.html">⬅ Website</a></li>
+        <li><a href="profile.html">Admin</a></li>
+        <li><a href="login.html">Đăng xuất</a></li>
+      </ul>
+    </div>
+    <button class="theme-toggle">🌙</button>
+    <button class="hamburger"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<div class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tổng quan</div>
+      <a class="sidebar-link active" onclick="switchSection('dashboard',this)"><span class="icon">📊</span> Dashboard</a>
+      <a class="sidebar-link" onclick="switchSection('analytics',this)"><span class="icon">📈</span> Thống kê</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quản lý</div>
+      <a class="sidebar-link" onclick="switchSection('bookings',this)"><span class="icon">📋</span> Đặt phòng <span class="sidebar-badge">3</span></a>
+      <a class="sidebar-link" onclick="switchSection('hotels',this)"><span class="icon">🏨</span> Khách sạn</a>
+      <a class="sidebar-link" onclick="switchSection('rooms',this)"><span class="icon">🛏️</span> Loại phòng</a>
+      <a class="sidebar-link" onclick="switchSection('users',this)"><span class="icon">👥</span> Người dùng</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Hệ thống</div>
+      <a class="sidebar-link" onclick="switchSection('settings',this)"><span class="icon">⚙️</span> Cài đặt</a>
+      <a class="sidebar-link" href="index.html"><span class="icon">🌐</span> Xem website</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="admin-main">
+
+    <!-- DASHBOARD SECTION -->
+    <div id="sec-dashboard">
+      <div class="flex-between mb-2">
+        <div><h1 style="font-size:1.4rem;font-weight:800">Dashboard</h1><p class="text-muted" style="font-size:.85rem">Tổng quan hệ thống – 10/06/2026</p></div>
+        <div style="display:flex;gap:.5rem">
+          <select class="form-control" style="width:auto;padding:.4rem .8rem;font-size:.85rem">
+            <option>Tháng này</option><option>Tháng trước</option><option>Quý này</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="toast.success('Đã xuất báo cáo PDF')">📥 Xuất báo cáo</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi-card blue reveal delay-1">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-num">128.5M đ</div>
+          <div class="kpi-label">Doanh thu tháng này</div>
+          <div class="kpi-trend up">↑ +18.3% so tháng trước</div>
+        </div>
+        <div class="kpi-card green reveal delay-2">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-num">247</div>
+          <div class="kpi-label">Đặt phòng mới</div>
+          <div class="kpi-trend up">↑ +12.1% so tháng trước</div>
+        </div>
+        <div class="kpi-card orange reveal delay-3">
+          <div class="kpi-icon">🏨</div>
+          <div class="kpi-num">38</div>
+          <div class="kpi-label">Khách sạn đang hoạt động</div>
+          <div class="kpi-trend up">↑ +3 khách sạn mới</div>
+        </div>
+        <div class="kpi-card red reveal delay-4">
+          <div class="kpi-icon">👥</div>
+          <div class="kpi-num">1,284</div>
+          <div class="kpi-label">Người dùng</div>
+          <div class="kpi-trend up">↑ +89 người dùng mới</div>
+        </div>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="quick-actions reveal">
+        <a href="#" class="qa-btn" onclick="toast.info('Thêm khách sạn mới');return false"><div class="icon">➕🏨</div><p>Thêm khách sạn</p></a>
+        <a href="#" class="qa-btn" onclick="toast.info('Xem đặt phòng chờ xử lý');return false"><div class="icon">⏳📋</div><p>Đơn chờ duyệt (3)</p></a>
+        <a href="#" class="qa-btn" onclick="toast.info('Xuất báo cáo');return false"><div class="icon">📊📥</div><p>Xuất báo cáo</p></a>
+        <a href="#" class="qa-btn" onclick="toast.info('Gửi thông báo');return false"><div class="icon">📢🔔</div><p>Gửi thông báo</p></a>
+      </div>
+
+      <!-- CHARTS -->
+      <div class="chart-row reveal">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>📈 Doanh thu 7 ngày gần đây</h3>
+            <span style="font-size:.82rem;color:var(--muted)">Đơn vị: triệu đồng</span>
+          </div>
+          <div class="chart-area" id="barChart"></div>
+          <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-top:.4rem;padding:0 .25rem">
+            <span>04/06</span><span>05/06</span><span>06/06</span><span>07/06</span><span>08/06</span><span>09/06</span><span>10/06</span>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>🍩 Trạng thái đặt phòng</h3></div>
+          <div class="donut-wrap">
+            <div class="donut"><span>247</span></div>
+            <div class="donut-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Xác nhận (45%)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Hoàn thành (30%)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Chờ xác nhận (15%)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Đã hủy (10%)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT BOOKINGS TABLE -->
+      <div class="table-card reveal">
+        <div class="table-card-header">
+          📋 Đặt phòng gần đây
+          <a href="#" class="btn btn-secondary btn-sm" onclick="switchSection('bookings',document.querySelector('.sidebar-link:nth-child(4)'));return false">Xem tất cả →</a>
+        </div>
+        <table class="table">
+          <thead><tr><th>Mã</th><th>Khách hàng</th><th>Khách sạn</th><th>Check-in</th><th>Tổng tiền</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong style="color:var(--blue)">BK-A3F8D2C1</strong></td>
+              <td>Nguyễn Văn An</td>
+              <td>Pullman Danang</td>
+              <td>20/06/2026</td>
+              <td>5.550.000đ</td>
+              <td><span class="badge badge-confirmed">Đã xác nhận</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="toast.info('Xem chi tiết BK-A3F8D2C1')">Xem</button></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--blue)">BK-B7E2A4F0</strong></td>
+              <td>Trần Thị Bình</td>
+              <td>Novotel Da Nang</td>
+              <td>05/07/2026</td>
+              <td>7.500.000đ</td>
+              <td><span class="badge badge-pending">Chờ xác nhận</span></td>
+              <td><button class="btn btn-primary btn-sm" onclick="toast.success('Đã xác nhận đặt phòng BK-B7E2A4F0')">Duyệt</button></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--blue)">BK-C9D3F1E2</strong></td>
+              <td>Lê Văn Cường</td>
+              <td>Intercontinental HN</td>
+              <td>15/07/2026</td>
+              <td>4.200.000đ</td>
+              <td><span class="badge badge-pending">Chờ xác nhận</span></td>
+              <td><button class="btn btn-primary btn-sm" onclick="toast.success('Đã xác nhận BK-C9D3F1E2')">Duyệt</button></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--blue)">BK-D4F1B9C3</strong></td>
+              <td>Phạm Thị Dung</td>
+              <td>Vinpearl Phú Quốc</td>
+              <td>01/05/2026</td>
+              <td>12.800.000đ</td>
+              <td><span class="badge badge-cancelled">Đã hủy</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="toast.info('Xem chi tiết')">Xem</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TOP HOTELS TABLE -->
+      <div class="table-card reveal">
+        <div class="table-card-header">🏆 Khách sạn doanh thu cao nhất</div>
+        <table class="table">
+          <thead><tr><th>#</th><th>Khách sạn</th><th>Đặt phòng</th><th>Doanh thu</th><th>Tỷ lệ lấp đầy</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><div class="hotel-mini"><div class="hotel-mini-icon">🏖️</div>Pullman Danang Beach Resort</div></td><td>48</td><td style="font-weight:700;color:var(--blue)">28.4M đ</td><td><div style="background:var(--bg2);border-radius:4px;height:8px;width:100%;overflow:hidden"><div style="width:92%;height:100%;background:var(--blue);border-radius:4px"></div></div><span style="font-size:.78rem;color:var(--muted)">92%</span></td></tr>
+            <tr><td>2</td><td><div class="hotel-mini"><div class="hotel-mini-icon">🌴</div>Vinpearl Resort Phú Quốc</div></td><td>36</td><td style="font-weight:700;color:var(--blue)">24.1M đ</td><td><div style="background:var(--bg2);border-radius:4px;height:8px;width:100%;overflow:hidden"><div style="width:85%;height:100%;background:var(--green);border-radius:4px"></div></div><span style="font-size:.78rem;color:var(--muted)">85%</span></td></tr>
+            <tr><td>3</td><td><div class="hotel-mini"><div class="hotel-mini-icon">🏛️</div>Intercontinental Hanoi</div></td><td>29</td><td style="font-weight:700;color:var(--blue)">19.8M đ</td><td><div style="background:var(--bg2);border-radius:4px;height:8px;width:100%;overflow:hidden"><div style="width:76%;height:100%;background:var(--orange);border-radius:4px"></div></div><span style="font-size:.78rem;color:var(--muted)">76%</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- OTHER SECTIONS (placeholder) -->
+    <div id="sec-analytics" style="display:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:1rem">📈 Thống kê chi tiết</h2>
+      <div class="alert alert-info">Tính năng đang phát triển. Quay lại sau! 🚧</div>
+    </div>
+    <div id="sec-bookings" style="display:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:1rem">📋 Quản lý đặt phòng</h2>
+      <div class="alert alert-info">Tính năng đang phát triển. Quay lại sau! 🚧</div>
+    </div>
+    <div id="sec-hotels" style="display:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:1rem">🏨 Quản lý khách sạn</h2>
+      <div class="alert alert-info">Tính năng đang phát triển. Quay lại sau! 🚧</div>
+    </div>
+    <div id="sec-rooms" style="display:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:1rem">🛏️ Quản lý loại phòng</h2>
+      <div class="alert alert-info">Tính năng đang phát triển. Quay lại sau! 🚧</div>
+    </div>
+    <div id="sec-users" style="display:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:1rem">👥 Quản lý người dùng</h2>
+      <div class="alert alert-info">Tính năng đang phát triển. Quay lại sau! 🚧</div>
+    </div>
+    <div id="sec-settings" style="display:none">
+      <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:1rem">⚙️ Cài đặt hệ thống</h2>
+      <div class="alert alert-info">Tính năng đang phát triển. Quay lại sau! 🚧</div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+// Build bar chart
+const data = [12.4, 18.2, 9.8, 22.1, 15.6, 19.3, 25.4];
+const maxVal = Math.max(...data);
+const chart = document.getElementById('barChart');
+if (chart) {
+  data.forEach(v => {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.height = (v / maxVal * 100) + '%';
+    const opacity = 0.5 + (v / maxVal * 0.5);
+    b.style.background = `rgba(47,128,237,${opacity})`;
+    b.title = v + 'M đ';
+    b.addEventListener('mouseenter', () => toast.info(v + ' triệu đồng'));
+    chart.appendChild(b);
+  });
+}
+
+function switchSection(id, el) {
+  document.querySelectorAll('[id^="sec-"]').forEach(s => s.style.display = 'none');
+  document.getElementById('sec-' + id).style.display = 'block';
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+</script>
+</body>
+</html>

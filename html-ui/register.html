@@ -1,214 +1,165 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Đăng ký · Homi</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    body { display: flex; flex-direction: column; min-height: 100vh; }
-    .auth-wrapper {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      min-height: calc(100vh - 62px);
-    }
-
-    /* VISUAL */
+    body { display:flex; flex-direction:column; min-height:100vh; }
+    .auth-wrapper { flex:1; display:grid; grid-template-columns:1fr 1fr; min-height:calc(100vh - 62px); }
     .auth-visual {
-      background: linear-gradient(150deg, #0d47a1 0%, #1565c0 40%, #2f80ed 100%);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 3rem; color: #fff; overflow: hidden; position: relative;
+      background:linear-gradient(150deg,#0d47a1 0%,#1565c0 40%,#2f80ed 100%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:3rem; color:#fff; position:relative; overflow:hidden;
     }
-    .auth-visual::before {
-      content:''; position:absolute; width:350px; height:350px;
-      background:rgba(255,255,255,.06); border-radius:50%; bottom:-80px; right:-80px;
-    }
-    .auth-visual .content { position: relative; z-index: 1; text-align: center; }
-    .auth-visual .logo    { font-size: 2.2rem; font-weight: 800; margin-bottom: 1.5rem; }
-    .auth-visual h2       { font-size: 1.5rem; font-weight: 700; margin-bottom: .75rem; }
-    .auth-visual p        { opacity: .85; font-size: .93rem; line-height: 1.7; max-width: 300px; }
-    .steps { margin-top: 2rem; text-align: left; }
-    .step-item {
-      display: flex; align-items: flex-start; gap: 1rem;
-      margin-bottom: 1.1rem;
-    }
-    .step-num {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(255,255,255,.25); display: flex;
-      align-items: center; justify-content: center;
-      font-size: .82rem; font-weight: 700; flex-shrink: 0;
-    }
-    .step-text h4 { font-size: .88rem; font-weight: 600; }
-    .step-text p  { font-size: .8rem; opacity: .78; }
+    .auth-visual::before { content:''; position:absolute; width:350px; height:350px; background:rgba(255,255,255,.06); border-radius:50%; bottom:-80px; right:-80px; }
+    .vis-content { position:relative; z-index:1; text-align:center; }
+    .vis-logo { font-size:2.2rem; font-weight:800; margin-bottom:1.5rem; }
+    .auth-visual h2 { font-size:1.5rem; font-weight:700; margin-bottom:.7rem; }
+    .auth-visual p  { opacity:.86; font-size:.92rem; line-height:1.75; max-width:300px; }
+    .steps { margin-top:2rem; text-align:left; }
+    .step-item { display:flex; align-items:flex-start; gap:1rem; margin-bottom:1.1rem; }
+    .step-num { width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:700; flex-shrink:0; }
+    .step-text h4 { font-size:.88rem; font-weight:600; }
+    .step-text p  { font-size:.8rem; opacity:.78; }
 
-    /* FORM PANEL */
     .auth-form-panel {
-      background: var(--white);
-      display: flex; flex-direction: column; justify-content: center;
-      padding: 2.5rem 3rem; overflow-y: auto;
+      background:var(--card-bg); display:flex; flex-direction:column;
+      justify-content:center; padding:2.5rem 3rem; overflow-y:auto;
+      transition:background var(--transition);
     }
-    .auth-form-inner { max-width: 440px; margin: 0 auto; width: 100%; }
-    .auth-form-inner h1 { font-size: 1.65rem; font-weight: 800; margin-bottom: .3rem; }
-    .auth-form-inner .sub { font-size: .9rem; color: var(--muted); margin-bottom: 1.75rem; }
+    .auth-form-inner { max-width:440px; margin:0 auto; width:100%; }
+    .auth-form-inner h1 { font-size:1.65rem; font-weight:800; margin-bottom:.3rem; }
+    .auth-form-inner .sub { font-size:.9rem; color:var(--muted); margin-bottom:1.75rem; }
 
-    .password-strength {
-      height: 4px; border-radius: 4px; background: var(--border);
-      margin-top: .4rem; overflow: hidden;
-    }
-    .strength-bar {
-      height: 100%; border-radius: 4px; width: 0;
-      background: var(--red); transition: width .3s, background .3s;
-    }
-    .strength-hint { font-size: .76rem; color: var(--muted); margin-top: .25rem; }
+    .strength-wrap { height:4px; border-radius:4px; background:var(--border); margin-top:.4rem; overflow:hidden; }
+    .strength-bar  { height:100%; border-radius:4px; width:0; background:var(--red); transition:width .3s, background .3s; }
+    .strength-hint { font-size:.76rem; color:var(--muted); margin-top:.25rem; }
 
-    .auth-footer {
-      text-align: center; margin-top: 1.25rem;
-      font-size: .88rem; color: var(--muted);
-    }
-    .auth-footer a { color: var(--blue); font-weight: 600; }
-
-    .terms-note {
-      font-size: .8rem; color: var(--muted);
-      text-align: center; margin-top: 1rem; line-height: 1.6;
-    }
-    .terms-note a { color: var(--blue); }
+    .auth-footer { text-align:center; margin-top:1.25rem; font-size:.88rem; color:var(--muted); }
+    .auth-footer a { color:var(--blue); font-weight:600; }
+    .terms-note { font-size:.79rem; color:var(--muted); text-align:center; margin-top:1rem; line-height:1.65; }
+    .terms-note a { color:var(--blue); }
 
     @media(max-width:768px){
-      .auth-wrapper { grid-template-columns: 1fr; }
-      .auth-visual  { display: none; }
-      .auth-form-panel { padding: 2rem 1.5rem; }
+      .auth-wrapper { grid-template-columns:1fr; }
+      .auth-visual  { display:none; }
+      .auth-form-panel { padding:2rem 1.5rem; }
     }
   </style>
 </head>
 <body>
 
 <nav class="navbar">
-  <a class="navbar-brand" href="index.html">Homi <span>Hotels</span></a>
-  <ul class="navbar-nav">
-    <li><a href="hotels.html">Khách sạn</a></li>
-    <li><a href="login.html">Đăng nhập</a></li>
-  </ul>
+  <a class="navbar-brand" href="index.html">🏨 Homi <span>Hotels</span></a>
+  <div class="navbar-right">
+    <div class="navbar-collapse">
+      <ul class="navbar-nav">
+        <li><a href="hotels.html">Khách sạn</a></li>
+        <li><a href="login.html">Đăng nhập</a></li>
+      </ul>
+    </div>
+    <button class="theme-toggle">🌙</button>
+    <button class="hamburger"><span></span><span></span><span></span></button>
+  </div>
 </nav>
 
 <div class="auth-wrapper">
-
-  <!-- LEFT -->
   <div class="auth-visual">
-    <div class="content">
-      <div class="logo">🏨 Homi</div>
+    <div class="vis-content">
+      <div class="vis-logo">🏨 Homi</div>
       <h2>Tạo tài khoản miễn phí</h2>
       <p>Chỉ mất 1 phút để đăng ký và bắt đầu khám phá hàng trăm khách sạn.</p>
       <div class="steps">
-        <div class="step-item">
-          <div class="step-num">1</div>
-          <div class="step-text">
-            <h4>Điền thông tin</h4>
-            <p>Họ tên, email và mật khẩu</p>
-          </div>
-        </div>
-        <div class="step-item">
-          <div class="step-num">2</div>
-          <div class="step-text">
-            <h4>Xác nhận email</h4>
-            <p>Nhấp vào link kích hoạt trong email</p>
-          </div>
-        </div>
-        <div class="step-item">
-          <div class="step-num">3</div>
-          <div class="step-text">
-            <h4>Bắt đầu đặt phòng</h4>
-            <p>Tìm kiếm và đặt phòng yêu thích</p>
-          </div>
-        </div>
+        <div class="step-item"><div class="step-num">1</div><div class="step-text"><h4>Điền thông tin</h4><p>Họ tên, email và mật khẩu</p></div></div>
+        <div class="step-item"><div class="step-num">2</div><div class="step-text"><h4>Xác nhận email</h4><p>Nhấp link kích hoạt trong email</p></div></div>
+        <div class="step-item"><div class="step-num">3</div><div class="step-text"><h4>Bắt đầu đặt phòng</h4><p>Tìm kiếm và đặt phòng yêu thích</p></div></div>
       </div>
     </div>
   </div>
 
-  <!-- RIGHT -->
   <div class="auth-form-panel">
-    <div class="auth-form-inner">
+    <div class="auth-form-inner reveal">
       <h1>Đăng ký</h1>
       <p class="sub">Tạo tài khoản Homi của bạn</p>
 
-      <form action="login.html">
+      <form onsubmit="handleRegister(event)">
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Họ và tên <span class="req">*</span></label>
-            <input class="form-control" type="text" placeholder="Nguyễn Văn A">
+            <input class="form-control" type="text" placeholder="Nguyễn Văn A" id="name">
           </div>
           <div class="form-group">
             <label class="form-label">Số điện thoại</label>
             <input class="form-control" type="tel" placeholder="0912 345 678">
           </div>
         </div>
-
         <div class="form-group">
           <label class="form-label">Email <span class="req">*</span></label>
-          <input class="form-control" type="email" placeholder="example@email.com">
+          <input class="form-control" type="email" placeholder="example@email.com" id="email">
         </div>
-
         <div class="form-group">
           <label class="form-label">Địa chỉ</label>
           <input class="form-control" type="text" placeholder="123 Đường ABC, Quận 1, TP.HCM">
         </div>
-
         <div class="form-group">
           <label class="form-label">Mật khẩu <span class="req">*</span></label>
-          <input class="form-control" type="password" placeholder="Tối thiểu 6 ký tự"
-            oninput="checkStrength(this.value)">
-          <div class="password-strength">
-            <div class="strength-bar" id="strengthBar"></div>
-          </div>
-          <div class="strength-hint" id="strengthHint">Nhập mật khẩu để kiểm tra độ mạnh</div>
+          <input class="form-control" type="password" placeholder="Tối thiểu 6 ký tự" id="pass" oninput="checkStrength(this.value)">
+          <div class="strength-wrap"><div class="strength-bar" id="sBar"></div></div>
+          <div class="strength-hint" id="sHint">Nhập mật khẩu để kiểm tra độ mạnh</div>
         </div>
-
         <div class="form-group">
           <label class="form-label">Xác nhận mật khẩu <span class="req">*</span></label>
-          <input class="form-control" type="password" placeholder="Nhập lại mật khẩu">
+          <input class="form-control" type="password" placeholder="Nhập lại mật khẩu" id="pass2">
         </div>
-
-        <button type="submit" class="btn btn-primary btn-lg btn-block">
-          Tạo tài khoản →
-        </button>
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="regBtn">Tạo tài khoản →</button>
       </form>
 
-      <p class="terms-note">
-        Bằng cách đăng ký, bạn đồng ý với <a href="#">Điều khoản dịch vụ</a> và
-        <a href="#">Chính sách bảo mật</a> của Homi.
-      </p>
-
-      <div class="auth-footer">
-        Đã có tài khoản? <a href="login.html">Đăng nhập</a>
-      </div>
+      <p class="terms-note">Bằng cách đăng ký, bạn đồng ý với <a href="#">Điều khoản dịch vụ</a> và <a href="#">Chính sách bảo mật</a>.</p>
+      <div class="auth-footer">Đã có tài khoản? <a href="login.html">Đăng nhập</a></div>
     </div>
   </div>
-
 </div>
 
+<script src="js/app.js"></script>
 <script>
 function checkStrength(val) {
-  const bar  = document.getElementById('strengthBar');
-  const hint = document.getElementById('strengthHint');
+  const bar = document.getElementById('sBar'), hint = document.getElementById('sHint');
   if (!val) { bar.style.width='0'; hint.textContent='Nhập mật khẩu để kiểm tra độ mạnh'; return; }
   let score = 0;
-  if (val.length >= 6)  score++;
+  if (val.length >= 6) score++;
   if (val.length >= 10) score++;
   if (/[A-Z]/.test(val)) score++;
   if (/[0-9]/.test(val)) score++;
   if (/[^A-Za-z0-9]/.test(val)) score++;
-  const levels = [
-    { w:'20%', c:'#e74c3c', t:'Rất yếu' },
-    { w:'40%', c:'#e67e22', t:'Yếu' },
-    { w:'60%', c:'#f1c40f', t:'Trung bình' },
-    { w:'80%', c:'#2ecc71', t:'Mạnh' },
-    { w:'100%',c:'#27ae60', t:'Rất mạnh ✓' },
+  const lv = [
+    {w:'20%',c:'#e74c3c',t:'Rất yếu'},
+    {w:'40%',c:'#e67e22',t:'Yếu'},
+    {w:'60%',c:'#f1c40f',t:'Trung bình'},
+    {w:'80%',c:'#2ecc71',t:'Mạnh'},
+    {w:'100%',c:'#27ae60',t:'Rất mạnh ✓'},
   ];
-  const l = levels[Math.max(0, score-1)];
-  bar.style.width = l.w;
-  bar.style.background = l.c;
-  hint.textContent = l.t;
+  const l = lv[Math.max(0,score-1)];
+  bar.style.width = l.w; bar.style.background = l.c; hint.textContent = l.t;
+}
+
+function handleRegister(e) {
+  e.preventDefault();
+  const name  = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const pass2 = document.getElementById('pass2').value;
+  if (!name)  { toast.error('Vui lòng nhập họ tên'); return; }
+  if (!email) { toast.error('Vui lòng nhập email'); return; }
+  if (pass.length < 6) { toast.error('Mật khẩu tối thiểu 6 ký tự'); return; }
+  if (pass !== pass2)  { toast.error('Mật khẩu xác nhận không khớp'); return; }
+  const btn = document.getElementById('regBtn');
+  btn.disabled = true; btn.textContent = 'Đang tạo tài khoản…';
+  setTimeout(() => {
+    toast.success('Đăng ký thành công! Vui lòng kiểm tra email xác nhận 📧');
+    setTimeout(() => location.href = 'login.html', 1500);
+  }, 1000);
 }
 </script>
 </body>
