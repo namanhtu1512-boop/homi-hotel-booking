@@ -52,9 +52,9 @@ API sẽ chạy tại: `http://localhost:8000/api/v1`
 
 | Role | Email | Mật khẩu |
 |---|---|---|
-| Admin | admin@homi.vn | password |
-| Staff | staff@homi.vn | password |
-| Customer | customer@homi.vn | password |
+| Admin | admin@homi.test | 123456 |
+| Staff | staff@homi.test | 123456 |
+| Customer | customer@homi.test | 123456 |
 
 ---
 
@@ -137,6 +137,11 @@ Mọi API đều trả về JSON theo định dạng thống nhất:
 
 ## API Endpoints (v1)
 
+### Health Check
+| Method | Endpoint | Mô tả | Auth |
+|---|---|---|---|
+| GET | `/api/health` | Kiểm tra server | Không |
+
 ### Auth
 | Method | Endpoint | Mô tả | Auth |
 |---|---|---|---|
@@ -144,6 +149,7 @@ Mọi API đều trả về JSON theo định dạng thống nhất:
 | POST | `/api/v1/login` | Đăng nhập | Không |
 | GET | `/api/v1/me` | Thông tin tài khoản | Bearer token |
 | PUT | `/api/v1/profile` | Cập nhật hồ sơ | Bearer token |
+| PUT | `/api/v1/change-password` | Đổi mật khẩu | Bearer token |
 | POST | `/api/v1/logout` | Đăng xuất | Bearer token |
 
 ---
