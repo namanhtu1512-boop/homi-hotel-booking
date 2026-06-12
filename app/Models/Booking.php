@@ -40,7 +40,7 @@ class Booking extends Model
         return $this->belongsTo(Hotel::class);
     }
 
-    public function items()
+    public function bookingItems()
     {
         return $this->hasMany(BookingItem::class);
     }

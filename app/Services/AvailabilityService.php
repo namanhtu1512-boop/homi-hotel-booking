@@ -16,7 +16,7 @@ class AvailabilityService
      */
     public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1): array
     {
-        $roomType = RoomType::where('is_active', true)->findOrFail($roomTypeId);
+        $roomType = RoomType::where('status', 'active')->findOrFail($roomTypeId);
 
         $bookedQuantity = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut);
 

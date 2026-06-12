@@ -17,10 +17,14 @@ class BookingService
         private PricingService $pricingService,
     ) {}
 
+    // ----------------------------------------------------------------
+    // CUSTOMER
+    // ----------------------------------------------------------------
+
     public function create(User $customer, array $data): Booking
     {
-        $roomType = RoomType::where('is_active', true)
-            ->whereHas('hotel', fn($q) => $q->where('is_active', true))
+        $roomType = RoomType::where('status', 'active')
+            ->whereHas('hotel', fn($q) => $q->where('status', 'active'))
             ->findOrFail($data['room_type_id']);
 
         $this->availabilityService->validateDates($data['check_in'], $data['check_out']);
@@ -45,29 +49,32 @@ class BookingService
             );
 
             $booking = Booking::create([
-                'user_id'          => $customer->id,
-                'booking_code'     => $this->generateCode(),
-                'status'           => 'pending',
-                'contact_name'     => $data['contact_name'],
-                'contact_phone'    => $data['contact_phone'],
-                'contact_email'    => $data['contact_email'] ?? $customer->email,
-                'special_requests' => $data['special_requests'] ?? null,
-                'total_price'      => $pricing['total_price'],
+                'user_id'        => $customer->id,
+                'hotel_id'       => $roomType->hotel_id,
+                'booking_code'   => $this->generateCode(),
+                'check_in'       => $data['check_in'],
+                'check_out'      => $data['check_out'],
+                'nights'         => $pricing['nights'],
+                'customer_name'  => $data['customer_name'],
+                'customer_phone' => $data['customer_phone'],
+                'customer_email' => $data['customer_email'] ?? $customer->email,
+                'note'           => $data['note'] ?? null,
+                'total_amount'   => $pricing['total_price'],
+                'status'         => 'pending',
             ]);
 
             $booking->bookingItems()->create([
-                'room_type_id' => $roomType->id,
-                'check_in'     => $data['check_in'],
-                'check_out'    => $data['check_out'],
-                'quantity'     => $data['quantity'],
-                'nights'       => $pricing['nights'],
-                'unit_price'   => $pricing['unit_price'],
-                'subtotal'     => $pricing['total_price'],
+                'room_type_id'    => $roomType->id,
+                'quantity'        => $data['quantity'],
+                'price_per_night' => $pricing['unit_price'],
+                'nights'          => $pricing['nights'],
+                'subtotal'        => $pricing['total_price'],
             ]);
 
             $booking->payment()->create([
                 'amount' => $pricing['total_price'],
-                'status' => 'pending',
+                'status' => 'unpaid',
+                'method' => 'pay_at_hotel',
             ]);
 
             return $booking->load(['bookingItems.roomType.hotel', 'payment']);
@@ -109,16 +116,18 @@ class BookingService
             ]);
         }
 
-        $booking->update(['status' => 'canceled']);
+        $booking->update(['status' => 'cancelled']);
 
-        return $booking->fresh('payment');
+        return $booking->fresh(['payment']);
     }
 
-    // --- Admin ---
+    // ----------------------------------------------------------------
+    // ADMIN / STAFF
+    // ----------------------------------------------------------------
 
     public function adminList(array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
-        $query = Booking::with(['user', 'bookingItems.roomType.hotel', 'payment'])
+        $query = Booking::with(['user', 'bookingItems.roomType', 'payment'])
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['status'])) {
@@ -126,10 +135,7 @@ class BookingService
         }
 
         if (! empty($filters['hotel_id'])) {
-            $query->whereHas(
-                'bookingItems.roomType',
-                fn($q) => $q->where('hotel_id', $filters['hotel_id'])
-            );
+            $query->where('hotel_id', $filters['hotel_id']);
         }
 
         if (! empty($filters['customer_id'])) {
@@ -172,14 +178,18 @@ class BookingService
             ]);
         }
 
-        $booking->update(['status' => 'canceled']);
+        $booking->update(['status' => 'cancelled']);
 
         if ($booking->payment && $booking->payment->status === 'paid') {
-            $booking->payment->update(['status' => 'refunded', 'refunded_at' => now()]);
+            $booking->payment->update(['status' => 'refunded']);
         }
 
-        return $booking->fresh('payment');
+        return $booking->fresh(['payment']);
     }
+
+    // ----------------------------------------------------------------
+    // PRIVATE
+    // ----------------------------------------------------------------
 
     private function generateCode(): string
     {
