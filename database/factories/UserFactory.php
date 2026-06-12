@@ -12,34 +12,39 @@ use Illuminate\Support\Str;
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
     protected static ?string $password;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
+            'name'     => fake('vi_VN')->name(),
+            'email'    => fake()->unique()->safeEmail(),
+            'phone'    => '09' . fake()->numerify('########'),
+            'address'  => fake('vi_VN')->city(),
+            'role'     => 'customer',
+            'status'   => 'active',
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function admin(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        return $this->state(['role' => 'admin']);
+    }
+
+    public function staff(): static
+    {
+        return $this->state(['role' => 'staff']);
+    }
+
+    public function customer(): static
+    {
+        return $this->state(['role' => 'customer']);
+    }
+
+    public function locked(): static
+    {
+        return $this->state(['status' => 'locked']);
     }
 }
