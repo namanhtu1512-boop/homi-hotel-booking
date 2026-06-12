@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class RoomType extends Model
 {
@@ -30,5 +30,10 @@ class RoomType extends Model
     public function bookingItems()
     {
         return $this->hasMany(BookingItem::class);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(RoomTypeImage::class)->orderBy('sort_order');
     }
 }

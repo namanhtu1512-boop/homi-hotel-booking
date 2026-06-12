@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Hotel extends Model
 {
@@ -28,5 +28,15 @@ class Hotel extends Model
     public function bookings()
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(HotelImage::class)->orderBy('sort_order');
+    }
+
+    public function amenities()
+    {
+        return $this->belongsToMany(Amenity::class, 'hotel_amenity');
     }
 }

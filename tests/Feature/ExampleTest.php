@@ -2,18 +2,19 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\User;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_authenticated_user_can_fetch_own_profile(): void
     {
-        $response = $this->get('/');
+        $user = User::factory()->create();
 
-        $response->assertStatus(200);
+        $response = $this->actingAs($user)->getJson('/api/v1/me');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.id', $user->id);
     }
 }
