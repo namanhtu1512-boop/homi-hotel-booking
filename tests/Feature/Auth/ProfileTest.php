@@ -62,7 +62,7 @@ class ProfileTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'new@homi.vn']);
     }
 
-    // TC-PROFILE-02: Cập nhật thất bại - thiếu trường bắt buộc
+    // TC-PROFILE-02: Cập nhật thất bại - thiếu trường bắt buộc (name)
     public function test_update_profile_fails_when_required_fields_missing(): void
     {
         $user = $this->createUser();
@@ -70,7 +70,28 @@ class ProfileTest extends TestCase
         $response = $this->actingAs($user)->putJson('/api/v1/profile', []);
 
         $response->assertStatus(422)
-                 ->assertJsonStructure(['errors' => ['name', 'email']]);
+                 ->assertJsonStructure(['errors' => ['name']]);
+    }
+
+    // TC-PROFILE-02b: Cập nhật thành công chỉ name/phone, không gửi email
+    // (email là 'sometimes' để hỗ trợ cập nhật một phần hồ sơ)
+    public function test_update_profile_allows_partial_update_without_email(): void
+    {
+        $user = $this->createUser();
+
+        $response = $this->actingAs($user)->putJson('/api/v1/profile', [
+            'name'  => 'Tên Mới Không Đổi Email',
+            'phone' => '0911111111',
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('data.user.name', 'Tên Mới Không Đổi Email')
+                 ->assertJsonPath('data.user.email', 'user@homi.vn');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'user@homi.vn',
+            'phone' => '0911111111',
+        ]);
     }
 
     // TC-PROFILE-03: Cập nhật thất bại - email trùng với user khác

@@ -32,6 +32,14 @@ class UserSeeder extends Seeder
                 'address' => 'TP Hồ Chí Minh',
                 'role' => 'admin',
             ],
+            [
+                'name' => 'Locked Customer Demo',
+                'email' => 'locked@homi.test',
+                'phone' => '0900000004',
+                'address' => 'Cần Thơ',
+                'role' => 'customer',
+                'status' => 'locked',
+            ],
         ];
 
         foreach ($users as $user) {
@@ -42,7 +50,7 @@ class UserSeeder extends Seeder
                     'phone' => $user['phone'],
                     'address' => $user['address'],
                     'role' => $user['role'],
-                    'status' => 'active',
+                    'status' => $user['status'] ?? 'active',
                     'password' => Hash::make('123456'),
                 ]
             );

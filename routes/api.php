@@ -3,9 +3,10 @@
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\HealthController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', fn() => response()->json(['success' => true, 'status' => 'ok']));
+Route::get('/health', HealthController::class);
 
 Route::prefix('v1')->group(function () {
 

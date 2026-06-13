@@ -1,0 +1,47 @@
+name: Laravel Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_sqlite, sqlite3, xml, ctype, json, bcmath, fileinfo
+          coverage: none
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Create sqlite database file
+        run: touch database/database.sqlite
+
+      - name: Run database migrations + seed (sanity check)
+        run: php artisan migrate:fresh --seed --force
+
+      - name: Run test suite (Pest/PHPUnit)
+        run: php artisan test

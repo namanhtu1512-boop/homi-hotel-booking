@@ -1,0 +1,59 @@
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Feature\Auth\LoginTest
+  ✓ login success returns token                                          0.18s  
+  ✓ login fails with wrong password                                      0.01s  
+  ✓ login fails with nonexistent email                                   0.01s  
+  ✓ login fails when account is locked                                   0.01s  
+  ✓ login fails when fields missing                                      0.01s  
+  ✓ password not in login response                                       0.01s  
+
+   PASS  Tests\Feature\Auth\ProfileTest
+  ✓ me returns authenticated user                                        0.02s  
+  ✓ me requires authentication                                           0.01s  
+  ✓ update profile success                                               0.01s  
+  ✓ update profile fails when required fields missing                    0.01s  
+  ✓ update profile allows partial update without email                   0.01s  
+  ✓ update profile fails when email taken by another user                0.01s  
+  ✓ update profile allows keeping same email                             0.01s  
+  ✓ change password success                                              0.01s  
+  ✓ change password fails with wrong current password                    0.01s  
+  ✓ change password fails when confirmation mismatch                     0.01s  
+  ✓ logout success                                                       0.01s  
+  ✓ logout requires authentication                                       0.01s  
+
+   PASS  Tests\Feature\Auth\RbacTest
+  ✓ customer can access own profile                                      0.02s  
+  ✓ staff can access own profile                                         0.01s  
+  ✓ admin can access own profile                                         0.01s  
+  ✓ inactive account cannot login                                        0.01s  
+  ✓ unauthenticated request returns 401                                  0.01s  
+  ✓ newly registered user has customer role                              0.01s  
+  ✓ revoked token returns 401                                            0.01s  
+
+   PASS  Tests\Feature\Auth\RegisterTest
+  ✓ register success with full data                                      0.01s  
+  ✓ register success without optional fields                             0.01s  
+  ✓ register fails with duplicate email                                  0.01s  
+  ✓ register fails when required fields missing                          0.01s  
+  ✓ register fails with invalid email format                             0.01s  
+  ✓ register fails when password confirmation mismatch                   0.01s  
+  ✓ register fails when password too short                               0.01s  
+  ✓ password not exposed in response                                     0.01s  
+
+   PASS  Tests\Feature\DatabaseSeedTest
+  ✓ it runs migrate fresh without error and creates expected tables      0.02s  
+  ✓ it runs db:seed without error and creates demo data                  0.05s  
+  ✓ it ensures hotel and room_type relationships work after seeding      0.05s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ authenticated user can fetch own profile                             0.02s  
+
+   PASS  Tests\Feature\HealthCheckTest
+  ✓ it returns ok status from health check endpoint                      0.01s  
+
+  Tests:    39 passed (129 assertions)
+  Duration: 0.71s
+

@@ -1,16 +1,27 @@
 <?php
 
-namespace Tests\Feature;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-use Tests\TestCase;
+uses(RefreshDatabase::class);
 
-class HealthCheckTest extends TestCase
-{
-    public function test_health_endpoint_returns_ok(): void
-    {
-        $response = $this->getJson('/api/health');
+it('returns ok status from health check endpoint', function () {
+    $response = $this->getJson('/api/health');
 
-        $response->assertStatus(200)
-            ->assertJson(['success' => true, 'status' => 'ok']);
-    }
-}
+    $response->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+        ])
+        ->assertJsonStructure([
+            'success',
+            'message',
+            'data' => [
+                'app',
+                'env',
+                'time',
+                'database',
+            ],
+        ]);
+
+    // Database phải kết nối được (không trả về chuỗi 'error: ...')
+    $response->assertJsonPath('data.database', 'ok');
+});
