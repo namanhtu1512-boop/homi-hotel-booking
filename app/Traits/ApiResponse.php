@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Enums\ErrorCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -27,12 +28,20 @@ trait ApiResponse
         return $this->success($data, $message, 201);
     }
 
-    protected function error(string $message, int $status = 400, mixed $errors = null): JsonResponse
-    {
+    protected function error(
+        string $message,
+        int $status = 400,
+        mixed $errors = null,
+        ?ErrorCode $errorCode = null,
+    ): JsonResponse {
         $response = [
             'success' => false,
             'message' => $message,
         ];
+
+        if ($errorCode !== null) {
+            $response['error_code'] = $errorCode->value;
+        }
 
         if (!is_null($errors)) {
             $response['errors'] = $errors;

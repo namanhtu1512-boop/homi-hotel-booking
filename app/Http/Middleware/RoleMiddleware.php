@@ -7,14 +7,16 @@ use Illuminate\Http\Request;
 
 class RoleMiddleware
 {
-    public function handle(Request $request, Closure $next, ...$roles)
+    public function handle(Request $request, Closure $next, string ...$roles): mixed
     {
         $user = $request->user();
 
         if (!$user) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Bạn chưa đăng nhập',
+                    'success'    => false,
+                    'message'    => 'Bạn chưa đăng nhập.',
+                    'error_code' => ErrorCode::UNAUTHENTICATED->value,
                 ], 401);
             }
 
@@ -24,11 +26,13 @@ class RoleMiddleware
         if (!in_array($user->role, $roles, true)) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Bạn không có quyền truy cập chức năng này',
+                    'success'    => false,
+                    'message'    => 'Bạn không có quyền truy cập chức năng này.',
+                    'error_code' => ErrorCode::UNAUTHORIZED->value,
                 ], 403);
             }
 
-            abort(403, 'Bạn không có quyền truy cập trang này');
+            abort(403, 'Bạn không có quyền truy cập trang này.');
         }
 
         return $next($request);
