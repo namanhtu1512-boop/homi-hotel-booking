@@ -50,18 +50,21 @@ trait ApiResponse
         return response()->json($response, $status);
     }
 
-    protected function paginated(LengthAwarePaginator $paginator, string $dataKey = 'items'): JsonResponse
-    {
+    protected function paginated(
+        LengthAwarePaginator $paginator,
+        string $dataKey = 'items',
+        array $extraMeta = [],
+    ): JsonResponse {
         return response()->json([
             'success' => true,
             'data'    => [
                 $dataKey => $paginator->items(),
-                'meta'   => [
+                'meta'   => array_merge([
                     'current_page' => $paginator->currentPage(),
                     'per_page'     => $paginator->perPage(),
                     'total'        => $paginator->total(),
                     'last_page'    => $paginator->lastPage(),
-                ],
+                ], $extraMeta),
             ],
         ]);
     }

@@ -32,7 +32,13 @@ class HotelService
             }
         }
 
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $allowedSortColumns = ['name', 'city', 'star_rating', 'created_at'];
+        $sortBy    = in_array($filters['sort_by'] ?? '', $allowedSortColumns, true)
+            ? $filters['sort_by']
+            : 'created_at';
+        $sortOrder = ($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        return $query->orderBy($sortBy, $sortOrder)->paginate($perPage);
     }
 
     public function adminFind(int $id): Hotel

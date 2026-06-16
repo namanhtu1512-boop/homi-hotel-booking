@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Hotel\AdminListHotelRequest;
 use App\Http\Requests\Hotel\CreateHotelRequest;
 use App\Http\Requests\Hotel\UpdateHotelRequest;
 use App\Models\Hotel;
@@ -10,7 +11,6 @@ use App\Services\HotelService;
 use App\Services\ImageService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AdminHotelController extends Controller
 {
@@ -21,18 +21,25 @@ class AdminHotelController extends Controller
         private readonly ImageService $imageService,
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(AdminListHotelRequest $request): JsonResponse
     {
+        $this->authorize('viewAny', Hotel::class);
+
         $hotels = $this->hotelService->adminList(
-            filters: $request->only(['search', 'status']),
-            perPage: (int) $request->input('per_page', 15),
+            filters: $request->only(['search', 'status', 'sort_by', 'sort_order']),
+            perPage: $request->perPage(),
         );
 
-        return $this->paginated($hotels, 'hotels');
+        return $this->paginated($hotels, 'hotels', [
+            'sort_by'    => $request->sortBy(),
+            'sort_order' => $request->sortOrder(),
+        ]);
     }
 
     public function store(CreateHotelRequest $request): JsonResponse
     {
+        $this->authorize('create', Hotel::class);
+
         $hotel = $this->hotelService->create($request->validated());
 
         return $this->created($hotel, 'Tạo khách sạn thành công.');
@@ -40,14 +47,19 @@ class AdminHotelController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $hotel = $this->hotelService->adminFind($id);
+        $hotel = Hotel::withTrashed()->findOrFail($id);
 
-        return $this->success($hotel);
+        $this->authorize('view', $hotel);
+
+        return $this->success($this->hotelService->adminFind($id));
     }
 
     public function update(UpdateHotelRequest $request, int $id): JsonResponse
     {
         $hotel = Hotel::withTrashed()->findOrFail($id);
+
+        $this->authorize('update', $hotel);
+
         $hotel = $this->hotelService->update($hotel, $request->validated());
 
         return $this->success($hotel, 'Cập nhật khách sạn thành công.');
@@ -56,6 +68,9 @@ class AdminHotelController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $hotel = Hotel::findOrFail($id);
+
+        $this->authorize('delete', $hotel);
+
         $this->hotelService->softDelete($hotel);
 
         return $this->success(null, 'Xóa khách sạn thành công.');
@@ -64,6 +79,9 @@ class AdminHotelController extends Controller
     public function restore(int $id): JsonResponse
     {
         $hotel = Hotel::onlyTrashed()->findOrFail($id);
+
+        $this->authorize('restore', $hotel);
+
         $this->hotelService->restore($hotel);
 
         return $this->success(null, 'Khôi phục khách sạn thành công.');
@@ -72,6 +90,9 @@ class AdminHotelController extends Controller
     public function toggleStatus(int $id): JsonResponse
     {
         $hotel = Hotel::findOrFail($id);
+
+        $this->authorize('toggleStatus', $hotel);
+
         $hotel = $this->hotelService->toggleStatus($hotel);
 
         return $this->success($hotel, 'Cập nhật trạng thái khách sạn thành công.');
@@ -79,10 +100,13 @@ class AdminHotelController extends Controller
 
     public function destroyImage(int $hotelId, int $imageId): JsonResponse
     {
-        $hotel   = Hotel::findOrFail($hotelId);
+        $hotel = Hotel::findOrFail($hotelId);
+
+        $this->authorize('manageImages', $hotel);
+
         $deleted = $this->imageService->deleteHotelImage($hotel, $imageId);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return $this->error('Không tìm thấy ảnh.', 404);
         }
 
