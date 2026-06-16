@@ -4,12 +4,17 @@ namespace App\Services;
 
 use App\Models\Hotel;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 
 class HotelService
 {
+    public function __construct(private readonly ImageService $imageService) {}
+
+    // --- Admin API ---
+
     public function adminList(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = Hotel::withCount('roomTypes');
+        $query = Hotel::withTrashed()->withCount('roomTypes');
 
         if (! empty($filters['search'])) {
             $keyword = $filters['search'];
@@ -19,8 +24,12 @@ class HotelService
             });
         }
 
-        if (isset($filters['status'])) {
-            $query->where('is_active', $filters['status'] === 'active');
+        if (! empty($filters['status'])) {
+            if ($filters['status'] === 'deleted') {
+                $query->onlyTrashed();
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
@@ -28,21 +37,23 @@ class HotelService
 
     public function adminFind(int $id): Hotel
     {
-        return Hotel::withCount('roomTypes')->findOrFail($id);
+        return Hotel::withTrashed()
+            ->with(['images', 'amenities'])
+            ->withCount('roomTypes')
+            ->findOrFail($id);
     }
 
     public function create(array $data): Hotel
     {
         $hotel = Hotel::create([
             'name'        => $data['name'],
+            'slug'        => Str::slug($data['name']),
+            'city'        => $data['city'],
+            'district'    => $data['district'] ?? null,
+            'address'     => $data['address'],
             'description' => $data['description'] ?? null,
-            'address'     => $data['address'] ?? null,
-            'city'        => $data['city'] ?? null,
-            'country'     => $data['country'] ?? null,
             'star_rating' => $data['star_rating'] ?? null,
-            'phone'       => $data['phone'] ?? null,
-            'email'       => $data['email'] ?? null,
-            'is_active'   => true,
+            'status'      => 'active',
         ]);
 
         if (! empty($data['amenity_ids'])) {
@@ -50,9 +61,7 @@ class HotelService
         }
 
         if (! empty($data['images'])) {
-            foreach ($data['images'] as $index => $path) {
-                $hotel->images()->create(['image_path' => $path, 'sort_order' => $index]);
-            }
+            $this->imageService->syncHotelImages($hotel, $data['images']);
         }
 
         return $hotel->load(['amenities', 'images']);
@@ -60,19 +69,28 @@ class HotelService
 
     public function update(Hotel $hotel, array $data): Hotel
     {
-        $hotel->update(array_filter([
+        $fields = array_filter([
             'name'        => $data['name'] ?? null,
-            'description' => $data['description'] ?? null,
-            'address'     => $data['address'] ?? null,
             'city'        => $data['city'] ?? null,
-            'country'     => $data['country'] ?? null,
+            'district'    => $data['district'] ?? null,
+            'address'     => $data['address'] ?? null,
+            'description' => $data['description'] ?? null,
             'star_rating' => $data['star_rating'] ?? null,
-            'phone'       => $data['phone'] ?? null,
-            'email'       => $data['email'] ?? null,
-        ], fn($v) => ! is_null($v)));
+        ], fn ($v) => $v !== null);
+
+        if (isset($data['name'])) {
+            $fields['slug'] = Str::slug($data['name']);
+        }
+
+        $hotel->update($fields);
 
         if (isset($data['amenity_ids'])) {
             $hotel->amenities()->sync($data['amenity_ids']);
+        }
+
+        if (! empty($data['images'])) {
+            // replace = true: thay toàn bộ ảnh khi update
+            $this->imageService->syncHotelImages($hotel, $data['images'], replace: true);
         }
 
         return $hotel->fresh(['amenities', 'images']);
@@ -83,9 +101,16 @@ class HotelService
         $hotel->delete();
     }
 
-    public function toggleActive(Hotel $hotel): Hotel
+    public function restore(Hotel $hotel): void
     {
-        $hotel->update(['is_active' => ! $hotel->is_active]);
+        $hotel->restore();
+    }
+
+    public function toggleStatus(Hotel $hotel): Hotel
+    {
+        $hotel->update([
+            'status' => $hotel->status === 'active' ? 'hidden' : 'active',
+        ]);
 
         return $hotel->fresh();
     }
@@ -94,9 +119,12 @@ class HotelService
 
     public function publicList(array $filters = [], int $perPage = 10): LengthAwarePaginator
     {
-        $query = Hotel::where('is_active', true)
-            ->with(['images' => fn($q) => $q->orderBy('sort_order')->limit(1), 'amenities'])
-            ->withMin('roomTypes', 'base_price');
+        $query = Hotel::where('status', 'active')
+            ->with([
+                'images' => fn ($q) => $q->orderBy('sort_order')->limit(1),
+                'amenities',
+            ])
+            ->withMin('roomTypes', 'price_per_night');
 
         if (! empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
@@ -113,8 +141,16 @@ class HotelService
 
         if (! empty($filters['amenities'])) {
             foreach ($filters['amenities'] as $amenityId) {
-                $query->whereHas('amenities', fn($q) => $q->where('amenities.id', $amenityId));
+                $query->whereHas('amenities', fn ($q) => $q->where('amenities.id', $amenityId));
             }
+        }
+
+        if (! empty($filters['min_price'])) {
+            $query->whereHas('roomTypes', fn ($q) => $q->where('price_per_night', '>=', $filters['min_price']));
+        }
+
+        if (! empty($filters['max_price'])) {
+            $query->whereHas('roomTypes', fn ($q) => $q->where('price_per_night', '<=', $filters['max_price']));
         }
 
         return $query->orderBy('star_rating', 'desc')->paginate($perPage);
@@ -122,11 +158,11 @@ class HotelService
 
     public function publicFind(int $id): Hotel
     {
-        return Hotel::where('is_active', true)
+        return Hotel::where('status', 'active')
             ->with([
                 'images',
                 'amenities',
-                'roomTypes' => fn($q) => $q->where('is_active', true)->with('images'),
+                'activeRoomTypes.images',
             ])
             ->findOrFail($id);
     }

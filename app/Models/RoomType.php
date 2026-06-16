@@ -28,7 +28,10 @@ class RoomType extends Model
         'capacity'        => 'integer',
         'area'            => 'decimal:2',
         'total_rooms'     => 'integer',
+        'status'          => 'string',
     ];
+
+    // --- Relationships ---
 
     public function hotel()
     {
@@ -43,5 +46,12 @@ class RoomType extends Model
     public function images()
     {
         return $this->hasMany(RoomTypeImage::class)->orderBy('sort_order');
+    }
+
+    // --- Scopes ---
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
     }
 }

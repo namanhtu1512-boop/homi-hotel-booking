@@ -4,20 +4,23 @@ namespace App\Services;
 
 use App\Models\Hotel;
 use App\Models\RoomType;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class RoomTypeService
 {
-    public function listByHotel(int $hotelId, bool $adminView = false): \Illuminate\Database\Eloquent\Collection
+    public function __construct(private readonly ImageService $imageService) {}
+
+    public function listByHotel(int $hotelId, bool $adminView = false): Collection
     {
         $query = RoomType::where('hotel_id', $hotelId)->with('images');
 
         if (! $adminView) {
-            $query->where('is_active', true);
+            $query->where('status', 'active');
         }
 
-        return $query->get();
+        return $query->orderBy('price_per_night')->get();
     }
 
     public function find(int $id): RoomType
@@ -27,36 +30,34 @@ class RoomTypeService
 
     public function findPublic(int $id): RoomType
     {
-        return RoomType::where('is_active', true)
-            ->whereHas('hotel', fn($q) => $q->where('is_active', true))
+        return RoomType::where('status', 'active')
+            ->whereHas('hotel', fn ($q) => $q->where('status', 'active'))
             ->with(['images', 'hotel'])
             ->findOrFail($id);
     }
 
     public function create(Hotel $hotel, array $data): RoomType
     {
-        if (! $hotel->is_active) {
+        if ($hotel->status !== 'active') {
             throw ValidationException::withMessages([
                 'hotel_id' => ['Không thể thêm phòng cho khách sạn đang bị ẩn.'],
             ]);
         }
 
         $roomType = $hotel->roomTypes()->create([
-            'name'        => $data['name'],
-            'description' => $data['description'] ?? null,
-            'capacity'    => $data['capacity'],
-            'bed_type'    => $data['bed_type'] ?? null,
-            'area_sqm'    => $data['area_sqm'] ?? null,
-            'base_price'  => $data['base_price'],
-            'weekend_price' => $data['weekend_price'] ?? null,
-            'total_rooms' => $data['total_rooms'],
-            'is_active'   => true,
+            'name'           => $data['name'],
+            'slug'           => Str::slug($data['name']),
+            'description'    => $data['description'] ?? null,
+            'price_per_night' => $data['price_per_night'],
+            'capacity'       => $data['capacity'],
+            'bed_type'       => $data['bed_type'] ?? null,
+            'area'           => $data['area'] ?? null,
+            'total_rooms'    => $data['total_rooms'],
+            'status'         => 'active',
         ]);
 
         if (! empty($data['images'])) {
-            foreach ($data['images'] as $index => $path) {
-                $roomType->images()->create(['image_path' => $path, 'sort_order' => $index]);
-            }
+            $this->imageService->syncRoomTypeImages($roomType, $data['images']);
         }
 
         return $roomType->load('images');
@@ -65,54 +66,70 @@ class RoomTypeService
     public function update(RoomType $roomType, array $data): RoomType
     {
         if (isset($data['total_rooms'])) {
-            $this->validateInventoryReduction($roomType, $data['total_rooms']);
+            $this->validateInventoryReduction($data['total_rooms']);
         }
 
-        $roomType->update(array_filter([
-            'name'          => $data['name'] ?? null,
-            'description'   => $data['description'] ?? null,
-            'capacity'      => $data['capacity'] ?? null,
-            'bed_type'      => $data['bed_type'] ?? null,
-            'area_sqm'      => $data['area_sqm'] ?? null,
-            'base_price'    => $data['base_price'] ?? null,
-            'weekend_price' => $data['weekend_price'] ?? null,
-            'total_rooms'   => $data['total_rooms'] ?? null,
-        ], fn($v) => ! is_null($v)));
+        $fields = array_filter([
+            'name'           => $data['name'] ?? null,
+            'description'    => $data['description'] ?? null,
+            'price_per_night' => $data['price_per_night'] ?? null,
+            'capacity'       => $data['capacity'] ?? null,
+            'bed_type'       => $data['bed_type'] ?? null,
+            'area'           => $data['area'] ?? null,
+            'total_rooms'    => $data['total_rooms'] ?? null,
+        ], fn ($v) => $v !== null);
+
+        if (isset($data['name'])) {
+            $fields['slug'] = Str::slug($data['name']);
+        }
+
+        $roomType->update($fields);
+
+        if (! empty($data['images'])) {
+            $this->imageService->syncRoomTypeImages($roomType, $data['images'], replace: true);
+        }
 
         return $roomType->fresh('images');
     }
 
-    public function updatePrice(RoomType $roomType, float $basePrice, ?float $weekendPrice = null): RoomType
+    public function updatePrice(RoomType $roomType, float $pricePerNight): RoomType
     {
-        $roomType->update(array_filter([
-            'base_price'    => $basePrice,
-            'weekend_price' => $weekendPrice,
-        ], fn($v) => ! is_null($v)));
+        $roomType->update(['price_per_night' => $pricePerNight]);
 
         return $roomType->fresh();
     }
 
     public function updateInventory(RoomType $roomType, int $totalRooms): RoomType
     {
+        $this->validateInventoryReduction($totalRooms);
         $roomType->update(['total_rooms' => $totalRooms]);
 
         return $roomType->fresh();
     }
 
+    /**
+     * Soft delete nếu không có booking đang hoạt động.
+     * Nếu có booking active thì chuyển về trạng thái 'hidden'.
+     */
     public function softDeleteOrDeactivate(RoomType $roomType): void
     {
         $hasActiveBookings = $roomType->bookingItems()
-            ->whereHas('booking', fn($q) => $q->whereIn('status', ['pending', 'confirmed']))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'confirmed']))
             ->exists();
 
         if ($hasActiveBookings) {
-            $roomType->update(['is_active' => false]);
+            $roomType->update(['status' => 'hidden']);
         } else {
             $roomType->delete();
         }
     }
 
-    private function validateInventoryReduction(RoomType $roomType, int $newTotal): void
+    public function restore(RoomType $roomType): void
+    {
+        $roomType->restore();
+    }
+
+    private function validateInventoryReduction(int $newTotal): void
     {
         if ($newTotal < 1) {
             throw ValidationException::withMessages([
