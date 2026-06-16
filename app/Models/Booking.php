@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Enums\BookingStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
 {
@@ -25,9 +26,10 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'check_in' => 'date',
-        'check_out' => 'date',
+        'check_in'     => 'date',
+        'check_out'    => 'date',
         'total_amount' => 'decimal:2',
+        'status'       => BookingStatus::class,
     ];
 
     public function user()
@@ -48,5 +50,25 @@ class Booking extends Model
     public function payment()
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function statusLogs()
+    {
+        return $this->hasMany(BookingStatusLog::class)->orderBy('created_at');
+    }
+
+    public function canCancelByCustomer(): bool
+    {
+        return $this->status->canCancelByCustomer();
+    }
+
+    public function canCancelByAdmin(): bool
+    {
+        return $this->status->canCancelByAdmin();
+    }
+
+    public function canConfirm(): bool
+    {
+        return $this->status->canConfirm();
     }
 }

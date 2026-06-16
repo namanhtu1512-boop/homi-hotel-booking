@@ -2,69 +2,78 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Models\BookingItem;
 use App\Models\RoomType;
-use Carbon\Carbon;
 
 class AvailabilityService
 {
+    public function __construct(
+        private DateRangeService $dateRange,
+    ) {}
+
     /**
-     * Check availability for a room type over a date range.
+     * Kiểm tra availability cho một room type trong khoảng ngày.
      *
-     * Overlap condition: existing.check_in < new.check_out AND existing.check_out > new.check_in
-     * This correctly handles T6/T7 (adjacent dates are NOT overlapping).
+     * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      */
     public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1): array
     {
+        $this->dateRange->validate($checkIn, $checkOut);
+
         $roomType = RoomType::where('status', 'active')->findOrFail($roomTypeId);
 
-        $bookedQuantity = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut);
-
+        $bookedQuantity    = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut);
         $availableQuantity = $roomType->total_rooms - $bookedQuantity;
-        $canBook = $availableQuantity >= $quantity;
 
         return [
             'room_type_id'       => $roomTypeId,
             'check_in'           => $checkIn,
             'check_out'          => $checkOut,
+            'nights'             => $this->dateRange->nightCount($checkIn, $checkOut),
             'requested_quantity' => $quantity,
             'available_quantity' => max(0, $availableQuantity),
-            'can_book'           => $canBook,
+            'can_book'           => $availableQuantity >= $quantity,
             'total_rooms'        => $roomType->total_rooms,
         ];
     }
 
     /**
-     * Returns the quantity of rooms booked (pending + confirmed) that overlap the given range.
+     * Số phòng đã được đặt (pending / confirmed / checked_in) giao nhau với khoảng ngày.
+     *
+     * BUG FIX: check_in / check_out nằm trên bảng BOOKINGS, không phải booking_items.
+     * Điều kiện overlap được đưa vào whereHas('booking') thay vì query trực tiếp booking_items.
+     *
+     * Overlap condition: booking.check_in < $checkOut AND booking.check_out > $checkIn
      */
     public function getBookedQuantity(int $roomTypeId, string $checkIn, string $checkOut): int
     {
         return (int) BookingItem::where('room_type_id', $roomTypeId)
-            ->whereHas('booking', fn($q) => $q->whereIn('status', ['pending', 'confirmed']))
-            ->where('check_in', '<', $checkOut)
-            ->where('check_out', '>', $checkIn)
+            ->whereHas('booking', fn ($q) => $q
+                ->whereIn('status', BookingStatus::holdingStatuses())
+                ->where('check_in', '<', $checkOut)
+                ->where('check_out', '>', $checkIn)
+            )
             ->sum('quantity');
     }
 
     /**
-     * Convenience method for use inside a DB transaction (re-checks with lock if needed).
+     * Dùng bên trong DB transaction để re-check trước khi insert.
+     *
+     * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      */
     public function canBook(int $roomTypeId, string $checkIn, string $checkOut, int $quantity): bool
     {
         return $this->check($roomTypeId, $checkIn, $checkOut, $quantity)['can_book'];
     }
 
+    /**
+     * Proxy thuận tiện cho validation ngày — giữ BC cho code gọi trực tiếp.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
     public function validateDates(string $checkIn, string $checkOut): void
     {
-        $in  = Carbon::parse($checkIn);
-        $out = Carbon::parse($checkOut);
-
-        if ($in >= $out) {
-            abort(422, 'Ngày trả phòng phải sau ngày nhận phòng.');
-        }
-
-        if ($in->lt(Carbon::today())) {
-            abort(422, 'Ngày nhận phòng không được trước hôm nay.');
-        }
+        $this->dateRange->validate($checkIn, $checkOut);
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Booking\StoreBookingRequest;
+use App\Services\BookingService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,6 +12,10 @@ use Illuminate\Http\Request;
 class BookingController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(
+        private BookingService $bookingService,
+    ) {}
 
     // ----------------------------------------------------------------
     // CUSTOMER ROUTES
@@ -38,11 +44,18 @@ class BookingController extends Controller
     /**
      * POST /api/v1/bookings
      * Tạo đơn đặt phòng mới.
-     * TODO (Tuần 10): gọi AvailabilityService + PricingService + BookingService.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreBookingRequest $request): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 10)');
+        $booking = $this->bookingService->create(
+            $request->user(),
+            $request->validated()
+        );
+
+        return $this->created(
+            $this->formatBooking($booking),
+            'Đặt phòng thành công.'
+        );
     }
 
     /**
@@ -111,5 +124,35 @@ class BookingController extends Controller
     public function checkAvailability(Request $request, int $hotel): JsonResponse
     {
         return $this->success([], 'Chức năng đang phát triển (Tuần 9)');
+    }
+
+    // ----------------------------------------------------------------
+    // PRIVATE
+    // ----------------------------------------------------------------
+
+    private function formatBooking($booking): array
+    {
+        return [
+            'id'             => $booking->id,
+            'booking_code'   => $booking->booking_code,
+            'check_in'       => $booking->check_in->toDateString(),
+            'check_out'      => $booking->check_out->toDateString(),
+            'nights'         => $booking->nights,
+            'customer_name'  => $booking->customer_name,
+            'customer_phone' => $booking->customer_phone,
+            'customer_email' => $booking->customer_email,
+            'total_amount'   => $booking->total_amount,
+            'status'         => $booking->status->value,
+            'status_label'   => $booking->status->label(),
+            'note'           => $booking->note,
+            'payment'        => $booking->payment ? [
+                'status'        => $booking->payment->status->value,
+                'status_label'  => $booking->payment->status->label(),
+                'method'        => $booking->payment->method->value,
+                'method_label'  => $booking->payment->method->label(),
+                'amount'        => $booking->payment->amount,
+            ] : null,
+            'created_at' => $booking->created_at->toIso8601String(),
+        ];
     }
 }

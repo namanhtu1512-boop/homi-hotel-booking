@@ -127,6 +127,34 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        // ---------------------------------------------------------------
+        // Homi custom channels
+        // ---------------------------------------------------------------
+
+        'api' => [
+            'driver' => 'daily',
+            'path'   => storage_path('logs/api/api.log'),
+            'level'  => env('LOG_LEVEL', 'debug'),
+            'days'   => 30,
+            'replace_placeholders' => true,
+        ],
+
+        'auth' => [
+            'driver' => 'daily',
+            'path'   => storage_path('logs/auth/auth.log'),
+            'level'  => env('LOG_LEVEL', 'debug'),
+            'days'   => 30,
+            'replace_placeholders' => true,
+        ],
+
+        'booking' => [
+            'driver' => 'daily',
+            'path'   => storage_path('logs/booking/booking.log'),
+            'level'  => env('LOG_LEVEL', 'debug'),
+            'days'   => 60,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

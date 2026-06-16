@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
@@ -20,12 +22,24 @@ class Payment extends Model
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
+        'amount'  => 'decimal:2',
         'paid_at' => 'datetime',
+        'status'  => PaymentStatus::class,
+        'method'  => PaymentMethod::class,
     ];
 
     public function booking()
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status->isPaid();
+    }
+
+    public function canRefund(): bool
+    {
+        return $this->status->canRefund();
     }
 }

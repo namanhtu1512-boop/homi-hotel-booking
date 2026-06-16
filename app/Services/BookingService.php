@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Models\Booking;
+use App\Models\BookingStatusLog;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -24,9 +28,10 @@ class BookingService
     public function create(User $customer, array $data): Booking
     {
         $roomType = RoomType::where('status', 'active')
-            ->whereHas('hotel', fn($q) => $q->where('status', 'active'))
+            ->whereHas('hotel', fn ($q) => $q->where('status', 'active'))
             ->findOrFail($data['room_type_id']);
 
+        // DateRangeService validate đã được gọi qua AvailabilityService
         $this->availabilityService->validateDates($data['check_in'], $data['check_out']);
 
         return DB::transaction(function () use ($customer, $data, $roomType) {
@@ -60,8 +65,10 @@ class BookingService
                 'customer_email' => $data['customer_email'] ?? $customer->email,
                 'note'           => $data['note'] ?? null,
                 'total_amount'   => $pricing['total_price'],
-                'status'         => 'pending',
+                'status'         => BookingStatus::PENDING,
             ]);
+
+            $this->logStatus($booking, null, BookingStatus::PENDING, $customer->id, 'Khách tạo đơn đặt phòng.');
 
             $booking->bookingItems()->create([
                 'room_type_id'    => $roomType->id,
@@ -73,8 +80,8 @@ class BookingService
 
             $booking->payment()->create([
                 'amount' => $pricing['total_price'],
-                'status' => 'unpaid',
-                'method' => 'pay_at_hotel',
+                'status' => PaymentStatus::UNPAID,
+                'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
 
             return $booking->load(['bookingItems.roomType.hotel', 'payment']);
@@ -110,13 +117,15 @@ class BookingService
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        if (! in_array($booking->status, ['pending', 'confirmed'])) {
+        if (! $booking->canCancelByCustomer()) {
             throw ValidationException::withMessages([
                 'status' => ['Không thể hủy đơn ở trạng thái hiện tại.'],
             ]);
         }
 
-        $booking->update(['status' => 'cancelled']);
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::CANCELLED]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, 'Khách hủy đơn.');
 
         return $booking->fresh(['payment']);
     }
@@ -159,29 +168,33 @@ class BookingService
 
     public function confirm(Booking $booking): Booking
     {
-        if ($booking->status !== 'pending') {
+        if (! $booking->canConfirm()) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể xác nhận đơn ở trạng thái pending.'],
+                'status' => ['Chỉ có thể xác nhận đơn ở trạng thái chờ xác nhận.'],
             ]);
         }
 
-        $booking->update(['status' => 'confirmed']);
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::CONFIRMED]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, note: 'Admin/staff xác nhận đơn.');
 
         return $booking->fresh();
     }
 
     public function cancelByAdmin(Booking $booking): Booking
     {
-        if (! in_array($booking->status, ['pending', 'confirmed'])) {
+        if (! $booking->canCancelByAdmin()) {
             throw ValidationException::withMessages([
                 'status' => ['Không thể hủy đơn ở trạng thái hiện tại.'],
             ]);
         }
 
-        $booking->update(['status' => 'cancelled']);
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::CANCELLED]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, note: 'Admin/staff hủy đơn.');
 
-        if ($booking->payment && $booking->payment->status === 'paid') {
-            $booking->payment->update(['status' => 'refunded']);
+        if ($booking->payment && $booking->payment->canRefund()) {
+            $booking->payment->update(['status' => PaymentStatus::REFUNDED]);
         }
 
         return $booking->fresh(['payment']);
@@ -190,6 +203,22 @@ class BookingService
     // ----------------------------------------------------------------
     // PRIVATE
     // ----------------------------------------------------------------
+
+    private function logStatus(
+        Booking $booking,
+        ?BookingStatus $from,
+        BookingStatus $to,
+        ?int $changedById = null,
+        ?string $note = null,
+    ): void {
+        BookingStatusLog::create([
+            'booking_id'  => $booking->id,
+            'changed_by'  => $changedById,
+            'from_status' => $from?->value,
+            'to_status'   => $to->value,
+            'note'        => $note,
+        ]);
+    }
 
     private function generateCode(): string
     {
