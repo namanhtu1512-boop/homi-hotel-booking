@@ -23,11 +23,19 @@ class Hotel extends Model
 
     protected $casts = [
         'star_rating' => 'integer',
+        'status'      => 'string',
     ];
+
+    // --- Relationships ---
 
     public function roomTypes()
     {
         return $this->hasMany(RoomType::class);
+    }
+
+    public function activeRoomTypes()
+    {
+        return $this->hasMany(RoomType::class)->where('status', 'active');
     }
 
     public function bookings()
@@ -43,5 +51,12 @@ class Hotel extends Model
     public function amenities()
     {
         return $this->belongsToMany(Amenity::class, 'hotel_amenity');
+    }
+
+    // --- Scopes ---
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
     }
 }
