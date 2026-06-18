@@ -1,0 +1,418 @@
+{
+  "info": {
+    "name": "Homi Backend - Hotels Module (Week 5)",
+    "description": "BE4 - Tuần 5: Postman collection cho module Hotels. Bao gồm CRUD admin, public API, phân quyền và upload ảnh.\n\nMôi trường: local (http://localhost:8000), staging (https://staging.homi.vn)\n\nChạy theo thứ tự: Auth → Hotels Admin → Hotels Public\nTest runner: Newman hoặc Postman Collection Runner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    { "key": "base_url",       "value": "http://localhost:8000/api/v1" },
+    { "key": "admin_token",    "value": "" },
+    { "key": "staff_token",    "value": "" },
+    { "key": "customer_token", "value": "" },
+    { "key": "hotel_id",       "value": "" }
+  ],
+  "item": [
+
+    {
+      "name": "0. Auth Setup",
+      "item": [
+        {
+          "name": "Login as Admin",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has token', () => pm.expect(json.data.token).to.be.a('string'));",
+              "pm.collectionVariables.set('admin_token', json.data.token);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"admin@homi.vn\", \"password\": \"password\" }",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Login as Staff",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('staff_token', pm.response.json().data.token);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"staff@homi.vn\", \"password\": \"password\" }",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Login as Customer",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('customer_token', pm.response.json().data.token);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"customer@homi.vn\", \"password\": \"password\" }",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "1. Admin Hotels CRUD",
+      "item": [
+
+        {
+          "name": "TC-HTL-020 Admin tạo khách sạn hợp lệ",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+              "const d = pm.response.json().data;",
+              "pm.test('Có id', () => pm.expect(d.id).to.be.a('number'));",
+              "pm.test('name đúng', () => pm.expect(d.name).to.eql('Homi Grand Hotel Test'));",
+              "pm.test('is_active = true', () => pm.expect(d.is_active).to.be.true);",
+              "pm.collectionVariables.set('hotel_id', d.id);",
+              "pm.test('Response time < 1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Homi Grand Hotel Test\",\n  \"address\": \"456 Nguyễn Huệ, Quận 1\",\n  \"city\": \"Hồ Chí Minh\",\n  \"description\": \"Khách sạn kiểm thử tuần 5.\",\n  \"star_rating\": 4,\n  \"phone\": \"0281111111\",\n  \"email\": \"test@homi.vn\",\n  \"is_active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+
+        {
+          "name": "TC-HTL-030 Tạo thiếu name → 422",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422', () => pm.response.to.have.status(422));",
+              "const err = pm.response.json();",
+              "pm.test('Có lỗi name', () => pm.expect(err.errors).to.have.property('name'));",
+              "pm.test('Message lỗi bằng tiếng Việt', () => pm.expect(err.errors.name[0]).to.include('tên'));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"123 Test\",\n  \"city\": \"Hà Nội\",\n  \"star_rating\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+
+        {
+          "name": "TC-HTL-032 star_rating = 6 → 422",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 422', () => pm.response.to.have.status(422));",
+              "pm.test('Lỗi star_rating', () => pm.expect(pm.response.json().errors).to.have.property('star_rating'));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Invalid Stars\",\n  \"address\": \"123 Test\",\n  \"city\": \"Hà Nội\",\n  \"star_rating\": 6\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+
+        {
+          "name": "TC-HTL-022 Customer tạo → 403",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));",
+              "pm.test('Có message lỗi quyền', () => pm.expect(pm.response.json().message).to.exist);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customer_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hack Hotel\",\n  \"address\": \"123\",\n  \"city\": \"HCM\",\n  \"star_rating\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+
+        {
+          "name": "TC-HTL-023 Không có token → 401",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"No Auth Hotel\", \"address\": \"abc\", \"city\": \"HN\", \"star_rating\": 3 }",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+
+        {
+          "name": "TC-HTL-010 Admin danh sách tất cả hotel",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Có data array', () => pm.expect(json.data).to.be.an('array'));",
+              "pm.test('Có meta pagination', () => pm.expect(json.meta).to.have.all.keys('current_page','total','per_page','last_page'));",
+              "pm.test('Response time < 1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ]
+          }
+        },
+
+        {
+          "name": "TC-HTL-060 Admin cập nhật khách sạn",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('name đã cập nhật', () => pm.expect(pm.response.json().data.name).to.eql('Homi Grand Hotel Updated'));"
+            ]}
+          }],
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/admin/hotels/{{hotel_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Homi Grand Hotel Updated\" }",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+
+        {
+          "name": "TC-HTL-070 Admin toggle active → inactive",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('is_active đã đổi', () => pm.expect(pm.response.json().data.is_active).to.be.false);"
+            ]}
+          }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/admin/hotels/{{hotel_id}}/toggle-active",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ]
+          }
+        },
+
+        {
+          "name": "TC-HTL-052 Admin xem hotel đã ẩn vẫn được",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200 (admin thấy được)', () => pm.response.to.have.status(200));",
+              "pm.test('is_active = false', () => pm.expect(pm.response.json().data.is_active).to.be.false);"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/hotels/{{hotel_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ]
+          }
+        },
+
+        {
+          "name": "TC-HTL-080 Admin soft delete khách sạn",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 204 No Content', () => pm.response.to.have.status(204));"
+            ]}
+          }],
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/hotels/{{hotel_id}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ]
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "2. Public Hotels API",
+      "item": [
+
+        {
+          "name": "TC-HTL-001 Khách liệt kê hotel public",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('data là array', () => pm.expect(json.data).to.be.an('array'));",
+              "pm.test('Có pagination meta', () => pm.expect(json.meta).to.exist);",
+              "if (json.data.length > 0) {",
+              "  pm.test('Không có deleted_at trong response', () => pm.expect(json.data[0]).to.not.have.property('deleted_at'));",
+              "  pm.test('Không có created_by trong response', () => pm.expect(json.data[0]).to.not.have.property('created_by'));",
+              "}"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/hotels",
+            "header": [{ "key": "Accept", "value": "application/json" }]
+          }
+        },
+
+        {
+          "name": "TC-HTL-050 Chi tiết hotel active (public)",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json().data;",
+              "pm.test('Có đủ field cần thiết', () => {",
+              "  pm.expect(d).to.have.all.keys(['id','name','address','city','description','star_rating','amenities','images']);",
+              "});"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/hotels/1",
+              "host": ["{{base_url}}"],
+              "path": ["hotels", "1"]
+            },
+            "header": [{ "key": "Accept", "value": "application/json" }]
+          }
+        },
+
+        {
+          "name": "TC-HTL-051 Hotel đã ẩn → 404 với public",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/hotels/{{hotel_id}}",
+            "header": [{ "key": "Accept", "value": "application/json" }]
+          }
+        },
+
+        {
+          "name": "TC-HTL-053 Hotel không tồn tại → 404",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/hotels/999999",
+            "header": [{ "key": "Accept", "value": "application/json" }]
+          }
+        },
+
+        {
+          "name": "TC-HTL-011 Customer gọi admin endpoint → 403",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/hotels",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customer_token}}" },
+              { "key": "Accept", "value": "application/json" }
+            ]
+          }
+        }
+
+      ]
+    }
+
+  ]
+}
