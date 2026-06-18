@@ -67,7 +67,8 @@
 
             <div class="quick-actions">
                 @if (in_array(auth()->user()->role, ['admin', 'staff']))
-                    <a href="{{ route('admin.database') }}" class="btn btn-primary">Xem database cơ bản</a>
+                    <a href="{{ route('admin.hotels.index') }}" class="btn btn-primary">Quản lý khách sạn</a>
+                    <a href="{{ route('admin.database') }}" class="btn btn-outline">Xem database cơ bản</a>
                 @endif
 
                 <form method="POST" action="{{ route('logout') }}">

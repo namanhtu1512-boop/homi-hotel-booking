@@ -617,6 +617,7 @@
                     <a href="#offers">Ưu đãi</a>
 
                     @if (in_array(auth()->user()->role, ['admin', 'staff']))
+                        <a href="{{ route('admin.hotels.index') }}">Quản lý khách sạn</a>
                         <a href="{{ route('admin.database') }}">Database</a>
                     @endif
                 </div>

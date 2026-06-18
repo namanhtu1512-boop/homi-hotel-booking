@@ -14,7 +14,9 @@ class HotelService
 
     public function adminList(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = Hotel::withTrashed()->withCount('roomTypes');
+        $query = Hotel::withTrashed()
+            ->withCount('roomTypes')
+            ->with(['images' => fn ($q) => $q->orderBy('sort_order')->limit(1)]);
 
         if (! empty($filters['search'])) {
             $keyword = $filters['search'];
@@ -53,7 +55,7 @@ class HotelService
     {
         $hotel = Hotel::create([
             'name'        => $data['name'],
-            'slug'        => Str::slug($data['name']),
+            'slug'        => $this->uniqueSlug($data['name']),
             'city'        => $data['city'],
             'district'    => $data['district'] ?? null,
             'address'     => $data['address'],
@@ -85,7 +87,7 @@ class HotelService
         ], fn ($v) => $v !== null);
 
         if (isset($data['name'])) {
-            $fields['slug'] = Str::slug($data['name']);
+            $fields['slug'] = $this->uniqueSlug($data['name'], $hotel->id);
         }
 
         $hotel->update($fields);
@@ -100,6 +102,29 @@ class HotelService
         }
 
         return $hotel->fresh(['amenities', 'images']);
+    }
+
+    /**
+     * Sinh slug duy nhất từ tên khách sạn. Cho phép nhiều khách sạn trùng tên
+     * (vd: cùng thương hiệu ở các thành phố khác nhau) bằng cách thêm hậu tố -2, -3...
+     */
+    private function uniqueSlug(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name);
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            Hotel::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     public function softDelete(Hotel $hotel): void
