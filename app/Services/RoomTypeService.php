@@ -38,11 +38,7 @@ class RoomTypeService
 
     public function create(Hotel $hotel, array $data): RoomType
     {
-        if ($hotel->status !== 'active') {
-            throw ValidationException::withMessages([
-                'hotel_id' => ['Không thể thêm phòng cho khách sạn đang bị ẩn.'],
-            ]);
-        }
+        $this->assertHotelActive($hotel);
 
         $roomType = $hotel->roomTypes()->create([
             'name'           => $data['name'],
@@ -134,6 +130,21 @@ class RoomTypeService
         if ($newTotal < 1) {
             throw ValidationException::withMessages([
                 'total_rooms' => ['Số lượng phòng phải lớn hơn hoặc bằng 1.'],
+            ]);
+        }
+    }
+
+    /**
+     * Rule dùng chung: không cho tạo loại phòng mới khi khách sạn đang bị ẩn.
+     * Các thao tác sửa/xóa/đổi giá trên phòng đã tồn tại vẫn được phép dù
+     * hotel đang ẩn, vì admin/staff có thể cần chỉnh sửa dữ liệu trước khi
+     * hiện lại khách sạn.
+     */
+    private function assertHotelActive(Hotel $hotel): void
+    {
+        if ($hotel->status !== 'active') {
+            throw ValidationException::withMessages([
+                'hotel_id' => ['Không thể thêm phòng cho khách sạn đang bị ẩn.'],
             ]);
         }
     }

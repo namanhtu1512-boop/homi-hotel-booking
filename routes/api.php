@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\AdminHotelController;
 use App\Http\Controllers\Api\Admin\AdminRoomTypeController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
@@ -47,9 +48,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}', [AdminUserController::class, 'show']);
     });
 
-    // Chỉ admin mới được khóa/mở khóa tài khoản
+    // Chỉ admin mới được khóa/mở khóa tài khoản và xem audit log
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
         Route::patch('/users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus']);
+        Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
     });
 
     // ---------------------------------------------------------------

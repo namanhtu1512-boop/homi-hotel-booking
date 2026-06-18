@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Illuminate\Validation\Rule;
 class AdminUserController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(private readonly AuditLogService $auditLog) {}
 
     /**
      * Danh sách người dùng (có lọc role, tìm kiếm tên/email, phân trang).
@@ -72,6 +75,8 @@ class AdminUserController extends Controller
         $message = $newStatus === 'locked'
             ? "Đã khóa tài khoản {$user->name}."
             : "Đã mở khóa tài khoản {$user->name}.";
+
+        $this->auditLog->log('user.status_toggled', $user, $message);
 
         return $this->success(['user' => $user->fresh()], $message);
     }

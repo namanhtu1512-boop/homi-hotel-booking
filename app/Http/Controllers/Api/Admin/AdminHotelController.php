@@ -7,6 +7,7 @@ use App\Http\Requests\Hotel\AdminListHotelRequest;
 use App\Http\Requests\Hotel\CreateHotelRequest;
 use App\Http\Requests\Hotel\UpdateHotelRequest;
 use App\Models\Hotel;
+use App\Services\AuditLogService;
 use App\Services\HotelService;
 use App\Services\ImageService;
 use App\Traits\ApiResponse;
@@ -19,6 +20,7 @@ class AdminHotelController extends Controller
     public function __construct(
         private readonly HotelService $hotelService,
         private readonly ImageService $imageService,
+        private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(AdminListHotelRequest $request): JsonResponse
@@ -42,6 +44,8 @@ class AdminHotelController extends Controller
 
         $hotel = $this->hotelService->create($request->validated());
 
+        $this->auditLog->log('hotel.created', $hotel, "Tạo khách sạn \"{$hotel->name}\".");
+
         return $this->created($hotel, 'Tạo khách sạn thành công.');
     }
 
@@ -62,6 +66,8 @@ class AdminHotelController extends Controller
 
         $hotel = $this->hotelService->update($hotel, $request->validated());
 
+        $this->auditLog->log('hotel.updated', $hotel, "Cập nhật khách sạn \"{$hotel->name}\".");
+
         return $this->success($hotel, 'Cập nhật khách sạn thành công.');
     }
 
@@ -72,6 +78,8 @@ class AdminHotelController extends Controller
         $this->authorize('delete', $hotel);
 
         $this->hotelService->softDelete($hotel);
+
+        $this->auditLog->log('hotel.deleted', $hotel, "Xóa mềm khách sạn \"{$hotel->name}\".");
 
         return $this->success(null, 'Xóa khách sạn thành công.');
     }
@@ -84,6 +92,8 @@ class AdminHotelController extends Controller
 
         $this->hotelService->restore($hotel);
 
+        $this->auditLog->log('hotel.restored', $hotel, "Khôi phục khách sạn \"{$hotel->name}\".");
+
         return $this->success(null, 'Khôi phục khách sạn thành công.');
     }
 
@@ -94,6 +104,8 @@ class AdminHotelController extends Controller
         $this->authorize('toggleStatus', $hotel);
 
         $hotel = $this->hotelService->toggleStatus($hotel);
+
+        $this->auditLog->log('hotel.status_toggled', $hotel, "Đổi trạng thái khách sạn \"{$hotel->name}\" thành \"{$hotel->status}\".");
 
         return $this->success($hotel, 'Cập nhật trạng thái khách sạn thành công.');
     }

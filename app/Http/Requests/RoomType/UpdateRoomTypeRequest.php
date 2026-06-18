@@ -3,9 +3,12 @@
 namespace App\Http\Requests\RoomType;
 
 use App\Http\Requests\BaseFormRequest;
+use App\Http\Requests\RoomType\Concerns\HasRoomTypeAttributes;
 
 class UpdateRoomTypeRequest extends BaseFormRequest
 {
+    use HasRoomTypeAttributes;
+
     public function rules(): array
     {
         return [
@@ -18,21 +21,6 @@ class UpdateRoomTypeRequest extends BaseFormRequest
             'total_rooms'     => ['sometimes', 'integer', 'min:1'],
             'images'          => ['nullable', 'array'],
             'images.*'        => ['string', 'max:500'],
-        ];
-    }
-
-    public function attributes(): array
-    {
-        return [
-            'name'            => 'tên loại phòng',
-            'description'     => 'mô tả',
-            'price_per_night' => 'giá theo đêm',
-            'capacity'        => 'sức chứa',
-            'bed_type'        => 'loại giường',
-            'area'            => 'diện tích',
-            'total_rooms'     => 'tổng số phòng',
-            'images'          => 'hình ảnh',
-            'images.*'        => 'đường dẫn ảnh',
         ];
     }
 }

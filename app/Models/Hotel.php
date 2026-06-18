@@ -21,6 +21,10 @@ class Hotel extends Model
         'status',
     ];
 
+    protected $hidden = [
+        'deleted_at',
+    ];
+
     protected $casts = [
         'star_rating' => 'integer',
         'status'      => 'string',
