@@ -271,6 +271,106 @@
             background: var(--white);
         }
 
+        select,
+        textarea {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #fbfdff;
+            padding: 12px 14px;
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--text);
+            outline: none;
+            transition: 0.2s ease;
+        }
+
+        select {
+            height: 48px;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(30, 94, 255, 0.10);
+            background: var(--white);
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .checkbox-item input {
+            width: auto;
+            height: auto;
+        }
+
+        .badge-orange {
+            background: #fff3e0;
+            color: #b15c00;
+        }
+
+        .badge-red {
+            background: #fdeceb;
+            color: var(--danger);
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 8px 12px;
+            font-size: 13px;
+            border-radius: 10px;
+        }
+
+        .btn-danger {
+            background: #fdeceb;
+            color: var(--danger);
+            border: 1px solid #f6c8c3;
+        }
+
+        .btn-danger:hover {
+            background: #fbdedb;
+        }
+
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            width: auto;
+            min-width: 180px;
+        }
+
+        .alert-success {
+            background: #eafaf1;
+            border: 1px solid #bfeed4;
+            color: var(--success);
+        }
+
         .alert {
             border-radius: 14px;
             padding: 14px 16px;
@@ -611,6 +711,7 @@
                         <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
 
                         @if (in_array(auth()->user()->role, ['admin', 'staff']))
+                            <a href="{{ route('admin.hotels.index') }}" class="nav-link">Quản lý khách sạn</a>
                             <a href="{{ route('admin.database') }}" class="nav-link">Database</a>
                         @endif
 
