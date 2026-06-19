@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Amenity;
 use App\Models\Hotel;
+use App\Services\AuditLogService;
 use App\Services\HotelService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,10 @@ use Illuminate\View\View;
 
 class HotelController extends Controller
 {
-    public function __construct(private readonly HotelService $hotelService) {}
+    public function __construct(
+        private readonly HotelService $hotelService,
+        private readonly AuditLogService $auditLog,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -50,6 +54,8 @@ class HotelController extends Controller
 
         $hotel = $this->hotelService->create($data);
 
+        $this->auditLog->log('hotel.created', $hotel, "Tạo khách sạn \"{$hotel->name}\".");
+
         return redirect()
             ->route('admin.hotels.index')
             ->with('success', "Đã tạo khách sạn \"{$hotel->name}\".");
@@ -74,6 +80,8 @@ class HotelController extends Controller
 
         $this->hotelService->update($hotel, $data);
 
+        $this->auditLog->log('hotel.updated', $hotel, "Cập nhật khách sạn \"{$hotel->name}\".");
+
         return redirect()
             ->route('admin.hotels.index')
             ->with('success', "Đã cập nhật khách sạn \"{$hotel->name}\".");
@@ -84,6 +92,8 @@ class HotelController extends Controller
         $hotel = Hotel::findOrFail($id);
 
         $this->hotelService->softDelete($hotel);
+
+        $this->auditLog->log('hotel.deleted', $hotel, "Xóa mềm khách sạn \"{$hotel->name}\".");
 
         return redirect()
             ->route('admin.hotels.index')
@@ -96,6 +106,8 @@ class HotelController extends Controller
 
         $this->hotelService->restore($hotel);
 
+        $this->auditLog->log('hotel.restored', $hotel, "Khôi phục khách sạn \"{$hotel->name}\".");
+
         return redirect()
             ->route('admin.hotels.index')
             ->with('success', "Đã khôi phục khách sạn \"{$hotel->name}\".");
@@ -106,6 +118,8 @@ class HotelController extends Controller
         $hotel = Hotel::findOrFail($id);
 
         $hotel = $this->hotelService->toggleStatus($hotel);
+
+        $this->auditLog->log('hotel.status_toggled', $hotel, "Đổi trạng thái khách sạn \"{$hotel->name}\" thành \"{$hotel->status}\".");
 
         return redirect()
             ->route('admin.hotels.index')

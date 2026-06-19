@@ -71,4 +71,14 @@ class Booking extends Model
     {
         return $this->status->canConfirm();
     }
+
+    public function canCheckIn(): bool
+    {
+        return $this->status->canCheckIn();
+    }
+
+    public function canCheckOut(): bool
+    {
+        return $this->status->canCheckOut();
+    }
 }

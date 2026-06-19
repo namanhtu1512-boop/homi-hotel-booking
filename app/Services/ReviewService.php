@@ -12,7 +12,7 @@ class ReviewService
 {
     public function create(User $customer, int $hotelId, array $data): Review
     {
-        $hotel = Hotel::where('is_active', true)->findOrFail($hotelId);
+        $hotel = Hotel::where('status', 'active')->findOrFail($hotelId);
 
         $hasEligibleBooking = $customer->bookings()
             ->whereHas(
@@ -62,5 +62,35 @@ class ReviewService
         $avg = Review::where('hotel_id', $hotelId)->where('is_visible', true)->avg('rating');
 
         return $avg ? round((float) $avg, 1) : null;
+    }
+
+    // ----------------------------------------------------------------
+    // ADMIN / STAFF
+    // ----------------------------------------------------------------
+
+    public function adminList(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = Review::with(['user', 'hotel'])->orderBy('created_at', 'desc');
+
+        if (! empty($filters['hotel_id'])) {
+            $query->where('hotel_id', $filters['hotel_id']);
+        }
+
+        if (! empty($filters['rating'])) {
+            $query->where('rating', $filters['rating']);
+        }
+
+        if (isset($filters['visible']) && $filters['visible'] !== '') {
+            $query->where('is_visible', (bool) $filters['visible']);
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    public function toggleVisibility(Review $review): Review
+    {
+        $review->update(['is_visible' => ! $review->is_visible]);
+
+        return $review->fresh();
     }
 }

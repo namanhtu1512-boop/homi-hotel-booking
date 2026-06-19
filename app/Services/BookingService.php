@@ -136,7 +136,7 @@ class BookingService
 
     public function adminList(array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
-        $query = Booking::with(['user', 'bookingItems.roomType', 'payment'])
+        $query = Booking::with(['user', 'hotel', 'bookingItems.roomType', 'payment'])
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['status'])) {
@@ -153,6 +153,15 @@ class BookingService
 
         if (! empty($filters['booking_code'])) {
             $query->where('booking_code', $filters['booking_code']);
+        }
+
+        if (! empty($filters['search'])) {
+            $keyword = $filters['search'];
+            $query->where(function ($q) use ($keyword) {
+                $q->where('booking_code', 'like', "%{$keyword}%")
+                  ->orWhere('customer_name', 'like', "%{$keyword}%")
+                  ->orWhere('customer_email', 'like', "%{$keyword}%");
+            });
         }
 
         if (! empty($filters['created_from'])) {
@@ -198,6 +207,36 @@ class BookingService
         }
 
         return $booking->fresh(['payment']);
+    }
+
+    public function checkIn(Booking $booking): Booking
+    {
+        if (! $booking->canCheckIn()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể check-in đơn đã xác nhận.'],
+            ]);
+        }
+
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::CHECKED_IN]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_IN, note: 'Admin/staff check-in cho khách.');
+
+        return $booking->fresh();
+    }
+
+    public function checkOut(Booking $booking): Booking
+    {
+        if (! $booking->canCheckOut()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể check-out đơn đang lưu trú.'],
+            ]);
+        }
+
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::CHECKED_OUT]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_OUT, note: 'Admin/staff check-out cho khách.');
+
+        return $booking->fresh();
     }
 
     // ----------------------------------------------------------------

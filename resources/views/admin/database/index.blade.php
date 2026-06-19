@@ -1,23 +1,22 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
-@section('title', 'Database Homi')
-@section('banner_tag', 'Database Overview')
-@section('banner_title', 'Database cơ bản')
-@section('banner_subtitle', 'Theo dõi nhanh các bảng dữ liệu chính của hệ thống như users, hotels, room_types, bookings, booking_items và payments.')
+@section('title', 'Database · Homi Admin')
+
+@push('styles')
+<style>
+    .db-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .db-summary-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem; box-shadow: var(--shadow); }
+    .db-summary-card .name { color: var(--muted); font-size: .8rem; font-weight: 700; margin-bottom: .4rem; text-transform: capitalize; }
+    .db-summary-card .value { font-size: 1.5rem; font-weight: 800; }
+</style>
+@endpush
 
 @section('content')
-<div class="card">
-    <div class="page-actions">
-        <div>
-            <div class="section-kicker">Quản trị dữ liệu</div>
-            <h2 class="section-title" style="margin-bottom: 6px;">Tổng quan dữ liệu</h2>
-            <p class="section-desc">Danh sách bảng và số lượng bản ghi hiện có trong hệ thống.</p>
-        </div>
-
-        <a href="{{ route('dashboard') }}" class="btn btn-outline">Quay lại dashboard</a>
+    <div class="admin-page-header">
+        <div><h1>🗄️ Database</h1><p>Theo dõi nhanh các bảng dữ liệu chính: users, hotels, room_types, bookings, booking_items, payments</p></div>
     </div>
 
-    <div class="db-summary">
+    <div class="db-summary-grid">
         @foreach ($database as $tableName => $table)
             <div class="db-summary-card">
                 <div class="name">{{ $tableName }}</div>
@@ -25,61 +24,47 @@
             </div>
         @endforeach
     </div>
-</div>
 
-@foreach ($database as $tableName => $table)
-    <div class="card">
-        <div class="table-section-head">
-            <div>
-                <div class="section-kicker">Bảng dữ liệu</div>
-                <h2 class="section-title" style="margin-bottom: 6px; text-transform: capitalize;">{{ $tableName }}</h2>
-                <p class="section-desc">Hiển thị tối đa 20 dòng dữ liệu mới nhất.</p>
+    @foreach ($database as $tableName => $table)
+        <div class="data-card">
+            <div class="data-card-header" style="text-transform:capitalize">
+                {{ $tableName }} <span class="count-pill">{{ $table['count'] }} dòng</span>
             </div>
-
-            <div class="table-count">
-                {{ $table['count'] }} dòng
-            </div>
-        </div>
-
-        @if ($table['rows']->isEmpty())
-            <div class="empty-box">Chưa có dữ liệu trong bảng này.</div>
-        @else
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            @foreach ($table['columns'] as $column)
-                                <th>{{ $column }}</th>
-                            @endforeach
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        @foreach ($table['rows'] as $row)
+            @if ($table['rows']->isEmpty())
+                <div class="empty-state"><div class="icon">🗄️</div><h3>Chưa có dữ liệu</h3><p>Bảng này hiện chưa có bản ghi nào.</p></div>
+            @else
+                <div class="table-scroll">
+                    <table class="table">
+                        <thead>
                             <tr>
                                 @foreach ($table['columns'] as $column)
-                                    @php
-                                        $rawValue = $row->$column;
-
-                                        if ($column === 'password' && !empty($rawValue)) {
-                                            $displayValue = '********';
-                                        } elseif (is_null($rawValue) || $rawValue === '') {
-                                            $displayValue = 'Trống';
-                                        } else {
-                                            $displayValue = \Illuminate\Support\Str::limit((string) $rawValue, 80);
-                                        }
-                                    @endphp
-
-                                    <td title="{{ is_null($rawValue) ? '' : (string) $rawValue }}">
-                                        {{ $displayValue }}
-                                    </td>
+                                    <th>{{ $column }}</th>
                                 @endforeach
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
-    </div>
-@endforeach
+                        </thead>
+                        <tbody>
+                            @foreach ($table['rows'] as $row)
+                                <tr>
+                                    @foreach ($table['columns'] as $column)
+                                        @php
+                                            $rawValue = $row->$column;
+
+                                            if ($column === 'password' && !empty($rawValue)) {
+                                                $displayValue = '********';
+                                            } elseif (is_null($rawValue) || $rawValue === '') {
+                                                $displayValue = 'Trống';
+                                            } else {
+                                                $displayValue = \Illuminate\Support\Str::limit((string) $rawValue, 80);
+                                            }
+                                        @endphp
+                                        <td title="{{ is_null($rawValue) ? '' : (string) $rawValue }}">{{ $displayValue }}</td>
+                                    @endforeach
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endforeach
 @endsection
