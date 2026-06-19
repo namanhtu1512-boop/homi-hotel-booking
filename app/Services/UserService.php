@@ -9,7 +9,7 @@ class UserService
 {
     public function list(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = User::query();
+        $query = User::withCount('bookings');
 
         if (! empty($filters['role'])) {
             $query->where('role', $filters['role']);

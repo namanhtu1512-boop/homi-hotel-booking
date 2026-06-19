@@ -13,13 +13,13 @@ class StatisticsService
     public function overview(): array
     {
         return [
-            'total_hotels'       => Hotel::where('is_active', true)->count(),
+            'total_hotels'       => Hotel::where('status', 'active')->count(),
             'total_customers'    => User::where('role', 'customer')->count(),
             'total_bookings'     => Booking::count(),
             'bookings_today'     => Booking::whereDate('created_at', today())->count(),
             'pending_bookings'   => Booking::where('status', 'pending')->count(),
             'confirmed_bookings' => Booking::where('status', 'confirmed')->count(),
-            'canceled_bookings'  => Booking::where('status', 'canceled')->count(),
+            'cancelled_bookings' => Booking::where('status', 'cancelled')->count(),
         ];
     }
 
@@ -31,7 +31,7 @@ class StatisticsService
         ])->get();
 
         $total    = $bookings->count();
-        $canceled = $bookings->where('status', 'canceled')->count();
+        $canceled = $bookings->where('status', 'cancelled')->count();
 
         $grouped = $bookings->groupBy(function ($b) use ($groupBy) {
             return match ($groupBy) {
@@ -43,7 +43,7 @@ class StatisticsService
             'total'     => $group->count(),
             'pending'   => $group->where('status', 'pending')->count(),
             'confirmed' => $group->where('status', 'confirmed')->count(),
-            'canceled'  => $group->where('status', 'canceled')->count(),
+            'cancelled'  => $group->where('status', 'cancelled')->count(),
         ]);
 
         return [

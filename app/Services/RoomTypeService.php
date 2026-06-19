@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Hotel;
 use App\Models\RoomType;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -11,6 +12,28 @@ use Illuminate\Validation\ValidationException;
 class RoomTypeService
 {
     public function __construct(private readonly ImageService $imageService) {}
+
+    /**
+     * Danh sách loại phòng toàn hệ thống (mọi khách sạn) cho trang quản trị.
+     */
+    public function adminList(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    {
+        $query = RoomType::withTrashed()->with('hotel');
+
+        if (! empty($filters['hotel_id'])) {
+            $query->where('hotel_id', $filters['hotel_id']);
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['search'])) {
+            $query->where('name', 'like', "%{$filters['search']}%");
+        }
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+    }
 
     public function listByHotel(int $hotelId, bool $adminView = false): Collection
     {
@@ -123,6 +146,15 @@ class RoomTypeService
     public function restore(RoomType $roomType): void
     {
         $roomType->restore();
+    }
+
+    public function toggleStatus(RoomType $roomType): RoomType
+    {
+        $roomType->update([
+            'status' => $roomType->status === 'active' ? 'hidden' : 'active',
+        ]);
+
+        return $roomType->fresh();
     }
 
     private function validateInventoryReduction(int $newTotal): void

@@ -65,6 +65,10 @@ class AuthWebController extends Controller
 
         $request->session()->regenerate();
 
+        if (Auth::user()->role === 'admin' || Auth::user()->role === 'staff') {
+            return redirect()->route('admin.dashboard');
+        }
+
         return redirect()->route('home');
     }
 
