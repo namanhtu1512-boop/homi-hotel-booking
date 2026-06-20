@@ -42,7 +42,7 @@ class UserService
         }
 
         $target->update([
-            'status' => $target->status === 'active' ? 'inactive' : 'active',
+            'status' => $target->status === 'active' ? 'locked' : 'active',
         ]);
 
         return $target->fresh();

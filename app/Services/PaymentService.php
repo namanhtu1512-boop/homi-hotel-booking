@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 class PaymentService
 {
     private const VALID_TRANSITIONS = [
+        'unpaid'   => ['paid'],
         'pending'  => ['paid'],
         'paid'     => ['refunded'],
         'refunded' => [],

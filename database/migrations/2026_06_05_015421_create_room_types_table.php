@@ -14,12 +14,8 @@ return new class extends Migration
         Schema::create('room_types', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('hotel_id')
-                ->constrained('hotels')
-                ->cascadeOnDelete();
-
             $table->string('name');
-            $table->string('slug');
+            $table->string('slug')->unique();
 
             $table->text('description')->nullable();
 
@@ -34,8 +30,6 @@ return new class extends Migration
                 ->default('active');
 
             $table->timestamps();
-
-            $table->unique(['hotel_id', 'slug']);
         });
     }
 

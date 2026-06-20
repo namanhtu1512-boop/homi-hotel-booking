@@ -1,17 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Đăng nhập Homi')
-@section('banner_tag', 'Welcome Back')
-@section('banner_title', 'Đăng nhập vào hệ thống Homi')
-@section('banner_subtitle', 'Truy cập nhanh vào dashboard quản trị, dữ liệu khách sạn và hệ thống đặt phòng với giao
-    diện gọn gàng, rõ ràng.')
+@section('title', 'Đăng ký Homi')
+@section('banner_tag', 'Tham gia Homi')
+@section('banner_title', 'Tạo tài khoản Homi')
+@section('banner_subtitle', 'Đăng ký để đặt phòng nhanh hơn, theo dõi đơn đặt phòng và quản lý thông tin cá nhân.')
 
 @section('content')
     <div class="auth-layout">
         <div class="card auth-card">
-            <div class="section-kicker">Tài khoản hệ thống</div>
-            <h2 class="section-title">Đăng nhập</h2>
-            <p class="section-desc">Nhập email và mật khẩu để truy cập hệ thống.</p>
+            <div class="section-kicker">Tài khoản mới</div>
+            <h2 class="section-title">Đăng ký</h2>
+            <p class="section-desc">Điền thông tin bên dưới để tạo tài khoản khách hàng.</p>
 
             @if ($errors->any())
                 <div class="alert alert-danger">
@@ -21,8 +20,14 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}" class="form-grid">
+            <form method="POST" action="{{ route('register') }}" class="form-grid">
                 @csrf
+
+                <div class="form-group">
+                    <label for="name">Họ tên</label>
+                    <input id="name" type="text" name="name" value="{{ old('name') }}"
+                        placeholder="Nhập họ tên của bạn" required>
+                </div>
 
                 <div class="form-group">
                     <label for="email">Email</label>
@@ -32,15 +37,21 @@
 
                 <div class="form-group">
                     <label for="password">Mật khẩu</label>
-                    <input id="password" type="password" name="password" placeholder="Nhập mật khẩu" required>
+                    <input id="password" type="password" name="password" placeholder="Tối thiểu 8 ký tự" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-block">Đăng nhập</button>
+                <div class="form-group">
+                    <label for="password_confirmation">Xác nhận mật khẩu</label>
+                    <input id="password_confirmation" type="password" name="password_confirmation"
+                        placeholder="Nhập lại mật khẩu" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Đăng ký</button>
             </form>
 
             <div class="auth-footer">
-                Chưa có tài khoản?
-                <a href="{{ route('register') }}">Đăng ký ngay</a>
+                Đã có tài khoản?
+                <a href="{{ route('login') }}">Đăng nhập</a>
             </div>
         </div>
 
@@ -48,24 +59,23 @@
             <div class="section-kicker">Lợi ích</div>
             <h2 class="section-title">Quản lý nhanh, nhìn đẹp, dễ dùng</h2>
             <p class="section-desc">
-                Giao diện tông xanh dương và trắng giúp thao tác rõ ràng hơn khi đăng nhập, xem dashboard và theo dõi dữ
-                liệu.
+                Tạo tài khoản để đặt phòng, xem lại lịch sử đặt phòng và cập nhật thông tin cá nhân bất cứ lúc nào.
             </p>
 
             <div class="auth-features">
                 <div class="feature-box">
+                    <h4>Đặt phòng nhanh</h4>
+                    <p>Lưu sẵn thông tin liên hệ để đặt phòng chỉ trong vài bước.</p>
+                </div>
+
+                <div class="feature-box">
+                    <h4>Theo dõi đơn đặt phòng</h4>
+                    <p>Xem trạng thái đơn, hủy đơn khi cần và theo dõi lịch sử lưu trú.</p>
+                </div>
+
+                <div class="feature-box">
                     <h4>Quản lý tài khoản</h4>
-                    <p>Đăng nhập, đăng ký và kiểm soát quyền truy cập theo vai trò customer, staff, admin.</p>
-                </div>
-
-                <div class="feature-box">
-                    <h4>Dashboard rõ ràng</h4>
-                    <p>Xem nhanh thông tin tài khoản, vai trò và các chức năng chính ngay sau khi đăng nhập.</p>
-                </div>
-
-                <div class="feature-box">
-                    <h4>Theo dõi database</h4>
-                    <p>Admin và staff có thể xem dữ liệu cơ bản như users, hotels, room_types, bookings, payments.</p>
+                    <p>Cập nhật thông tin cá nhân, đổi mật khẩu ngay trong trang cá nhân.</p>
                 </div>
             </div>
         </div>

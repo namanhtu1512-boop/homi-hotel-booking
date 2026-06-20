@@ -7,49 +7,65 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Test case theo docs/test-auth.md mục 4 — TC-LOGIN-01 đến TC-LOGIN-06.
+ * Test case đăng nhập qua form Blade (/customer/login).
  */
 class LoginTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_success_returns_token(): void // TC-LOGIN-01
+    public function test_customer_login_redirects_to_customer_dashboard(): void
     {
-        User::factory()->create([
+        User::factory()->customer()->create([
             'email'    => 'user@homi.vn',
             'password' => '123456',
             'status'   => 'active',
         ]);
 
-        $this->postJson('/api/v1/login', [
+        $this->post('/customer/login', [
             'email'    => 'user@homi.vn',
             'password' => '123456',
-        ])->assertStatus(200)
-            ->assertJson(['success' => true])
-            ->assertJsonStructure(['data' => ['user', 'token']]);
+        ])->assertRedirect(route('customer.dashboard'));
+
+        $this->assertAuthenticated();
     }
 
-    public function test_login_fails_with_wrong_password(): void // TC-LOGIN-02
+    public function test_admin_login_redirects_to_admin_dashboard(): void
+    {
+        User::factory()->admin()->create([
+            'email'    => 'admin@homi.vn',
+            'password' => '123456',
+            'status'   => 'active',
+        ]);
+
+        $this->post('/customer/login', [
+            'email'    => 'admin@homi.vn',
+            'password' => '123456',
+        ])->assertRedirect(route('admin.dashboard'));
+    }
+
+    public function test_login_fails_with_wrong_password(): void
     {
         User::factory()->create(['email' => 'user@homi.vn', 'password' => '123456']);
 
-        $this->postJson('/api/v1/login', [
+        $this->post('/customer/login', [
             'email'    => 'user@homi.vn',
             'password' => 'sai_mat_khau',
-        ])->assertStatus(401)
-            ->assertJson(['success' => false]);
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
     }
 
-    public function test_login_fails_with_nonexistent_email(): void // TC-LOGIN-03
+    public function test_login_fails_with_nonexistent_email(): void
     {
-        $this->postJson('/api/v1/login', [
+        $this->post('/customer/login', [
             'email'    => 'khongtontai@homi.vn',
             'password' => '123456',
-        ])->assertStatus(401)
-            ->assertJson(['success' => false]);
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
     }
 
-    public function test_login_fails_when_account_is_locked(): void // TC-LOGIN-04
+    public function test_login_fails_when_account_is_locked(): void
     {
         User::factory()->create([
             'email'    => 'user@homi.vn',
@@ -57,30 +73,16 @@ class LoginTest extends TestCase
             'status'   => 'locked',
         ]);
 
-        $this->postJson('/api/v1/login', [
+        $this->post('/customer/login', [
             'email'    => 'user@homi.vn',
             'password' => '123456',
-        ])->assertStatus(403)
-            ->assertJson(['success' => false]);
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
     }
 
-    public function test_login_fails_when_fields_missing(): void // TC-LOGIN-05
+    public function test_login_fails_when_fields_missing(): void
     {
-        $this->postJson('/api/v1/login', [])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email', 'password']);
-    }
-
-    public function test_password_not_in_login_response(): void // TC-LOGIN-06
-    {
-        User::factory()->create(['email' => 'user@homi.vn', 'password' => '123456']);
-
-        $response = $this->postJson('/api/v1/login', [
-            'email'    => 'user@homi.vn',
-            'password' => '123456',
-        ]);
-
-        $response->assertStatus(200);
-        $this->assertArrayNotHasKey('password', $response->json('data.user'));
+        $this->post('/customer/login', [])->assertSessionHasErrors(['email', 'password']);
     }
 }

@@ -14,7 +14,7 @@
             <p class="section-desc">Danh sách bảng và số lượng bản ghi hiện có trong hệ thống.</p>
         </div>
 
-        <a href="{{ route('dashboard') }}" class="btn btn-outline">Quay lại dashboard</a>
+        <a href="{{ route('admin.dashboard') }}" class="btn btn-outline">Quay lại dashboard</a>
     </div>
 
     <div class="db-summary">

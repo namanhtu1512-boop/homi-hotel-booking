@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Booking;
-use App\Models\Hotel;
 use App\Models\Payment;
 use App\Models\User;
 use Carbon\Carbon;
@@ -13,13 +12,12 @@ class StatisticsService
     public function overview(): array
     {
         return [
-            'total_hotels'       => Hotel::where('is_active', true)->count(),
             'total_customers'    => User::where('role', 'customer')->count(),
             'total_bookings'     => Booking::count(),
             'bookings_today'     => Booking::whereDate('created_at', today())->count(),
             'pending_bookings'   => Booking::where('status', 'pending')->count(),
             'confirmed_bookings' => Booking::where('status', 'confirmed')->count(),
-            'canceled_bookings'  => Booking::where('status', 'canceled')->count(),
+            'cancelled_bookings' => Booking::where('status', 'cancelled')->count(),
         ];
     }
 
@@ -30,8 +28,8 @@ class StatisticsService
             Carbon::parse($to)->endOfDay(),
         ])->get();
 
-        $total    = $bookings->count();
-        $canceled = $bookings->where('status', 'canceled')->count();
+        $total     = $bookings->count();
+        $cancelled = $bookings->where('status', 'cancelled')->count();
 
         $grouped = $bookings->groupBy(function ($b) use ($groupBy) {
             return match ($groupBy) {
@@ -39,17 +37,17 @@ class StatisticsService
                 'month' => Carbon::parse($b->created_at)->format('Y-m'),
                 default => Carbon::parse($b->created_at)->format('Y-m-d'),
             };
-        })->map(fn($group) => [
+        })->map(fn ($group) => [
             'total'     => $group->count(),
             'pending'   => $group->where('status', 'pending')->count(),
             'confirmed' => $group->where('status', 'confirmed')->count(),
-            'canceled'  => $group->where('status', 'canceled')->count(),
+            'cancelled' => $group->where('status', 'cancelled')->count(),
         ]);
 
         return [
-            'total'          => $total,
-            'cancel_rate'    => $total > 0 ? round($canceled / $total * 100, 1) : 0,
-            'grouped'        => $grouped,
+            'total'       => $total,
+            'cancel_rate' => $total > 0 ? round($cancelled / $total * 100, 1) : 0,
+            'grouped'     => $grouped,
         ];
     }
 

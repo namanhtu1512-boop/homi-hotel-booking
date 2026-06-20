@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Policies;
 
-use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Policies\RoomTypePolicy;
@@ -16,14 +15,12 @@ class RoomTypePolicyTest extends TestCase
 {
     private RoomTypePolicy $policy;
     private RoomType $roomType;
-    private Hotel $hotel;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->policy   = new RoomTypePolicy();
-        $this->hotel     = new Hotel(['name' => 'Test Hotel', 'status' => 'active']);
         $this->roomType = new RoomType(['name' => 'Deluxe', 'status' => 'active']);
     }
 
@@ -74,17 +71,17 @@ class RoomTypePolicyTest extends TestCase
 
     public function test_admin_can_create(): void
     {
-        $this->assertTrue($this->policy->create($this->makeUser('admin'), $this->hotel));
+        $this->assertTrue($this->policy->create($this->makeUser('admin')));
     }
 
     public function test_staff_can_create(): void
     {
-        $this->assertTrue($this->policy->create($this->makeUser('staff'), $this->hotel));
+        $this->assertTrue($this->policy->create($this->makeUser('staff')));
     }
 
     public function test_customer_cannot_create(): void
     {
-        $this->assertFalse($this->policy->create($this->makeUser('customer'), $this->hotel));
+        $this->assertFalse($this->policy->create($this->makeUser('customer')));
     }
 
     // ----------------------------------------------------------------

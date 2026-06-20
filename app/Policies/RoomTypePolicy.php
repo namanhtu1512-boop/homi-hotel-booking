@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Models\User;
 
@@ -14,10 +13,9 @@ use App\Models\User;
  *  - staff: xem, thêm, sửa, xóa mềm, khôi phục, đổi giá/số lượng.
  *  - customer / unauthenticated: không có quyền gì.
  *
- * Quan hệ hotel-room_type: một room_type luôn thuộc 1 hotel (belongsTo).
- * Quyền thao tác room_type không phụ thuộc trạng thái hotel (admin/staff
- * vẫn cần sửa được dữ liệu phòng của khách sạn đang ẩn) — rule "không cho
- * tạo phòng mới khi hotel đã ẩn" được xử lý ở RoomTypeService::assertHotelActive(),
+ * Quyền thao tác room_type không phụ thuộc trạng thái khách sạn (admin/staff
+ * vẫn cần sửa được dữ liệu phòng khi khách sạn đang đóng) — rule "không cho
+ * tạo phòng mới khi khách sạn đang đóng" được xử lý ở RoomTypeService::assertHotelOpen(),
  * không phải ở policy, vì đây là rule nghiệp vụ chứ không phải rule phân quyền.
  */
 class RoomTypePolicy
@@ -32,11 +30,7 @@ class RoomTypePolicy
         return in_array($user->role, ['admin', 'staff'], true);
     }
 
-    /**
-     * Tạo loại phòng mới cho một khách sạn cụ thể.
-     * Nhận thêm Hotel để dành chỗ cho rule phân quyền theo hotel sau này nếu cần.
-     */
-    public function create(User $user, Hotel $hotel): bool
+    public function create(User $user): bool
     {
         return in_array($user->role, ['admin', 'staff'], true);
     }

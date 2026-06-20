@@ -707,11 +707,16 @@
                 <div class="brand">Homi</div>
 
                 <div class="nav-right">
-                    @if (auth()->check())
-                        <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ route('home') }}" class="nav-link">Trang chủ</a>
 
-                        @if (in_array(auth()->user()->role, ['admin', 'staff']))
-                            <a href="{{ route('admin.hotels.index') }}" class="nav-link">Quản lý khách sạn</a>
+                    @if (auth()->check())
+                        @if (auth()->user()->role === 'customer')
+                            <a href="{{ route('customer.dashboard') }}" class="nav-link">Dashboard</a>
+                        @else
+                            <a href="{{ route('admin.dashboard') }}" class="nav-link">Dashboard</a>
+                            <a href="{{ route('admin.hotel-info.edit') }}" class="nav-link">Thông tin khách sạn</a>
+                            <a href="{{ route('admin.room-types.index') }}" class="nav-link">Loại phòng</a>
+                            <a href="{{ route('admin.users.index') }}" class="nav-link">Tài khoản</a>
                             <a href="{{ route('admin.database') }}" class="nav-link">Database</a>
                         @endif
 

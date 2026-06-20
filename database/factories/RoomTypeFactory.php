@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Hotel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -15,7 +14,6 @@ class RoomTypeFactory extends Factory
         $name     = $this->faker->randomElement($names) . ' ' . $this->faker->unique()->numberBetween(1, 9999);
 
         return [
-            'hotel_id'       => Hotel::factory(),
             'name'           => $name,
             'slug'           => Str::slug($name),
             'description'    => $this->faker->paragraph(),

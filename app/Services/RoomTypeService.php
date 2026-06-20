@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Hotel;
 use App\Models\RoomType;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
@@ -10,11 +9,14 @@ use Illuminate\Validation\ValidationException;
 
 class RoomTypeService
 {
-    public function __construct(private readonly ImageService $imageService) {}
+    public function __construct(
+        private readonly ImageService $imageService,
+        private readonly HotelService $hotelService,
+    ) {}
 
-    public function listByHotel(int $hotelId, bool $adminView = false): Collection
+    public function list(bool $adminView = false): Collection
     {
-        $query = RoomType::where('hotel_id', $hotelId)->with('images');
+        $query = RoomType::with('images');
 
         if (! $adminView) {
             $query->where('status', 'active');
@@ -25,31 +27,23 @@ class RoomTypeService
 
     public function find(int $id): RoomType
     {
-        return RoomType::with(['images', 'hotel'])->findOrFail($id);
+        return RoomType::with('images')->findOrFail($id);
     }
 
-    public function findPublic(int $id): RoomType
+    public function create(array $data): RoomType
     {
-        return RoomType::where('status', 'active')
-            ->whereHas('hotel', fn ($q) => $q->where('status', 'active'))
-            ->with(['images', 'hotel'])
-            ->findOrFail($id);
-    }
+        $this->assertHotelOpen();
 
-    public function create(Hotel $hotel, array $data): RoomType
-    {
-        $this->assertHotelActive($hotel);
-
-        $roomType = $hotel->roomTypes()->create([
-            'name'           => $data['name'],
-            'slug'           => Str::slug($data['name']),
-            'description'    => $data['description'] ?? null,
+        $roomType = RoomType::create([
+            'name'            => $data['name'],
+            'slug'            => $this->uniqueSlug($data['name']),
+            'description'     => $data['description'] ?? null,
             'price_per_night' => $data['price_per_night'],
-            'capacity'       => $data['capacity'],
-            'bed_type'       => $data['bed_type'] ?? null,
-            'area'           => $data['area'] ?? null,
-            'total_rooms'    => $data['total_rooms'],
-            'status'         => 'active',
+            'capacity'        => $data['capacity'],
+            'bed_type'        => $data['bed_type'] ?? null,
+            'area'            => $data['area'] ?? null,
+            'total_rooms'     => $data['total_rooms'],
+            'status'          => 'active',
         ]);
 
         if (! empty($data['images'])) {
@@ -66,17 +60,17 @@ class RoomTypeService
         }
 
         $fields = array_filter([
-            'name'           => $data['name'] ?? null,
-            'description'    => $data['description'] ?? null,
+            'name'            => $data['name'] ?? null,
+            'description'     => $data['description'] ?? null,
             'price_per_night' => $data['price_per_night'] ?? null,
-            'capacity'       => $data['capacity'] ?? null,
-            'bed_type'       => $data['bed_type'] ?? null,
-            'area'           => $data['area'] ?? null,
-            'total_rooms'    => $data['total_rooms'] ?? null,
+            'capacity'        => $data['capacity'] ?? null,
+            'bed_type'        => $data['bed_type'] ?? null,
+            'area'            => $data['area'] ?? null,
+            'total_rooms'     => $data['total_rooms'] ?? null,
         ], fn ($v) => $v !== null);
 
         if (isset($data['name'])) {
-            $fields['slug'] = Str::slug($data['name']);
+            $fields['slug'] = $this->uniqueSlug($data['name'], $roomType->id);
         }
 
         $roomType->update($fields);
@@ -103,6 +97,15 @@ class RoomTypeService
         return $roomType->fresh();
     }
 
+    public function toggleStatus(RoomType $roomType): RoomType
+    {
+        $roomType->update([
+            'status' => $roomType->status === 'active' ? 'hidden' : 'active',
+        ]);
+
+        return $roomType->fresh();
+    }
+
     /**
      * Soft delete nếu không có booking đang hoạt động.
      * Nếu có booking active thì chuyển về trạng thái 'hidden'.
@@ -125,6 +128,28 @@ class RoomTypeService
         $roomType->restore();
     }
 
+    /**
+     * Sinh slug duy nhất cho loại phòng (slug giờ unique toàn cục vì chỉ còn 1 khách sạn).
+     */
+    private function uniqueSlug(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name);
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            RoomType::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
     private function validateInventoryReduction(int $newTotal): void
     {
         if ($newTotal < 1) {
@@ -135,16 +160,15 @@ class RoomTypeService
     }
 
     /**
-     * Rule dùng chung: không cho tạo loại phòng mới khi khách sạn đang bị ẩn.
-     * Các thao tác sửa/xóa/đổi giá trên phòng đã tồn tại vẫn được phép dù
-     * hotel đang ẩn, vì admin/staff có thể cần chỉnh sửa dữ liệu trước khi
-     * hiện lại khách sạn.
+     * Rule dùng chung: không cho tạo loại phòng mới khi khách sạn đang đóng
+     * (is_open = false, vd: đang bảo trì toàn bộ). Sửa/xóa/đổi giá trên phòng
+     * đã tồn tại vẫn được phép dù khách sạn đang đóng.
      */
-    private function assertHotelActive(Hotel $hotel): void
+    private function assertHotelOpen(): void
     {
-        if ($hotel->status !== 'active') {
+        if (! $this->hotelService->singleton()->is_open) {
             throw ValidationException::withMessages([
-                'hotel_id' => ['Không thể thêm phòng cho khách sạn đang bị ẩn.'],
+                'hotel' => ['Không thể thêm phòng khi khách sạn đang đóng.'],
             ]);
         }
     }

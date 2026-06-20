@@ -2,92 +2,46 @@
 
 namespace App\Services;
 
-use App\Models\Hotel;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Str;
+use App\Models\HotelInfo;
 
+/**
+ * HotelService — quản lý dữ liệu khách sạn duy nhất (singleton, id = 1).
+ * Không có khái niệm create/list/delete nhiều khách sạn.
+ */
 class HotelService
 {
     public function __construct(private readonly ImageService $imageService) {}
 
-    // --- Admin API ---
-
-    public function adminList(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    /**
+     * Lấy bản ghi khách sạn duy nhất (tạo nếu chưa tồn tại, phòng trường hợp
+     * seeder chưa chạy).
+     */
+    public function singleton(): HotelInfo
     {
-        $query = Hotel::withTrashed()
-            ->withCount('roomTypes')
-            ->with(['images' => fn ($q) => $q->orderBy('sort_order')->limit(1)]);
-
-        if (! empty($filters['search'])) {
-            $keyword = $filters['search'];
-            $query->where(function ($q) use ($keyword) {
-                $q->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('city', 'like', "%{$keyword}%");
-            });
-        }
-
-        if (! empty($filters['status'])) {
-            if ($filters['status'] === 'deleted') {
-                $query->onlyTrashed();
-            } else {
-                $query->where('status', $filters['status']);
-            }
-        }
-
-        $allowedSortColumns = ['name', 'city', 'star_rating', 'created_at'];
-        $sortBy    = in_array($filters['sort_by'] ?? '', $allowedSortColumns, true)
-            ? $filters['sort_by']
-            : 'created_at';
-        $sortOrder = ($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-
-        return $query->orderBy($sortBy, $sortOrder)->paginate($perPage);
+        return HotelInfo::with(['images', 'amenities'])->firstOrCreate(
+            ['id' => 1],
+            ['name' => 'Homi Hotel', 'address' => 'Đang cập nhật', 'is_open' => true]
+        );
     }
 
-    public function adminFind(int $id): Hotel
+    public function update(array $data): HotelInfo
     {
-        return Hotel::withTrashed()
-            ->with(['images', 'amenities'])
-            ->withCount('roomTypes')
-            ->findOrFail($id);
-    }
+        $hotel = $this->singleton();
 
-    public function create(array $data): Hotel
-    {
-        $hotel = Hotel::create([
-            'name'        => $data['name'],
-            'slug'        => $this->uniqueSlug($data['name']),
-            'city'        => $data['city'],
-            'district'    => $data['district'] ?? null,
-            'address'     => $data['address'],
-            'description' => $data['description'] ?? null,
-            'star_rating' => $data['star_rating'] ?? null,
-            'status'      => 'active',
-        ]);
-
-        if (! empty($data['amenity_ids'])) {
-            $hotel->amenities()->sync($data['amenity_ids']);
-        }
-
-        if (! empty($data['images'])) {
-            $this->imageService->syncHotelImages($hotel, $data['images']);
-        }
-
-        return $hotel->load(['amenities', 'images']);
-    }
-
-    public function update(Hotel $hotel, array $data): Hotel
-    {
         $fields = array_filter([
-            'name'        => $data['name'] ?? null,
-            'city'        => $data['city'] ?? null,
-            'district'    => $data['district'] ?? null,
-            'address'     => $data['address'] ?? null,
-            'description' => $data['description'] ?? null,
-            'star_rating' => $data['star_rating'] ?? null,
+            'name'            => $data['name'] ?? null,
+            'address'         => $data['address'] ?? null,
+            'description'     => $data['description'] ?? null,
+            'hotline'         => $data['hotline'] ?? null,
+            'email'           => $data['email'] ?? null,
+            'check_in_time'   => $data['check_in_time'] ?? null,
+            'check_out_time'  => $data['check_out_time'] ?? null,
+            'policies'        => $data['policies'] ?? null,
+            'star_rating'     => $data['star_rating'] ?? null,
         ], fn ($v) => $v !== null);
 
-        if (isset($data['name'])) {
-            $fields['slug'] = $this->uniqueSlug($data['name'], $hotel->id);
+        if (array_key_exists('is_open', $data)) {
+            $fields['is_open'] = $data['is_open'];
         }
 
         $hotel->update($fields);
@@ -102,99 +56,5 @@ class HotelService
         }
 
         return $hotel->fresh(['amenities', 'images']);
-    }
-
-    /**
-     * Sinh slug duy nhất từ tên khách sạn. Cho phép nhiều khách sạn trùng tên
-     * (vd: cùng thương hiệu ở các thành phố khác nhau) bằng cách thêm hậu tố -2, -3...
-     */
-    private function uniqueSlug(string $name, ?int $ignoreId = null): string
-    {
-        $base = Str::slug($name);
-        $slug = $base;
-        $suffix = 2;
-
-        while (
-            Hotel::withTrashed()
-                ->where('slug', $slug)
-                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
-                ->exists()
-        ) {
-            $slug = "{$base}-{$suffix}";
-            $suffix++;
-        }
-
-        return $slug;
-    }
-
-    public function softDelete(Hotel $hotel): void
-    {
-        $hotel->delete();
-    }
-
-    public function restore(Hotel $hotel): void
-    {
-        $hotel->restore();
-    }
-
-    public function toggleStatus(Hotel $hotel): Hotel
-    {
-        $hotel->update([
-            'status' => $hotel->status === 'active' ? 'hidden' : 'active',
-        ]);
-
-        return $hotel->fresh();
-    }
-
-    // --- Public API ---
-
-    public function publicList(array $filters = [], int $perPage = 10): LengthAwarePaginator
-    {
-        $query = Hotel::where('status', 'active')
-            ->with([
-                'images' => fn ($q) => $q->orderBy('sort_order')->limit(1),
-                'amenities',
-            ])
-            ->withMin('roomTypes', 'price_per_night');
-
-        if (! empty($filters['keyword'])) {
-            $keyword = $filters['keyword'];
-            $query->where(function ($q) use ($keyword) {
-                $q->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('city', 'like', "%{$keyword}%")
-                  ->orWhere('address', 'like', "%{$keyword}%");
-            });
-        }
-
-        if (! empty($filters['city'])) {
-            $query->whereRaw('LOWER(city) = ?', [strtolower($filters['city'])]);
-        }
-
-        if (! empty($filters['amenities'])) {
-            foreach ($filters['amenities'] as $amenityId) {
-                $query->whereHas('amenities', fn ($q) => $q->where('amenities.id', $amenityId));
-            }
-        }
-
-        if (! empty($filters['min_price'])) {
-            $query->whereHas('roomTypes', fn ($q) => $q->where('price_per_night', '>=', $filters['min_price']));
-        }
-
-        if (! empty($filters['max_price'])) {
-            $query->whereHas('roomTypes', fn ($q) => $q->where('price_per_night', '<=', $filters['max_price']));
-        }
-
-        return $query->orderBy('star_rating', 'desc')->paginate($perPage);
-    }
-
-    public function publicFind(int $id): Hotel
-    {
-        return Hotel::where('status', 'active')
-            ->with([
-                'images',
-                'amenities',
-                'activeRoomTypes.images',
-            ])
-            ->findOrFail($id);
     }
 }

@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('hotel_id')
-                ->constrained('hotels')
+                ->constrained('hotel_info')
                 ->cascadeOnDelete();
 
             $table->string('path');

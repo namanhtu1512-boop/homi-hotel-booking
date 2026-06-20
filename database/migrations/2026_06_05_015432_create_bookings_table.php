@@ -21,10 +21,6 @@ return new class extends Migration
                 ->constrained('users')
                 ->nullOnDelete();
 
-            $table->foreignId('hotel_id')
-                ->constrained('hotels')
-                ->cascadeOnDelete();
-
             $table->date('check_in');
             $table->date('check_out');
             $table->unsignedSmallInteger('nights');

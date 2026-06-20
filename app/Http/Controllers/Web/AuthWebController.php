@@ -34,7 +34,7 @@ class AuthWebController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('home');
+        return redirect()->route('customer.dashboard');
     }
 
     public function showLogin()
@@ -65,7 +65,7 @@ class AuthWebController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->route('home');
+        return $this->redirectByRole($request->user());
     }
 
     public function logout(Request $request)
@@ -76,5 +76,12 @@ class AuthWebController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    private function redirectByRole(User $user)
+    {
+        return $user->role === 'customer'
+            ? redirect()->route('customer.dashboard')
+            : redirect()->route('admin.dashboard');
     }
 }
