@@ -28,21 +28,15 @@ class HotelService
     {
         $hotel = $this->singleton();
 
-        $fields = array_filter([
-            'name'            => $data['name'] ?? null,
-            'address'         => $data['address'] ?? null,
-            'description'     => $data['description'] ?? null,
-            'hotline'         => $data['hotline'] ?? null,
-            'email'           => $data['email'] ?? null,
-            'check_in_time'   => $data['check_in_time'] ?? null,
-            'check_out_time'  => $data['check_out_time'] ?? null,
-            'policies'        => $data['policies'] ?? null,
-            'star_rating'     => $data['star_rating'] ?? null,
-        ], fn ($v) => $v !== null);
+        // array_key_exists (không phải array_filter loại bỏ null) — để admin
+        // xóa một field tùy chọn về rỗng (vd: bỏ chọn star_rating) thì giá trị
+        // null vẫn phải được ghi xuống DB thay vì bị bỏ qua.
+        $updatable = [
+            'name', 'address', 'description', 'hotline', 'email',
+            'check_in_time', 'check_out_time', 'policies', 'star_rating', 'is_open',
+        ];
 
-        if (array_key_exists('is_open', $data)) {
-            $fields['is_open'] = $data['is_open'];
-        }
+        $fields = array_intersect_key($data, array_flip($updatable));
 
         $hotel->update($fields);
 

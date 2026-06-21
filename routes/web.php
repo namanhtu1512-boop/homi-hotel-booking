@@ -6,14 +6,18 @@ use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController as AdminRoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Web\AuthWebController;
+use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Web\HomeController;
+use App\Http\Controllers\Web\RoomController;
 use Illuminate\Support\Facades\Route;
 
 // ---------------------------------------------------------------
 // Public — trang giới thiệu khách sạn
 // ---------------------------------------------------------------
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
+Route::get('/rooms/{id}', [RoomController::class, 'show'])->name('rooms.show');
 
 // ---------------------------------------------------------------
 // Auth — đăng ký/đăng nhập khách hàng dùng chung view với admin/staff,
@@ -38,6 +42,13 @@ Route::post('/logout', [AuthWebController::class, 'logout'])
 // ---------------------------------------------------------------
 Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer.')->group(function () {
     Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/booking/create', [CustomerBookingController::class, 'create'])->name('booking.create');
+    Route::post('/booking', [CustomerBookingController::class, 'store'])->name('booking.store');
+
+    Route::get('/bookings', [CustomerBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/{id}', [CustomerBookingController::class, 'show'])->name('bookings.show');
+    Route::post('/bookings/{id}/cancel', [CustomerBookingController::class, 'cancel'])->name('bookings.cancel');
 });
 
 // ---------------------------------------------------------------

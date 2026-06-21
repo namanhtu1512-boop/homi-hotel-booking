@@ -18,8 +18,7 @@ trait HasRoomTypeAttributes
             'bed_type'        => 'loại giường',
             'area'            => 'diện tích',
             'total_rooms'     => 'tổng số phòng',
-            'images'          => 'hình ảnh',
-            'images.*'        => 'đường dẫn ảnh',
+            'images_text'     => 'đường dẫn ảnh',
         ];
     }
 }

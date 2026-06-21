@@ -103,11 +103,13 @@ class RoomTypeController extends Controller
     {
         $data = $request->validated();
 
-        $data['images'] = collect(explode("\n", $request->input('images_text', '')))
+        $data['images'] = collect(explode("\n", $data['images_text'] ?? ''))
             ->map(fn ($line) => trim($line))
             ->filter()
             ->values()
             ->all();
+
+        unset($data['images_text']);
 
         return $data;
     }

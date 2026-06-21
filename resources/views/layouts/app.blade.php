@@ -149,6 +149,8 @@
         }
 
         .page-shell {
+            position: relative;
+            z-index: 1;
             margin-top: -50px;
             padding-bottom: 36px;
         }
@@ -363,6 +365,109 @@
         .filter-bar select {
             width: auto;
             min-width: 180px;
+        }
+
+        .hotel-gallery-main {
+            height: 340px;
+            background: var(--primary-soft) center/cover no-repeat;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .hotel-gallery-thumbs {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .hotel-gallery-thumb {
+            height: 110px;
+            background: var(--primary-soft) center/cover no-repeat;
+            border-radius: var(--radius-md);
+        }
+
+        @media (max-width: 640px) {
+            .hotel-gallery-main {
+                height: 220px;
+            }
+
+            .hotel-gallery-thumb {
+                height: 90px;
+            }
+        }
+
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .room-card {
+            display: flex;
+            flex-direction: column;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-light);
+            overflow: hidden;
+        }
+
+        .room-card-image {
+            height: 160px;
+            background: var(--primary-soft) center/cover no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .room-card-body {
+            display: grid;
+            gap: 10px;
+            padding: 18px;
+            flex: 1;
+        }
+
+        .room-card-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .room-card-desc {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .room-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .room-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-top: 12px;
+            margin-top: auto;
+            border-top: 1px solid var(--border);
+        }
+
+        .room-card-price {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--primary);
         }
 
         .alert-success {
@@ -708,10 +813,12 @@
 
                 <div class="nav-right">
                     <a href="{{ route('home') }}" class="nav-link">Trang chủ</a>
+                    <a href="{{ route('rooms.index') }}" class="nav-link">Phòng</a>
 
                     @if (auth()->check())
                         @if (auth()->user()->role === 'customer')
                             <a href="{{ route('customer.dashboard') }}" class="nav-link">Dashboard</a>
+                            <a href="{{ route('customer.bookings.index') }}" class="nav-link">Đơn của tôi</a>
                         @else
                             <a href="{{ route('admin.dashboard') }}" class="nav-link">Dashboard</a>
                             <a href="{{ route('admin.hotel-info.edit') }}" class="nav-link">Thông tin khách sạn</a>

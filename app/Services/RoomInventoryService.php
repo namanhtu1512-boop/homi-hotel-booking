@@ -9,9 +9,10 @@ use Illuminate\Validation\ValidationException;
  * Đọc dữ liệu room inventory (số lượng phòng, giá, trạng thái) phục vụ
  * AvailabilityService (tuần 9) và PricingService (tuần 10).
  *
- * Chỉ coi là "khả dụng" khi: room_type active, hotel active, chưa bị
- * xóa mềm và total_rooms hợp lệ (>= 1). SoftDeletes tự loại các bản ghi
- * đã xóa mềm khỏi truy vấn mặc định nên không cần xử lý thêm.
+ * Chỉ coi là "khả dụng" khi: room_type active, chưa bị xóa mềm và
+ * total_rooms hợp lệ (>= 1). SoftDeletes tự loại các bản ghi đã xóa mềm
+ * khỏi truy vấn mặc định nên không cần xử lý thêm. Homi chỉ quản lý 1
+ * khách sạn duy nhất nên room_types không còn gắn với hotel_id.
  */
 class RoomInventoryService
 {
@@ -20,9 +21,7 @@ class RoomInventoryService
      */
     public function getBookableRoomType(int $roomTypeId): RoomType
     {
-        $roomType = RoomType::where('status', 'active')
-            ->whereHas('hotel', fn ($q) => $q->where('status', 'active'))
-            ->find($roomTypeId);
+        $roomType = RoomType::where('status', 'active')->find($roomTypeId);
 
         if (! $roomType) {
             throw ValidationException::withMessages([
@@ -46,7 +45,6 @@ class RoomInventoryService
 
         return [
             'room_type_id' => $roomType->id,
-            'hotel_id'     => $roomType->hotel_id,
             'base_price'   => (float) $roomType->price_per_night,
             'total_rooms'  => $roomType->total_rooms,
             'capacity'     => $roomType->capacity,
@@ -54,13 +52,11 @@ class RoomInventoryService
     }
 
     /**
-     * Tổng số phòng active của một khách sạn (phòng inactive/xóa mềm không tính).
+     * Tổng số phòng active trong khách sạn (phòng inactive/xóa mềm không tính).
      */
-    public function getTotalRoomsByHotel(int $hotelId): int
+    public function getTotalActiveRooms(): int
     {
-        return (int) RoomType::where('hotel_id', $hotelId)
-            ->where('status', 'active')
-            ->sum('total_rooms');
+        return (int) RoomType::where('status', 'active')->sum('total_rooms');
     }
 
     /**

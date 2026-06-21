@@ -25,9 +25,50 @@ class RoomTypeService
         return $query->orderBy('price_per_night')->get();
     }
 
+    /**
+     * Danh sách phòng active phục vụ trang public /rooms, lọc theo dữ liệu
+     * đã validate từ FilterRoomRequest. Không lọc theo 'amenities' vì
+     * room_types hiện chưa có quan hệ tới amenities (chỉ hotel_info có).
+     */
+    public function search(array $filters): Collection
+    {
+        $query = RoomType::active()->with('images');
+
+        if (! empty($filters['keyword'])) {
+            $keyword = $filters['keyword'];
+            $query->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                    ->orWhere('description', 'like', "%{$keyword}%");
+            });
+        }
+
+        if (isset($filters['min_price'])) {
+            $query->where('price_per_night', '>=', $filters['min_price']);
+        }
+
+        if (isset($filters['max_price'])) {
+            $query->where('price_per_night', '<=', $filters['max_price']);
+        }
+
+        if (isset($filters['capacity'])) {
+            $query->where('capacity', '>=', $filters['capacity']);
+        }
+
+        return $query->orderBy('price_per_night')->get();
+    }
+
     public function find(int $id): RoomType
     {
         return RoomType::with('images')->findOrFail($id);
+    }
+
+    /**
+     * Lấy 1 phòng active cho trang public /rooms/{id} — 404 nếu phòng không
+     * tồn tại, đang ẩn, bảo trì hoặc đã bị xóa mềm.
+     */
+    public function findActive(int $id): RoomType
+    {
+        return RoomType::active()->with('images')->findOrFail($id);
     }
 
     public function create(array $data): RoomType
@@ -59,15 +100,11 @@ class RoomTypeService
             $this->validateInventoryReduction($data['total_rooms']);
         }
 
-        $fields = array_filter([
-            'name'            => $data['name'] ?? null,
-            'description'     => $data['description'] ?? null,
-            'price_per_night' => $data['price_per_night'] ?? null,
-            'capacity'        => $data['capacity'] ?? null,
-            'bed_type'        => $data['bed_type'] ?? null,
-            'area'            => $data['area'] ?? null,
-            'total_rooms'     => $data['total_rooms'] ?? null,
-        ], fn ($v) => $v !== null);
+        // array_intersect_key (không phải array_filter loại bỏ null) — để admin
+        // xóa field tùy chọn (description/bed_type/area) về rỗng thì giá trị
+        // null vẫn được ghi xuống DB thay vì bị bỏ qua.
+        $updatable = ['name', 'description', 'price_per_night', 'capacity', 'bed_type', 'area', 'total_rooms'];
+        $fields = array_intersect_key($data, array_flip($updatable));
 
         if (isset($data['name'])) {
             $fields['slug'] = $this->uniqueSlug($data['name'], $roomType->id);

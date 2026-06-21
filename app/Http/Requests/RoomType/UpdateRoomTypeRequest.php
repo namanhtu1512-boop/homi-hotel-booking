@@ -4,10 +4,11 @@ namespace App\Http\Requests\RoomType;
 
 use App\Http\Requests\BaseFormRequest;
 use App\Http\Requests\RoomType\Concerns\HasRoomTypeAttributes;
+use App\Http\Requests\RoomType\Concerns\ValidatesImageText;
 
 class UpdateRoomTypeRequest extends BaseFormRequest
 {
-    use HasRoomTypeAttributes;
+    use HasRoomTypeAttributes, ValidatesImageText;
 
     public function rules(): array
     {
@@ -19,8 +20,7 @@ class UpdateRoomTypeRequest extends BaseFormRequest
             'bed_type'        => ['nullable', 'string', 'max:100'],
             'area'            => ['nullable', 'numeric', 'min:0'],
             'total_rooms'     => ['sometimes', 'integer', 'min:1'],
-            'images'          => ['nullable', 'array'],
-            'images.*'        => ['string', 'max:500'],
+            'images_text'     => ['nullable', 'string', $this->eachImageLineMax500()],
         ];
     }
 }

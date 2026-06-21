@@ -4,14 +4,15 @@ namespace Database\Seeders;
 
 use App\Models\Amenity;
 use App\Models\HotelInfo;
+use App\Services\ImageService;
 use Illuminate\Database\Seeder;
 
 class HotelInfoSeeder extends Seeder
 {
-    public function run(): void
+    public function run(ImageService $imageService): void
     {
         $this->seedAmenities();
-        $this->seedHotelInfo();
+        $this->seedHotelInfo($imageService);
     }
 
     private function seedAmenities(): void
@@ -34,7 +35,7 @@ class HotelInfoSeeder extends Seeder
         }
     }
 
-    private function seedHotelInfo(): void
+    private function seedHotelInfo(ImageService $imageService): void
     {
         $hotel = HotelInfo::updateOrCreate(
             ['id' => 1],
@@ -59,5 +60,14 @@ class HotelInfoSeeder extends Seeder
                 'Điều hòa', 'Thang máy',
             ])->pluck('id')
         );
+
+        if ($hotel->images()->count() === 0) {
+            $imageService->syncHotelImages($hotel, [
+                'https://picsum.photos/seed/homi-hotel-lobby/1200/800',
+                'https://picsum.photos/seed/homi-hotel-pool/1200/800',
+                'https://picsum.photos/seed/homi-hotel-room/1200/800',
+                'https://picsum.photos/seed/homi-hotel-exterior/1200/800',
+            ]);
+        }
     }
 }
