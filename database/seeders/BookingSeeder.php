@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Booking;
 use App\Models\BookingItem;
-use App\Models\Hotel;
 use App\Models\Payment;
 use App\Models\RoomType;
 use App\Models\User;
@@ -19,23 +18,14 @@ class BookingSeeder extends Seeder
             return;
         }
 
-        $danangHotel  = Hotel::where('name', 'Homi Đà Nẵng Hotel')->first();
-        $hanoiHotel   = Hotel::where('name', 'Homi Hà Nội Hotel')->first();
-
-        $standardRoom = RoomType::where('hotel_id', $danangHotel?->id)
-            ->where('name', 'Phòng Standard')
-            ->first();
-
-        $superiorRoom = RoomType::where('hotel_id', $hanoiHotel?->id)
-            ->where('name', 'Phòng Superior')
-            ->first();
+        $standardRoom = RoomType::where('name', 'Phòng Standard')->first();
+        $superiorRoom = RoomType::where('name', 'Phòng Superior')->first();
 
         // ---------- Đơn 1: pending, khách vừa đặt ----------
-        if ($danangHotel && $standardRoom) {
+        if ($standardRoom) {
             $b = Booking::create([
                 'booking_code'   => 'HOMI-DEMO-PENDING',
                 'user_id'        => $customer->id,
-                'hotel_id'       => $danangHotel->id,
                 'check_in'       => '2026-07-10',
                 'check_out'      => '2026-07-12',
                 'nights'         => 2,
@@ -62,11 +52,10 @@ class BookingSeeder extends Seeder
         }
 
         // ---------- Đơn 2: confirmed + paid ----------
-        if ($hanoiHotel && $superiorRoom) {
+        if ($superiorRoom) {
             $b = Booking::create([
                 'booking_code'   => 'HOMI-DEMO-CONFIRMED',
                 'user_id'        => $customer->id,
-                'hotel_id'       => $hanoiHotel->id,
                 'check_in'       => '2026-08-01',
                 'check_out'      => '2026-08-04',
                 'nights'         => 3,
@@ -94,11 +83,10 @@ class BookingSeeder extends Seeder
         }
 
         // ---------- Đơn 3: cancelled bởi khách ----------
-        if ($danangHotel && $standardRoom) {
+        if ($standardRoom) {
             $b = Booking::create([
                 'booking_code'   => 'HOMI-DEMO-CANCELLED',
                 'user_id'        => $customer->id,
-                'hotel_id'       => $danangHotel->id,
                 'check_in'       => '2026-09-05',
                 'check_out'      => '2026-09-07',
                 'nights'         => 2,

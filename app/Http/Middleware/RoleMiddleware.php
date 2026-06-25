@@ -21,7 +21,7 @@ class RoleMiddleware
                 ], 401);
             }
 
-            return redirect()->route('login');
+            return redirect()->route('admin.login');
         }
 
         if ($user->status === 'locked') {

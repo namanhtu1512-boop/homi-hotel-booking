@@ -711,8 +711,7 @@
                         <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
 
                         @if (in_array(auth()->user()->role, ['admin', 'staff']))
-                            <a href="{{ route('admin.hotels.index') }}" class="nav-link">Quản lý khách sạn</a>
-                            <a href="{{ route('admin.database') }}" class="nav-link">Database</a>
+                            <a href="{{ route('admin.dashboard') }}" class="nav-link">Trang quản trị</a>
                         @endif
 
                         <form method="POST" action="{{ route('logout') }}" class="logout-form">

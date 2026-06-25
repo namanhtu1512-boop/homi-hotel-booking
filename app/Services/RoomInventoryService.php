@@ -21,7 +21,6 @@ class RoomInventoryService
     public function getBookableRoomType(int $roomTypeId): RoomType
     {
         $roomType = RoomType::where('status', 'active')
-            ->whereHas('hotel', fn ($q) => $q->where('status', 'active'))
             ->find($roomTypeId);
 
         if (! $roomType) {
@@ -46,7 +45,6 @@ class RoomInventoryService
 
         return [
             'room_type_id' => $roomType->id,
-            'hotel_id'     => $roomType->hotel_id,
             'base_price'   => (float) $roomType->price_per_night,
             'total_rooms'  => $roomType->total_rooms,
             'capacity'     => $roomType->capacity,
@@ -54,13 +52,11 @@ class RoomInventoryService
     }
 
     /**
-     * Tổng số phòng active của một khách sạn (phòng inactive/xóa mềm không tính).
+     * Tổng số phòng active của khách sạn (phòng inactive/xóa mềm không tính).
      */
-    public function getTotalRoomsByHotel(int $hotelId): int
+    public function getTotalRooms(): int
     {
-        return (int) RoomType::where('hotel_id', $hotelId)
-            ->where('status', 'active')
-            ->sum('total_rooms');
+        return (int) RoomType::where('status', 'active')->sum('total_rooms');
     }
 
     /**

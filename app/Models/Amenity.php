@@ -8,8 +8,8 @@ class Amenity extends Model
 {
     protected $fillable = ['name', 'icon'];
 
-    public function hotels()
+    public function hotelInfos()
     {
-        return $this->belongsToMany(Hotel::class, 'hotel_amenity');
+        return $this->belongsToMany(HotelInfo::class, 'hotel_info_amenity');
     }
 }

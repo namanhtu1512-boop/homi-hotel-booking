@@ -13,7 +13,6 @@ class Booking extends Model
     protected $fillable = [
         'booking_code',
         'user_id',
-        'hotel_id',
         'check_in',
         'check_out',
         'nights',
@@ -35,11 +34,6 @@ class Booking extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function hotel()
-    {
-        return $this->belongsTo(Hotel::class);
     }
 
     public function bookingItems()

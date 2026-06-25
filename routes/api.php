@@ -1,13 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
-use App\Http\Controllers\Api\Admin\AdminHotelController;
+use App\Http\Controllers\Api\Admin\AdminHotelInfoController;
 use App\Http\Controllers\Api\Admin\AdminRoomTypeController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\HealthController;
-use App\Http\Controllers\Api\PublicHotelController;
+use App\Http\Controllers\Api\PublicHotelInfoController;
+use App\Http\Controllers\Api\PublicRoomTypeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', HealthController::class);
@@ -29,16 +30,20 @@ Route::prefix('v1')->group(function () {
     });
 
     // ---------------------------------------------------------------
-    // PUBLIC — Khách sạn và tìm kiếm (không cần đăng nhập)
+    // PUBLIC — Thông tin khách sạn (singleton, không cần đăng nhập)
     // ---------------------------------------------------------------
-    Route::get('/hotels',      [PublicHotelController::class, 'index']);
-    Route::get('/hotels/{id}', [PublicHotelController::class, 'show']);
+    Route::get('/hotel-info', [PublicHotelInfoController::class, 'show']);
+
+    // ---------------------------------------------------------------
+    // PUBLIC — Danh sách & chi tiết loại phòng (BE2/BE3 Tuần 7)
+    // ---------------------------------------------------------------
+    Route::get('/room-types',      [PublicRoomTypeController::class, 'index']);
+    Route::get('/room-types/{id}', [PublicRoomTypeController::class, 'show']);
 
     // ---------------------------------------------------------------
     // PUBLIC — Kiểm tra phòng trống (không cần đăng nhập)
-    // TODO Tuần 9: hoàn thiện AvailabilityService
     // ---------------------------------------------------------------
-    Route::get('/hotels/{hotel}/availability', [BookingController::class, 'checkAvailability']);
+    Route::get('/room-types/{roomType}/availability', [BookingController::class, 'checkAvailability']);
 
     // ---------------------------------------------------------------
     // Admin / Staff - quản lý người dùng
@@ -55,23 +60,18 @@ Route::prefix('v1')->group(function () {
     });
 
     // ---------------------------------------------------------------
-    // Admin / Staff - quản lý khách sạn
+    // Admin / Staff - quản lý thông tin khách sạn (singleton) và loại phòng
     // ---------------------------------------------------------------
     Route::middleware(['auth:sanctum', 'role:admin,staff'])->prefix('admin')->group(function () {
-        Route::get('/hotels',                           [AdminHotelController::class, 'index']);
-        Route::post('/hotels',                          [AdminHotelController::class, 'store']);
-        Route::get('/hotels/{id}',                      [AdminHotelController::class, 'show']);
-        Route::put('/hotels/{id}',                      [AdminHotelController::class, 'update']);
-        Route::delete('/hotels/{id}',                   [AdminHotelController::class, 'destroy']);
-        Route::post('/hotels/{id}/restore',             [AdminHotelController::class, 'restore']);
-        Route::patch('/hotels/{id}/toggle-status',      [AdminHotelController::class, 'toggleStatus']);
-        Route::delete('/hotels/{hotelId}/images/{imageId}', [AdminHotelController::class, 'destroyImage']);
+        Route::get('/hotel-info',                       [AdminHotelInfoController::class, 'show']);
+        Route::put('/hotel-info',                       [AdminHotelInfoController::class, 'update']);
+        Route::patch('/hotel-info/toggle-maintenance',  [AdminHotelInfoController::class, 'toggleMaintenance']);
+        Route::delete('/hotel-info/images/{imageId}',   [AdminHotelInfoController::class, 'destroyImage']);
 
-        // Loại phòng theo khách sạn
-        Route::get('/hotels/{hotelId}/room-types',  [AdminRoomTypeController::class, 'index']);
-        Route::post('/hotels/{hotelId}/room-types', [AdminRoomTypeController::class, 'store']);
+        // Loại phòng (không còn gắn theo hotel vì chỉ có 1 khách sạn)
+        Route::get('/room-types',  [AdminRoomTypeController::class, 'index']);
+        Route::post('/room-types', [AdminRoomTypeController::class, 'store']);
 
-        // Loại phòng — thao tác theo room type ID
         Route::get('/room-types/{id}',              [AdminRoomTypeController::class, 'show']);
         Route::put('/room-types/{id}',              [AdminRoomTypeController::class, 'update']);
         Route::delete('/room-types/{id}',           [AdminRoomTypeController::class, 'destroy']);
@@ -83,7 +83,7 @@ Route::prefix('v1')->group(function () {
 
     // ---------------------------------------------------------------
     // CUSTOMER — Quản lý đơn đặt phòng của chính mình
-    // TODO Tuần 10-11: hoàn thiện logic tạo đơn và hủy đơn
+    // TODO Tuần 11: hoàn thiện logic tạo đơn và hủy đơn
     // ---------------------------------------------------------------
     Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
         Route::get('/bookings',                   [BookingController::class, 'myBookings']);

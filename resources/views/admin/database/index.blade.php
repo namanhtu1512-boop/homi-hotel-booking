@@ -1,27 +1,20 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
-@section('title', 'Database Homi')
-@section('banner_tag', 'Database Overview')
-@section('banner_title', 'Database cơ bản')
-@section('banner_subtitle', 'Theo dõi nhanh các bảng dữ liệu chính của hệ thống như users, hotels, room_types, bookings, booking_items và payments.')
+@section('title', 'Database · Homi Admin')
+@section('page_title', 'Database cơ bản')
+@section('page_subtitle', 'Theo dõi nhanh các bảng dữ liệu chính: users, hotel_info, room_types, bookings, booking_items, payments.')
 
 @section('content')
 <div class="card">
-    <div class="page-actions">
-        <div>
-            <div class="section-kicker">Quản trị dữ liệu</div>
-            <h2 class="section-title" style="margin-bottom: 6px;">Tổng quan dữ liệu</h2>
-            <p class="section-desc">Danh sách bảng và số lượng bản ghi hiện có trong hệ thống.</p>
-        </div>
+    <div class="section-kicker">Quản trị dữ liệu</div>
+    <h2 class="section-title">Tổng quan dữ liệu</h2>
+    <p class="section-desc">Danh sách bảng và số lượng bản ghi hiện có trong hệ thống.</p>
 
-        <a href="{{ route('dashboard') }}" class="btn btn-outline">Quay lại dashboard</a>
-    </div>
-
-    <div class="db-summary">
+    <div class="stats-grid" style="margin-top: 16px;">
         @foreach ($database as $tableName => $table)
-            <div class="db-summary-card">
-                <div class="name">{{ $tableName }}</div>
-                <div class="value">{{ $table['count'] }}</div>
+            <div class="stat-card">
+                <div class="stat-label">{{ $tableName }}</div>
+                <div class="stat-value">{{ $table['count'] }}</div>
             </div>
         @endforeach
     </div>
@@ -29,16 +22,13 @@
 
 @foreach ($database as $tableName => $table)
     <div class="card">
-        <div class="table-section-head">
+        <div class="page-actions">
             <div>
                 <div class="section-kicker">Bảng dữ liệu</div>
-                <h2 class="section-title" style="margin-bottom: 6px; text-transform: capitalize;">{{ $tableName }}</h2>
+                <h2 class="section-title" style="text-transform: capitalize;">{{ $tableName }}</h2>
                 <p class="section-desc">Hiển thị tối đa 20 dòng dữ liệu mới nhất.</p>
             </div>
-
-            <div class="table-count">
-                {{ $table['count'] }} dòng
-            </div>
+            <span class="badge badge-blue">{{ $table['count'] }} dòng</span>
         </div>
 
         @if ($table['rows']->isEmpty())

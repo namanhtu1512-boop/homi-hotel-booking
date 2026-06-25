@@ -2,15 +2,15 @@
 
 namespace Tests\Feature\RoomType;
 
-use App\Models\Hotel;
+use App\Models\HotelInfo;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Feature test — kiểm tra phân quyền API /admin/hotels/{hotelId}/room-types
- * và /admin/room-types/{id}.
+ * Feature test — kiểm tra phân quyền API /admin/room-types.
+ * Vì chỉ có 1 khách sạn duy nhất, room-types không còn scope theo hotelId.
  *
  * Test case ID  | Chức năng                      | Role      | Kết quả mong đợi
  * TC-RT-001     | Danh sách loại phòng           | admin     | 200
@@ -20,14 +20,14 @@ use Tests\TestCase;
  * TC-RT-005     | Tạo loại phòng                 | admin     | 201
  * TC-RT-006     | Tạo loại phòng                 | staff     | 201
  * TC-RT-007     | Tạo loại phòng                 | customer  | 403
- * TC-RT-008     | Tạo loại phòng khi hotel ẩn    | admin     | 422
+ * TC-RT-008     | Tạo loại phòng khi bảo trì     | admin     | 422
  * TC-RT-009     | Xem chi tiết loại phòng        | admin     | 200
  * TC-RT-010     | Xem chi tiết loại phòng        | staff     | 200
  * TC-RT-011     | Xem chi tiết loại phòng        | customer  | 403
  * TC-RT-012     | Cập nhật loại phòng            | admin     | 200
  * TC-RT-013     | Cập nhật loại phòng            | staff     | 200
  * TC-RT-014     | Cập nhật loại phòng            | customer  | 403
- * TC-RT-015     | Cập nhật loại phòng khi hotel ẩn | staff   | 200 (vẫn cho phép sửa)
+ * TC-RT-015     | Cập nhật loại phòng khi bảo trì | staff    | 200 (vẫn cho phép sửa)
  * TC-RT-016     | Xóa loại phòng                 | admin     | 200
  * TC-RT-017     | Xóa loại phòng                 | staff     | 200
  * TC-RT-018     | Xóa loại phòng                 | customer  | 403
@@ -54,14 +54,9 @@ class AdminRoomTypeAccessTest extends TestCase
         return User::factory()->create(['role' => $role, 'status' => 'active']);
     }
 
-    private function makeHotel(array $attributes = []): Hotel
+    private function makeRoomType(array $attributes = []): RoomType
     {
-        return Hotel::factory()->create($attributes);
-    }
-
-    private function makeRoomType(Hotel $hotel, array $attributes = []): RoomType
-    {
-        return RoomType::factory()->create(array_merge(['hotel_id' => $hotel->id], $attributes));
+        return RoomType::factory()->create($attributes);
     }
 
     private function roomTypePayload(): array
@@ -75,93 +70,80 @@ class AdminRoomTypeAccessTest extends TestCase
     }
 
     // ----------------------------------------------------------------
-    // TC-RT-001 đến TC-RT-004: GET /admin/hotels/{hotelId}/room-types
+    // TC-RT-001 đến TC-RT-004: GET /admin/room-types
     // ----------------------------------------------------------------
 
     public function test_admin_can_list_room_types(): void // TC-RT-001
     {
-        $hotel = $this->makeHotel();
-        $this->makeRoomType($hotel);
+        $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
-            ->getJson("/api/v1/admin/hotels/{$hotel->id}/room-types")
+            ->getJson('/api/v1/admin/room-types')
             ->assertStatus(200)
             ->assertJson(['success' => true]);
     }
 
     public function test_staff_can_list_room_types(): void // TC-RT-002
     {
-        $hotel = $this->makeHotel();
-        $this->makeRoomType($hotel);
+        $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
-            ->getJson("/api/v1/admin/hotels/{$hotel->id}/room-types")
+            ->getJson('/api/v1/admin/room-types')
             ->assertStatus(200)
             ->assertJson(['success' => true]);
     }
 
     public function test_customer_cannot_list_room_types(): void // TC-RT-003
     {
-        $hotel = $this->makeHotel();
-
         $this->actingAs($this->makeUser('customer'))
-            ->getJson("/api/v1/admin/hotels/{$hotel->id}/room-types")
+            ->getJson('/api/v1/admin/room-types')
             ->assertStatus(403)
             ->assertJson(['success' => false]);
     }
 
     public function test_anonymous_cannot_list_room_types(): void // TC-RT-004
     {
-        $hotel = $this->makeHotel();
-
-        $this->getJson("/api/v1/admin/hotels/{$hotel->id}/room-types")
+        $this->getJson('/api/v1/admin/room-types')
             ->assertStatus(401)
             ->assertJson(['success' => false]);
     }
 
     // ----------------------------------------------------------------
-    // TC-RT-005 đến TC-RT-008: POST /admin/hotels/{hotelId}/room-types
+    // TC-RT-005 đến TC-RT-008: POST /admin/room-types
     // ----------------------------------------------------------------
 
     public function test_admin_can_create_room_type(): void // TC-RT-005
     {
-        $hotel = $this->makeHotel(['status' => 'active']);
-
         $this->actingAs($this->makeUser('admin'))
-            ->postJson("/api/v1/admin/hotels/{$hotel->id}/room-types", $this->roomTypePayload())
+            ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
             ->assertStatus(201)
             ->assertJson(['success' => true]);
     }
 
     public function test_staff_can_create_room_type(): void // TC-RT-006
     {
-        $hotel = $this->makeHotel(['status' => 'active']);
-
         $this->actingAs($this->makeUser('staff'))
-            ->postJson("/api/v1/admin/hotels/{$hotel->id}/room-types", $this->roomTypePayload())
+            ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
             ->assertStatus(201)
             ->assertJson(['success' => true]);
     }
 
     public function test_customer_cannot_create_room_type(): void // TC-RT-007
     {
-        $hotel = $this->makeHotel(['status' => 'active']);
-
         $this->actingAs($this->makeUser('customer'))
-            ->postJson("/api/v1/admin/hotels/{$hotel->id}/room-types", $this->roomTypePayload())
+            ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
             ->assertStatus(403)
             ->assertJson(['success' => false]);
     }
 
-    public function test_admin_cannot_create_room_type_for_hidden_hotel(): void // TC-RT-008
+    public function test_admin_cannot_create_room_type_when_hotel_under_maintenance(): void // TC-RT-008
     {
-        $hotel = $this->makeHotel(['status' => 'hidden']);
+        HotelInfo::instance()->update(['status' => 'maintenance']);
 
         $this->actingAs($this->makeUser('admin'))
-            ->postJson("/api/v1/admin/hotels/{$hotel->id}/room-types", $this->roomTypePayload())
+            ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
             ->assertStatus(422)
-            ->assertJson(['success' => false])
-            ->assertJsonValidationErrors('hotel_id');
+            ->assertJson(['success' => false]);
     }
 
     // ----------------------------------------------------------------
@@ -170,7 +152,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_admin_can_view_room_type_detail(): void // TC-RT-009
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
             ->getJson("/api/v1/admin/room-types/{$roomType->id}")
@@ -180,7 +162,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_staff_can_view_room_type_detail(): void // TC-RT-010
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
             ->getJson("/api/v1/admin/room-types/{$roomType->id}")
@@ -190,7 +172,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_customer_cannot_view_room_type_detail(): void // TC-RT-011
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('customer'))
             ->getJson("/api/v1/admin/room-types/{$roomType->id}")
@@ -204,7 +186,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_admin_can_update_room_type(): void // TC-RT-012
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
             ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['name' => 'Tên Mới'])
@@ -214,7 +196,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_staff_can_update_room_type(): void // TC-RT-013
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
             ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['name' => 'Tên Mới 2'])
@@ -224,7 +206,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_customer_cannot_update_room_type(): void // TC-RT-014
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('customer'))
             ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['name' => 'Hack tên'])
@@ -232,13 +214,13 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => false]);
     }
 
-    public function test_staff_can_update_room_type_when_hotel_hidden(): void // TC-RT-015
+    public function test_staff_can_update_room_type_when_hotel_under_maintenance(): void // TC-RT-015
     {
-        $hotel    = $this->makeHotel(['status' => 'hidden']);
-        $roomType = $this->makeRoomType($hotel);
+        HotelInfo::instance()->update(['status' => 'maintenance']);
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
-            ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['name' => 'Sửa khi hotel ẩn'])
+            ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['name' => 'Sửa khi bảo trì'])
             ->assertStatus(200)
             ->assertJson(['success' => true]);
     }
@@ -249,7 +231,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_admin_can_delete_room_type(): void // TC-RT-016
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
             ->deleteJson("/api/v1/admin/room-types/{$roomType->id}")
@@ -259,7 +241,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_staff_can_delete_room_type(): void // TC-RT-017
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
             ->deleteJson("/api/v1/admin/room-types/{$roomType->id}")
@@ -269,7 +251,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_customer_cannot_delete_room_type(): void // TC-RT-018
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('customer'))
             ->deleteJson("/api/v1/admin/room-types/{$roomType->id}")
@@ -283,7 +265,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_admin_can_restore_room_type(): void // TC-RT-019
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
         $roomType->delete();
 
         $this->actingAs($this->makeUser('admin'))
@@ -294,7 +276,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_staff_can_restore_room_type(): void // TC-RT-020
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
         $roomType->delete();
 
         $this->actingAs($this->makeUser('staff'))
@@ -305,7 +287,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_customer_cannot_restore_room_type(): void // TC-RT-021
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
         $roomType->delete();
 
         $this->actingAs($this->makeUser('customer'))
@@ -320,7 +302,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_admin_can_update_price(): void // TC-RT-022
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 999000])
@@ -330,7 +312,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_staff_can_update_price(): void // TC-RT-023
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 999000])
@@ -340,7 +322,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_customer_cannot_update_price(): void // TC-RT-024
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('customer'))
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 999000])
@@ -354,7 +336,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_admin_can_update_inventory(): void // TC-RT-025
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 10])
@@ -364,7 +346,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_staff_can_update_inventory(): void // TC-RT-026
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('staff'))
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 10])
@@ -374,7 +356,7 @@ class AdminRoomTypeAccessTest extends TestCase
 
     public function test_customer_cannot_update_inventory(): void // TC-RT-027
     {
-        $roomType = $this->makeRoomType($this->makeHotel());
+        $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('customer'))
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 10])

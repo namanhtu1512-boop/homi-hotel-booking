@@ -28,7 +28,6 @@ class BookingService
     public function create(User $customer, array $data): Booking
     {
         $roomType = RoomType::where('status', 'active')
-            ->whereHas('hotel', fn ($q) => $q->where('status', 'active'))
             ->findOrFail($data['room_type_id']);
 
         // DateRangeService validate đã được gọi qua AvailabilityService
@@ -55,7 +54,6 @@ class BookingService
 
             $booking = Booking::create([
                 'user_id'        => $customer->id,
-                'hotel_id'       => $roomType->hotel_id,
                 'booking_code'   => $this->generateCode(),
                 'check_in'       => $data['check_in'],
                 'check_out'      => $data['check_out'],
@@ -84,7 +82,7 @@ class BookingService
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
 
-            return $booking->load(['bookingItems.roomType.hotel', 'payment']);
+            return $booking->load(['bookingItems.roomType', 'payment']);
         });
     }
 
@@ -103,7 +101,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.hotel', 'payment'])
+        $booking = Booking::with(['bookingItems.roomType', 'payment'])
             ->findOrFail($bookingId);
 
         if ($booking->user_id !== $customer->id) {
@@ -141,10 +139,6 @@ class BookingService
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
-        }
-
-        if (! empty($filters['hotel_id'])) {
-            $query->where('hotel_id', $filters['hotel_id']);
         }
 
         if (! empty($filters['customer_id'])) {

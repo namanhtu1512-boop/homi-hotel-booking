@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Models\Hotel;
+use App\Models\HotelInfo;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -34,7 +34,7 @@ class AppServiceProvider extends ServiceProvider
         // (vd: audit_logs.auditable_type), tránh vỡ dữ liệu cũ khi đổi namespace.
         Relation::enforceMorphMap([
             'users'      => User::class,
-            'hotels'     => Hotel::class,
+            'hotel_info' => HotelInfo::class,
             'room_types' => RoomType::class,
         ]);
     }

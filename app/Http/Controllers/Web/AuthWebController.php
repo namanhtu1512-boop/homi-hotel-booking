@@ -77,4 +77,59 @@ class AuthWebController extends Controller
 
         return redirect()->route('login');
     }
+
+    public function showAdminLogin()
+    {
+        if (Auth::check() && in_array(Auth::user()->role, ['admin', 'staff'])) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return view('auth.admin-login');
+    }
+
+    public function adminLogin(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        if (!Auth::attempt($data)) {
+            return back()
+                ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])
+                ->onlyInput('email');
+        }
+
+        $user = Auth::user();
+
+        if ($user->status !== 'active') {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản đang bị khóa hoặc chưa hoạt động.'])
+                ->onlyInput('email');
+        }
+
+        if (!in_array($user->role, ['admin', 'staff'])) {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản này không có quyền truy cập khu vực quản trị.'])
+                ->onlyInput('email');
+        }
+
+        $request->session()->regenerate();
+
+        return redirect()->route('admin.dashboard');
+    }
+
+    public function adminLogout(Request $request)
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('admin.login');
+    }
 }

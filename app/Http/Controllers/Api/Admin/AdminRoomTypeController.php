@@ -7,7 +7,6 @@ use App\Http\Requests\RoomType\CreateRoomTypeRequest;
 use App\Http\Requests\RoomType\UpdateRoomTypeInventoryRequest;
 use App\Http\Requests\RoomType\UpdateRoomTypePriceRequest;
 use App\Http\Requests\RoomType\UpdateRoomTypeRequest;
-use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\ImageService;
@@ -25,32 +24,29 @@ class AdminRoomTypeController extends Controller
         private readonly AuditLogService $auditLog,
     ) {}
 
-    public function index(int $hotelId): JsonResponse
+    public function index(): JsonResponse
     {
         $this->authorize('viewAny', RoomType::class);
 
-        Hotel::findOrFail($hotelId);
-        $roomTypes = $this->roomTypeService->listByHotel($hotelId, adminView: true);
+        $roomTypes = $this->roomTypeService->list(adminView: true);
 
         return $this->success($roomTypes);
     }
 
-    public function store(CreateRoomTypeRequest $request, int $hotelId): JsonResponse
+    public function store(CreateRoomTypeRequest $request): JsonResponse
     {
-        $hotel = Hotel::findOrFail($hotelId);
+        $this->authorize('create', RoomType::class);
 
-        $this->authorize('create', [RoomType::class, $hotel]);
+        $roomType = $this->roomTypeService->create($request->validated());
 
-        $roomType = $this->roomTypeService->create($hotel, $request->validated());
-
-        $this->auditLog->log('room_type.created', $roomType, "Tạo loại phòng \"{$roomType->name}\" cho khách sạn \"{$hotel->name}\".");
+        $this->auditLog->log('room_type.created', $roomType, "Tạo loại phòng \"{$roomType->name}\".");
 
         return $this->created($roomType, 'Tạo loại phòng thành công.');
     }
 
     public function show(int $id): JsonResponse
     {
-        $roomType = RoomType::withTrashed()->with(['images', 'hotel'])->findOrFail($id);
+        $roomType = RoomType::withTrashed()->with('images')->findOrFail($id);
 
         $this->authorize('view', $roomType);
 

@@ -3,44 +3,23 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
+use App\Http\Requests\RoomType\FilterRoomTypeRequest;
+use App\Services\HotelInfoService;
+use App\Services\RoomTypeService;
 
 class HomeController extends Controller
 {
-    public function index()
+    public function __construct(
+        private readonly HotelInfoService $hotelInfoService,
+        private readonly RoomTypeService $roomTypeService,
+    ) {}
+
+    public function index(FilterRoomTypeRequest $request)
     {
-        $minPrices = DB::table('room_types')
-            ->select('hotel_id', DB::raw('MIN(price_per_night) as min_price'))
-            ->where('status', 'active')
-            ->groupBy('hotel_id');
+        $hotel     = $this->hotelInfoService->get();
+        $filters   = $request->filters();
+        $roomTypes = $this->roomTypeService->search($filters, 12);
 
-        $hotels = DB::table('hotels')
-            ->leftJoinSub($minPrices, 'prices', function ($join) {
-                $join->on('hotels.id', '=', 'prices.hotel_id');
-            })
-            ->select(
-                'hotels.id',
-                'hotels.name',
-                'hotels.slug',
-                'hotels.city',
-                'hotels.district',
-                'hotels.address',
-                'hotels.description',
-                'hotels.star_rating',
-                'hotels.status',
-                'prices.min_price'
-            )
-            ->where('hotels.status', 'active')
-            ->limit(8)
-            ->get();
-
-        $cities = DB::table('hotels')
-            ->select('city', DB::raw('COUNT(*) as total'))
-            ->where('status', 'active')
-            ->groupBy('city')
-            ->orderBy('city')
-            ->get();
-
-        return view('home', compact('hotels', 'cities'));
+        return view('client.home', compact('hotel', 'roomTypes', 'filters'));
     }
 }

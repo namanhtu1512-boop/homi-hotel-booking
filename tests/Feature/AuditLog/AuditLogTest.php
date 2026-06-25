@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\AuditLog;
 
-use App\Models\Hotel;
+use App\Models\HotelInfo;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,71 +42,35 @@ class AuditLogTest extends TestCase
         ]);
     }
 
-    public function test_creating_hotel_creates_audit_log(): void
+    public function test_updating_hotel_info_creates_audit_log(): void
     {
         $admin = $this->makeUser('admin');
-
-        $response = $this->actingAs($admin)->postJson('/api/v1/admin/hotels', [
-            'name'    => 'Homi Test Hotel',
-            'city'    => 'Hà Nội',
-            'address' => '1 Hàng Bài',
-        ]);
-
-        $response->assertStatus(201);
-        $hotelId = $response->json('data.id');
-
-        $this->assertDatabaseHas('audit_logs', [
-            'user_id'        => $admin->id,
-            'action'         => 'hotel.created',
-            'auditable_type' => 'hotels',
-            'auditable_id'   => $hotelId,
-        ]);
-    }
-
-    public function test_updating_hotel_creates_audit_log(): void
-    {
-        $admin = $this->makeUser('admin');
-        $hotel = Hotel::factory()->create();
+        $hotel = HotelInfo::instance();
 
         $this->actingAs($admin)
-            ->putJson("/api/v1/admin/hotels/{$hotel->id}", ['name' => 'Tên Mới'])
+            ->putJson('/api/v1/admin/hotel-info', ['name' => 'Tên Mới'])
             ->assertStatus(200);
 
         $this->assertDatabaseHas('audit_logs', [
-            'action'         => 'hotel.updated',
-            'auditable_type' => 'hotels',
+            'action'         => 'hotel_info.updated',
+            'auditable_type' => 'hotel_info',
             'auditable_id'   => $hotel->id,
         ]);
     }
 
-    public function test_deleting_hotel_creates_audit_log(): void
+    public function test_toggling_hotel_info_status_creates_audit_log(): void
     {
         $admin = $this->makeUser('admin');
-        $hotel = Hotel::factory()->create();
+        $hotel = HotelInfo::instance();
+        $hotel->update(['status' => 'active']);
 
         $this->actingAs($admin)
-            ->deleteJson("/api/v1/admin/hotels/{$hotel->id}")
+            ->patchJson('/api/v1/admin/hotel-info/toggle-maintenance')
             ->assertStatus(200);
 
         $this->assertDatabaseHas('audit_logs', [
-            'action'         => 'hotel.deleted',
-            'auditable_type' => 'hotels',
-            'auditable_id'   => $hotel->id,
-        ]);
-    }
-
-    public function test_toggling_hotel_status_creates_audit_log(): void
-    {
-        $admin = $this->makeUser('admin');
-        $hotel = Hotel::factory()->create(['status' => 'active']);
-
-        $this->actingAs($admin)
-            ->patchJson("/api/v1/admin/hotels/{$hotel->id}/toggle-status")
-            ->assertStatus(200);
-
-        $this->assertDatabaseHas('audit_logs', [
-            'action'         => 'hotel.status_toggled',
-            'auditable_type' => 'hotels',
+            'action'         => 'hotel_info.status_toggled',
+            'auditable_type' => 'hotel_info',
             'auditable_id'   => $hotel->id,
         ]);
     }
@@ -114,9 +78,8 @@ class AuditLogTest extends TestCase
     public function test_creating_room_type_creates_audit_log(): void
     {
         $admin = $this->makeUser('admin');
-        $hotel = Hotel::factory()->create(['status' => 'active']);
 
-        $response = $this->actingAs($admin)->postJson("/api/v1/admin/hotels/{$hotel->id}/room-types", [
+        $response = $this->actingAs($admin)->postJson('/api/v1/admin/room-types', [
             'name'            => 'Deluxe',
             'price_per_night' => 500000,
             'capacity'        => 2,
@@ -155,15 +118,14 @@ class AuditLogTest extends TestCase
 
     public function test_admin_can_view_audit_logs(): void
     {
-        $admin  = $this->makeUser('admin');
-        $hotel  = Hotel::factory()->create();
-        $this->actingAs($admin)->deleteJson("/api/v1/admin/hotels/{$hotel->id}");
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->putJson('/api/v1/admin/hotel-info', ['name' => 'Homi Cập Nhật']);
 
         $this->actingAs($admin)
             ->getJson('/api/v1/admin/audit-logs')
             ->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['logs', 'meta']])
-            ->assertJsonFragment(['action' => 'hotel.deleted']);
+            ->assertJsonFragment(['action' => 'hotel_info.updated']);
     }
 
     public function test_staff_cannot_view_audit_logs(): void
@@ -188,16 +150,15 @@ class AuditLogTest extends TestCase
     public function test_audit_logs_can_be_filtered_by_action(): void
     {
         $admin = $this->makeUser('admin');
-        $hotel = Hotel::factory()->create(['status' => 'active']);
 
-        $this->actingAs($admin)->patchJson("/api/v1/admin/hotels/{$hotel->id}/toggle-status");
-        $this->actingAs($admin)->deleteJson("/api/v1/admin/hotels/{$hotel->id}");
+        $this->actingAs($admin)->patchJson('/api/v1/admin/hotel-info/toggle-maintenance');
+        $this->actingAs($admin)->putJson('/api/v1/admin/hotel-info', ['name' => 'Homi Đổi Tên']);
 
         $response = $this->actingAs($admin)
-            ->getJson('/api/v1/admin/audit-logs?action=hotel.deleted');
+            ->getJson('/api/v1/admin/audit-logs?action=hotel_info.updated');
 
         $response->assertStatus(200);
         $actions = collect($response->json('data.logs'))->pluck('action')->unique();
-        $this->assertEquals(['hotel.deleted'], $actions->values()->all());
+        $this->assertEquals(['hotel_info.updated'], $actions->values()->all());
     }
 }

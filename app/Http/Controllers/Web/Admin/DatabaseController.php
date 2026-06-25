@@ -12,7 +12,7 @@ class DatabaseController extends Controller
     {
         $tables = [
             'users',
-            'hotels',
+            'hotel_info',
             'room_types',
             'bookings',
             'booking_items',

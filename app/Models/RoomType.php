@@ -11,7 +11,6 @@ class RoomType extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'hotel_id',
         'name',
         'slug',
         'description',
@@ -32,11 +31,6 @@ class RoomType extends Model
     ];
 
     // --- Relationships ---
-
-    public function hotel()
-    {
-        return $this->belongsTo(Hotel::class);
-    }
 
     public function bookingItems()
     {

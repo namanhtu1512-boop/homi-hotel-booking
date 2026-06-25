@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
+use App\Services\AvailabilityService;
 use App\Services\BookingService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ class BookingController extends Controller
 
     public function __construct(
         private BookingService $bookingService,
+        private AvailabilityService $availabilityService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -117,13 +119,25 @@ class BookingController extends Controller
     // ----------------------------------------------------------------
 
     /**
-     * GET /api/v1/hotels/{hotel}/availability
+     * GET /api/v1/room-types/{roomType}/availability
      * Kiểm tra phòng trống theo ngày (public, không cần auth).
-     * TODO (Tuần 9): code AvailabilityService xử lý overlap.
      */
-    public function checkAvailability(Request $request, int $hotel): JsonResponse
+    public function checkAvailability(Request $request, int $roomType): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 9)');
+        $data = $request->validate([
+            'check_in'  => ['required', 'date_format:Y-m-d'],
+            'check_out' => ['required', 'date_format:Y-m-d'],
+            'quantity'  => ['nullable', 'integer', 'min:1', 'max:10'],
+        ]);
+
+        $result = $this->availabilityService->check(
+            $roomType,
+            $data['check_in'],
+            $data['check_out'],
+            (int) ($data['quantity'] ?? 1),
+        );
+
+        return $this->success($result);
     }
 
     // ----------------------------------------------------------------
