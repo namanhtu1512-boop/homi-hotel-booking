@@ -1,16 +1,18 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
-@section('title', 'Quản lý tài khoản · Homi')
-@section('banner_tag', 'Admin · Users')
-@section('banner_title', 'Quản lý tài khoản')
-@section('banner_subtitle', 'Tìm kiếm, lọc vai trò và khóa/mở khóa tài khoản.')
+@section('title', 'Người dùng · Homi Admin')
+@section('page_title', 'Quản lý người dùng')
+@section('page_subtitle', 'Lọc theo vai trò, tìm kiếm và khóa/mở khóa tài khoản.')
 
 @section('content')
-@if (session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
-
 <div class="card">
+    <div class="page-actions">
+        <div>
+            <div class="section-kicker">Danh sách</div>
+            <h2 class="section-title">{{ $users->total() }} người dùng</h2>
+        </div>
+    </div>
+
     <form method="GET" action="{{ route('admin.users.index') }}" class="filter-bar">
         <input type="text" name="search" value="{{ $search }}" placeholder="Tìm theo tên hoặc email...">
 
@@ -22,10 +24,14 @@
         </select>
 
         <button type="submit" class="btn btn-outline">Lọc</button>
+
+        @if ($search || $role)
+            <a href="{{ route('admin.users.index') }}" class="btn btn-outline">Xóa lọc</a>
+        @endif
     </form>
 
     @if ($users->isEmpty())
-        <div class="empty-box">Không tìm thấy tài khoản nào.</div>
+        <div class="empty-box">Không tìm thấy người dùng nào.</div>
     @else
         <div class="table-wrapper">
             <table>
@@ -35,9 +41,7 @@
                         <th>Email</th>
                         <th>Vai trò</th>
                         <th>Trạng thái</th>
-                        @if (auth()->user()->role === 'admin')
-                            <th></th>
-                        @endif
+                        <th>Thao tác</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,26 +57,24 @@
                                     <span class="badge badge-red">Đã khóa</span>
                                 @endif
                             </td>
-                            @if (auth()->user()->role === 'admin')
-                                <td>
-                                    @if ($user->id !== auth()->id())
-                                        <form method="POST" action="{{ route('admin.users.toggle-status', $user->id) }}">
-                                            @csrf
-                                            @method('PATCH')
-                                            <button type="submit" class="btn btn-outline btn-sm">
-                                                {{ $user->status === 'active' ? 'Khóa' : 'Mở khóa' }}
-                                            </button>
-                                        </form>
-                                    @endif
-                                </td>
-                            @endif
+                            <td>
+                                @if ($user->id !== auth()->id())
+                                    <form method="POST" action="{{ route('admin.users.toggle-status', $user->id) }}">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-outline btn-sm">
+                                            {{ $user->status === 'active' ? 'Khóa' : 'Mở khóa' }}
+                                        </button>
+                                    </form>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
 
-        <div class="action-row" style="margin-top: 18px;">
+        <div class="action-row" style="margin-top: 16px;">
             {{ $users->appends(request()->query())->links() }}
         </div>
     @endif

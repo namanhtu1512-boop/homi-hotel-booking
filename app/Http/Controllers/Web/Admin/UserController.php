@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\AuditLogService;
-use App\Services\UserService;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,33 +11,44 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
-    public function __construct(
-        private readonly UserService $userService,
-        private readonly AuditLogService $auditLogService,
-    ) {}
-
     public function index(Request $request): View
     {
-        $users = $this->userService->list(
-            filters: $request->only(['search', 'role']),
-            perPage: 15,
-        );
+        $query = User::query();
+
+        if ($role = $request->input('role')) {
+            $query->where('role', $role);
+        }
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
 
         return view('admin.users.index', [
             'users'  => $users,
-            'search' => $request->input('search', ''),
             'role'   => $request->input('role', ''),
+            'search' => $request->input('search', ''),
         ]);
     }
 
     public function toggleStatus(int $id): RedirectResponse
     {
-        $target = $this->userService->findOrFail($id);
-        $this->userService->toggleStatus($target, Auth::user());
-        $this->auditLogService->log('user.status_toggled', $target);
+        $user = User::findOrFail($id);
+
+        if ($user->id === Auth::id()) {
+            return back()->with('error', 'Không thể khóa tài khoản của chính mình.');
+        }
+
+        $user->update([
+            'status' => $user->status === 'active' ? 'locked' : 'active',
+        ]);
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', "Đã cập nhật trạng thái tài khoản \"{$target->name}\".");
+            ->with('success', "Đã chuyển tài khoản \"{$user->name}\" sang trạng thái \"{$user->status}\".");
     }
 }

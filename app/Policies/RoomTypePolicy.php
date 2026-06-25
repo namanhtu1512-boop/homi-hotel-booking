@@ -8,15 +8,15 @@ use App\Models\User;
 /**
  * RoomTypePolicy — kiểm soát quyền thao tác với loại phòng theo role.
  *
- * Quy ước giống HotelPolicy (xem [[HotelPolicy]]):
+ * Quy ước giống HotelInfoPolicy (xem [[HotelInfoPolicy]]):
  *  - admin: toàn quyền, kể cả forceDelete.
  *  - staff: xem, thêm, sửa, xóa mềm, khôi phục, đổi giá/số lượng.
  *  - customer / unauthenticated: không có quyền gì.
  *
- * Quyền thao tác room_type không phụ thuộc trạng thái khách sạn (admin/staff
- * vẫn cần sửa được dữ liệu phòng khi khách sạn đang đóng) — rule "không cho
- * tạo phòng mới khi khách sạn đang đóng" được xử lý ở RoomTypeService::assertHotelOpen(),
- * không phải ở policy, vì đây là rule nghiệp vụ chứ không phải rule phân quyền.
+ * Vì hệ thống chỉ có 1 khách sạn, room_types không còn gắn với hotel_id —
+ * rule "không cho tạo phòng mới khi khách sạn đang bảo trì" được xử lý ở
+ * RoomTypeService::assertHotelOperational(), không phải ở policy, vì đây
+ * là rule nghiệp vụ chứ không phải rule phân quyền.
  */
 class RoomTypePolicy
 {
