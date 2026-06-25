@@ -37,7 +37,7 @@ class PublicRoomTypeController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $roomType = $this->roomTypeService->findPublic($id);
+        $roomType = $this->roomTypeService->findActive($id);
 
         return $this->success($roomType->load('images'));
     }

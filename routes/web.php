@@ -1,25 +1,26 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Web\AuthWebController;
 use App\Http\Controllers\Web\HomeController;
+use App\Http\Controllers\Web\RoomController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\DatabaseController;
 use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
+use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
 
 // ---------------------------------------------------------------
-// Public — trang giới thiệu khách sạn
+// Public
 // ---------------------------------------------------------------
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
 Route::get('/rooms/{id}', [RoomController::class, 'show'])->name('rooms.show');
 
 // ---------------------------------------------------------------
-// Auth — đăng ký/đăng nhập khách hàng dùng chung view với admin/staff,
-// chỉ khác URL truy cập (/admin/login chỉ là alias hiển thị cùng form).
+// Auth — guest only
 // ---------------------------------------------------------------
 Route::middleware('guest')->group(function () {
     Route::get('/customer/register', [AuthWebController::class, 'showRegister'])->name('register');
@@ -27,15 +28,13 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/customer/login', [AuthWebController::class, 'showLogin'])->name('login');
     Route::post('/customer/login', [AuthWebController::class, 'login']);
-
-    Route::get('/admin/login', [AuthWebController::class, 'showLogin'])->name('admin.login');
 });
 
 Route::post('/logout', [AuthWebController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
 
-// Admin login (riêng biệt, không thuộc guest middleware)
+// Admin login (separate, not under guest middleware so already-logged-in admins get redirected)
 Route::get('/admin/login', [AuthWebController::class, 'showAdminLogin'])->name('admin.login');
 Route::post('/admin/login', [AuthWebController::class, 'adminLogin'])->name('admin.login.post');
 
@@ -44,18 +43,22 @@ Route::post('/admin/logout', [AuthWebController::class, 'adminLogout'])
     ->name('admin.logout');
 
 // ---------------------------------------------------------------
-// CLIENT — Trang khách hàng (public-facing)
+// CUSTOMER — authenticated customers
 // ---------------------------------------------------------------
-Route::get('/home', [HomeController::class, 'index'])
-    ->middleware('auth')
-    ->name('home');
+Route::middleware(['auth'])->prefix('customer')->name('customer.')->group(function () {
+    Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
 
-Route::get('/dashboard', function () {
-    return view('client.dashboard');
-})->middleware('auth')->name('dashboard');
+    Route::prefix('bookings')->name('bookings.')->group(function () {
+        Route::get('/',          [CustomerBookingController::class, 'index'])->name('index');
+        Route::get('/create',    [CustomerBookingController::class, 'create'])->name('create');
+        Route::post('/',         [CustomerBookingController::class, 'store'])->name('store');
+        Route::get('/{id}',      [CustomerBookingController::class, 'show'])->name('show');
+        Route::post('/{id}/cancel', [CustomerBookingController::class, 'cancel'])->name('cancel');
+    });
+});
 
 // ---------------------------------------------------------------
-// ADMIN — Khu vực quản trị (admin/staff)
+// ADMIN — admin/staff only
 // ---------------------------------------------------------------
 Route::middleware(['role:admin,staff'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

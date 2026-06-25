@@ -596,10 +596,12 @@
                     <span>Email: support@homi.test</span>
                 </div>
 
+                @auth
                 <div class="top-right">
                     <span>Xin chào, {{ auth()->user()->name }}</span>
                     <span>Vai trò: {{ auth()->user()->role }}</span>
                 </div>
+                @endauth
             </div>
 
             <nav class="main-nav">
@@ -615,12 +617,22 @@
                 </div>
 
                 <div class="nav-actions">
-                    <a href="{{ route('dashboard') }}" class="btn btn-outline">Dashboard</a>
+                    @auth
+                        @php
+                            $dashboardRoute = in_array(auth()->user()->role, ['admin', 'staff'])
+                                ? route('admin.dashboard')
+                                : route('customer.dashboard');
+                        @endphp
+                        <a href="{{ $dashboardRoute }}" class="btn btn-outline">Dashboard</a>
 
-                    <form method="POST" action="{{ route('logout') }}" class="logout-form">
-                        @csrf
-                        <button type="submit" class="btn btn-primary">Đăng xuất</button>
-                    </form>
+                        <form method="POST" action="{{ route('logout') }}" class="logout-form">
+                            @csrf
+                            <button type="submit" class="btn btn-primary">Đăng xuất</button>
+                        </form>
+                    @else
+                        <a href="{{ route('login') }}" class="btn btn-outline">Đăng nhập</a>
+                        <a href="{{ route('register') }}" class="btn btn-primary">Đăng ký</a>
+                    @endauth
                 </div>
             </nav>
         </div>
@@ -724,9 +736,8 @@
                     <span class="amenity-tag">Đang cập nhật tiện ích</span>
                 @endforelse
             </div>
-        @endif
-    </div>
-@endif
+        </div>
+    </section>
 
     <section class="section" id="rooms" style="padding-top: 0;">
         <div class="container">
@@ -780,8 +791,7 @@
                 </div>
             @endif
         </div>
-    </div>
-@endif
+    </section>
 
     <section class="section feature-section" id="services">
         <div class="container">

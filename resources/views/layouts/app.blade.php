@@ -815,7 +815,8 @@
                     <a href="{{ route('home') }}" class="nav-link">Trang chủ</a>
                     <a href="{{ route('rooms.index') }}" class="nav-link">Phòng</a>
 
-                        @if (in_array(auth()->user()->role, ['admin', 'staff']))
+                    @auth
+                        @if (session('login_context') === 'admin')
                             <a href="{{ route('admin.dashboard') }}" class="nav-link">Trang quản trị</a>
                         @endif
 
@@ -826,7 +827,7 @@
                     @else
                         <a href="{{ route('login') }}" class="nav-link">Đăng nhập</a>
                         <a href="{{ route('register') }}" class="btn btn-light">Đăng ký</a>
-                    @endif
+                    @endauth
                 </div>
             </div>
 

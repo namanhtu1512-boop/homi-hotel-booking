@@ -13,7 +13,6 @@ class RoomTypeService
 {
     public function __construct(
         private readonly ImageService $imageService,
-        private readonly HotelService $hotelService,
     ) {}
 
     public function list(bool $adminView = false): Collection
@@ -198,29 +197,6 @@ class RoomTypeService
                 'total_rooms' => ['Số lượng phòng phải lớn hơn hoặc bằng 1.'],
             ]);
         }
-    }
-
-    /**
-     * Sinh slug duy nhất cho loại phòng (slug giờ là duy nhất toàn hệ thống
-     * vì chỉ còn 1 khách sạn, không cần ghép với hotel_id như trước).
-     */
-    private function uniqueSlug(string $name, ?int $ignoreId = null): string
-    {
-        $base   = Str::slug($name);
-        $slug   = $base;
-        $suffix = 2;
-
-        while (
-            RoomType::withTrashed()
-                ->where('slug', $slug)
-                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
-                ->exists()
-        ) {
-            $slug = "{$base}-{$suffix}";
-            $suffix++;
-        }
-
-        return $slug;
     }
 
     /**

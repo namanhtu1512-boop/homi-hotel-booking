@@ -33,6 +33,7 @@ class AuthWebController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('login_context', 'customer');
 
         return redirect()->route('customer.dashboard');
     }
@@ -55,7 +56,9 @@ class AuthWebController extends Controller
                 ->onlyInput('email');
         }
 
-        if (Auth::user()->status !== 'active') {
+        $user = Auth::user();
+
+        if ($user->status !== 'active') {
             Auth::logout();
 
             return back()
@@ -64,8 +67,17 @@ class AuthWebController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('login_context', 'customer');
 
-        return $this->redirectByRole($request->user());
+        return redirect()->route('customer.dashboard');
+    }
+
+    private function redirectByRole(User $user)
+    {
+        return match (true) {
+            in_array($user->role, ['admin', 'staff']) => redirect()->route('admin.dashboard'),
+            default                                   => redirect()->route('customer.dashboard'),
+        };
     }
 
     public function logout(Request $request)
@@ -119,6 +131,7 @@ class AuthWebController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('login_context', 'admin');
 
         return redirect()->route('admin.dashboard');
     }
