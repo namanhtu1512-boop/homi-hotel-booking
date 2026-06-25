@@ -45,10 +45,6 @@ class AdminRoomTypeAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ----------------------------------------------------------------
-    // Helpers
-    // ----------------------------------------------------------------
-
     private function makeUser(string $role): User
     {
         return User::factory()->create(['role' => $role, 'status' => 'active']);
@@ -83,17 +79,34 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
-    public function test_staff_can_list_room_types(): void // TC-RT-002
+    public function test_customer_cannot_list_room_types(): void
     {
         $this->makeRoomType();
 
+    public function test_guest_redirected_to_login(): void
+    {
+        $this->get(route('admin.room-types.index'))
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_admin_can_create_room_type(): void
+    {
+        $this->actingAs($this->makeUser('admin'))
+            ->post(route('admin.room-types.store'), $this->roomTypePayload())
+            ->assertRedirect(route('admin.room-types.index'));
+
+        $this->assertDatabaseHas('room_types', ['name' => 'Phòng Deluxe Mới']);
+    }
+
+    public function test_staff_can_create_room_type(): void
+    {
         $this->actingAs($this->makeUser('staff'))
             ->getJson('/api/v1/admin/room-types')
             ->assertStatus(200)
             ->assertJson(['success' => true]);
     }
 
-    public function test_customer_cannot_list_room_types(): void // TC-RT-003
+    public function test_customer_cannot_create_room_type(): void
     {
         $this->actingAs($this->makeUser('customer'))
             ->getJson('/api/v1/admin/room-types')
@@ -101,7 +114,7 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => false]);
     }
 
-    public function test_anonymous_cannot_list_room_types(): void // TC-RT-004
+    public function test_admin_can_delete_room_type(): void
     {
         $this->getJson('/api/v1/admin/room-types')
             ->assertStatus(401)
@@ -120,7 +133,7 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
-    public function test_staff_can_create_room_type(): void // TC-RT-006
+    public function test_customer_cannot_delete_room_type(): void
     {
         $this->actingAs($this->makeUser('staff'))
             ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
@@ -269,12 +282,13 @@ class AdminRoomTypeAccessTest extends TestCase
         $roomType->delete();
 
         $this->actingAs($this->makeUser('admin'))
-            ->postJson("/api/v1/admin/room-types/{$roomType->id}/restore")
-            ->assertStatus(200)
-            ->assertJson(['success' => true]);
+            ->post(route('admin.room-types.restore', $roomType->id))
+            ->assertRedirect(route('admin.room-types.index'));
+
+        $this->assertNotSoftDeleted('room_types', ['id' => $roomType->id]);
     }
 
-    public function test_staff_can_restore_room_type(): void // TC-RT-020
+    public function test_admin_can_toggle_status(): void
     {
         $roomType = $this->makeRoomType();
         $roomType->delete();
@@ -305,10 +319,8 @@ class AdminRoomTypeAccessTest extends TestCase
         $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
-            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 999000])
-            ->assertStatus(200)
-            ->assertJson(['success' => true]);
-    }
+            ->patch(route('admin.room-types.toggle-status', $roomType->id))
+            ->assertRedirect(route('admin.room-types.index'));
 
     public function test_staff_can_update_price(): void // TC-RT-023
     {

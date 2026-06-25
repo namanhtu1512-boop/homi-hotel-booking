@@ -40,6 +40,20 @@ class UserSeeder extends Seeder
                 'role' => 'customer',
                 'status' => 'locked',
             ],
+            [
+                'name' => 'Admin',
+                'email' => 'admin@gmail.com',
+                'phone' => '0900000005',
+                'address' => 'TP Hồ Chí Minh',
+                'role' => 'admin',
+            ],
+            [
+                'name' => 'User',
+                'email' => 'user@gmail.com',
+                'phone' => '0900000006',
+                'address' => 'TP Hồ Chí Minh',
+                'role' => 'customer',
+            ],
         ];
 
         foreach ($users as $user) {

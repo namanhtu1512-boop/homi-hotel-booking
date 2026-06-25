@@ -10,18 +10,25 @@ use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController;
 
-Route::get('/', function () {
-    return Auth::check()
-        ? redirect()->route('home')
-        : redirect()->route('login');
-});
+// ---------------------------------------------------------------
+// Public — trang giới thiệu khách sạn
+// ---------------------------------------------------------------
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
+Route::get('/rooms/{id}', [RoomController::class, 'show'])->name('rooms.show');
 
+// ---------------------------------------------------------------
+// Auth — đăng ký/đăng nhập khách hàng dùng chung view với admin/staff,
+// chỉ khác URL truy cập (/admin/login chỉ là alias hiển thị cùng form).
+// ---------------------------------------------------------------
 Route::middleware('guest')->group(function () {
-    Route::get('/register', [AuthWebController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthWebController::class, 'register']);
+    Route::get('/customer/register', [AuthWebController::class, 'showRegister'])->name('register');
+    Route::post('/customer/register', [AuthWebController::class, 'register']);
 
-    Route::get('/login', [AuthWebController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthWebController::class, 'login']);
+    Route::get('/customer/login', [AuthWebController::class, 'showLogin'])->name('login');
+    Route::post('/customer/login', [AuthWebController::class, 'login']);
+
+    Route::get('/admin/login', [AuthWebController::class, 'showLogin'])->name('admin.login');
 });
 
 Route::post('/logout', [AuthWebController::class, 'logout'])

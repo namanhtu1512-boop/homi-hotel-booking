@@ -22,13 +22,13 @@ class QaChecklistCommand extends Command
             'Không có commented-out code không cần thiết',
             'Không trả về dữ liệu nhạy cảm: password, token trong response',
         ],
-        'API & Validation' => [
-            'Tất cả route mới được đăng ký trong routes/api.php',
+        'Route & Validation' => [
+            'Tất cả route mới được đăng ký trong routes/web.php (không có routes/api.php)',
             'FormRequest validation đã có rule cho tất cả field bắt buộc',
             'Message validation bằng tiếng Việt (messages() method)',
-            'Response dùng chuẩn ApiResponse trait: success, message, data, error_code',
-            'HTTP status code đúng: 200/201 thành công, 422 validation, 401/403 phân quyền, 404 không tìm thấy',
-            'Pagination trả đúng cấu trúc: data, meta (total, per_page, current_page...)',
+            'Lỗi validation hiển thị trên form Blade qua $errors->any() (redirect back, không phải JSON)',
+            'Action ghi dữ liệu (POST/PUT/DELETE) đều redirect kèm session flash message thành công/thất bại',
+            'Danh sách dài dùng pagination Blade (->links()) thay vì cuộn vô hạn',
         ],
         'Database & Model' => [
             'Migration không đặt tên trùng',
@@ -50,16 +50,15 @@ class QaChecklistCommand extends Command
             'Có test case cho các lỗi validation chính',
             'Có test case cho phân quyền (role sai bị từ chối)',
             'Test chạy pass: php artisan test',
-            'Postman collection đã được cập nhật request mới',
         ],
     ];
 
     private array $moduleChecklist = [
         'auth' => [
-            'Password được hash, không trả về trong response',
-            'Token Sanctum có expires_at nếu cần',
-            'Logout revoke token hiện tại (không revoke tất cả nếu không cần)',
-            'Tài khoản locked không được đăng nhập (middleware active)',
+            'Password được hash, không hiển thị ra view hay log',
+            'Session được regenerate sau khi login/register (chống session fixation)',
+            'Logout invalidate session và regenerate CSRF token',
+            'Tài khoản locked không được đăng nhập (middleware role kiểm tra status)',
         ],
         'hotel' => [
             'hotel_info chỉ có đúng 1 bản ghi singleton — không có create/list/delete',

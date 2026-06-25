@@ -11,7 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class RoomTypeService
 {
-    public function __construct(private readonly ImageService $imageService) {}
+    public function __construct(
+        private readonly ImageService $imageService,
+        private readonly HotelService $hotelService,
+    ) {}
 
     public function list(bool $adminView = false): Collection
     {
@@ -61,7 +64,11 @@ class RoomTypeService
         return RoomType::with('images')->findOrFail($id);
     }
 
-    public function findPublic(int $id): RoomType
+    /**
+     * Lấy 1 phòng active cho trang public /rooms/{id} — 404 nếu phòng không
+     * tồn tại, đang ẩn, bảo trì hoặc đã bị xóa mềm.
+     */
+    public function findActive(int $id): RoomType
     {
         return RoomType::where('status', 'active')
             ->with('images')
@@ -77,11 +84,11 @@ class RoomTypeService
             'slug'           => $this->uniqueSlug($data['name']),
             'description'    => $data['description'] ?? null,
             'price_per_night' => $data['price_per_night'],
-            'capacity'       => $data['capacity'],
-            'bed_type'       => $data['bed_type'] ?? null,
-            'area'           => $data['area'] ?? null,
-            'total_rooms'    => $data['total_rooms'],
-            'status'         => 'active',
+            'capacity'        => $data['capacity'],
+            'bed_type'        => $data['bed_type'] ?? null,
+            'area'            => $data['area'] ?? null,
+            'total_rooms'     => $data['total_rooms'],
+            'status'          => 'active',
         ]);
 
         if (! empty($data['images'])) {
@@ -97,15 +104,11 @@ class RoomTypeService
             $this->validateInventoryReduction($data['total_rooms']);
         }
 
-        $fields = array_filter([
-            'name'           => $data['name'] ?? null,
-            'description'    => $data['description'] ?? null,
-            'price_per_night' => $data['price_per_night'] ?? null,
-            'capacity'       => $data['capacity'] ?? null,
-            'bed_type'       => $data['bed_type'] ?? null,
-            'area'           => $data['area'] ?? null,
-            'total_rooms'    => $data['total_rooms'] ?? null,
-        ], fn ($v) => $v !== null);
+        // array_intersect_key (không phải array_filter loại bỏ null) — để admin
+        // xóa field tùy chọn (description/bed_type/area) về rỗng thì giá trị
+        // null vẫn được ghi xuống DB thay vì bị bỏ qua.
+        $updatable = ['name', 'description', 'price_per_night', 'capacity', 'bed_type', 'area', 'total_rooms'];
+        $fields = array_intersect_key($data, array_flip($updatable));
 
         if (isset($data['name'])) {
             $fields['slug'] = $this->uniqueSlug($data['name'], $roomType->id);
@@ -135,6 +138,15 @@ class RoomTypeService
         return $roomType->fresh();
     }
 
+    public function toggleStatus(RoomType $roomType): RoomType
+    {
+        $roomType->update([
+            'status' => $roomType->status === 'active' ? 'hidden' : 'active',
+        ]);
+
+        return $roomType->fresh();
+    }
+
     /**
      * Soft delete nếu không có booking đang hoạt động.
      * Nếu có booking active thì chuyển về trạng thái 'hidden'.
@@ -155,6 +167,28 @@ class RoomTypeService
     public function restore(RoomType $roomType): void
     {
         $roomType->restore();
+    }
+
+    /**
+     * Sinh slug duy nhất cho loại phòng (slug giờ unique toàn cục vì chỉ còn 1 khách sạn).
+     */
+    private function uniqueSlug(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name);
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            RoomType::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     private function validateInventoryReduction(int $newTotal): void

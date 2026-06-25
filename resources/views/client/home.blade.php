@@ -724,8 +724,9 @@
                     <span class="amenity-tag">Đang cập nhật tiện ích</span>
                 @endforelse
             </div>
-        </div>
-    </section>
+        @endif
+    </div>
+@endif
 
     <section class="section" id="rooms" style="padding-top: 0;">
         <div class="container">
@@ -779,7 +780,8 @@
                 </div>
             @endif
         </div>
-    </section>
+    </div>
+@endif
 
     <section class="section feature-section" id="services">
         <div class="container">

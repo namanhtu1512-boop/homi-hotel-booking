@@ -7,82 +7,97 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Test case theo docs/test-auth.md mục 9 — TC-RBAC-01 đến TC-RBAC-07.
+ * Test case phân quyền customer/staff/admin trên route Blade /customer/* và /admin/*.
  */
 class RbacTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_customer_can_access_own_profile(): void // TC-RBAC-01
+    public function test_customer_can_access_customer_dashboard(): void
     {
         $user = User::factory()->customer()->create();
 
         $this->actingAs($user)
-            ->getJson('/api/v1/me')
-            ->assertStatus(200)
-            ->assertJsonPath('data.user.role', 'customer');
+            ->get('/customer/dashboard')
+            ->assertOk();
     }
 
-    public function test_staff_can_access_own_profile(): void // TC-RBAC-02
+    public function test_customer_cannot_access_admin_area(): void
+    {
+        $user = User::factory()->customer()->create();
+
+        $this->actingAs($user)
+            ->get('/admin/dashboard')
+            ->assertForbidden();
+    }
+
+    public function test_staff_can_access_admin_dashboard(): void
     {
         $user = User::factory()->staff()->create();
 
         $this->actingAs($user)
-            ->getJson('/api/v1/me')
-            ->assertJsonPath('data.user.role', 'staff');
+            ->get('/admin/dashboard')
+            ->assertOk();
     }
 
-    public function test_admin_can_access_own_profile(): void // TC-RBAC-03
+    public function test_admin_can_access_admin_dashboard(): void
     {
         $user = User::factory()->admin()->create();
 
         $this->actingAs($user)
-            ->getJson('/api/v1/me')
-            ->assertJsonPath('data.user.role', 'admin');
+            ->get('/admin/dashboard')
+            ->assertOk();
     }
 
-    public function test_inactive_account_cannot_login(): void // TC-RBAC-04
+    public function test_staff_cannot_access_customer_area(): void
+    {
+        $user = User::factory()->staff()->create();
+
+        $this->actingAs($user)
+            ->get('/customer/dashboard')
+            ->assertForbidden();
+    }
+
+    public function test_only_admin_can_toggle_user_status(): void
+    {
+        $staff  = User::factory()->staff()->create();
+        $target = User::factory()->customer()->create();
+
+        $this->actingAs($staff)
+            ->patch("/admin/users/{$target->id}/toggle-status")
+            ->assertForbidden();
+    }
+
+    public function test_locked_account_cannot_login(): void
     {
         User::factory()->locked()->create([
             'email'    => 'locked@homi.vn',
             'password' => '123456',
         ]);
 
-        $this->postJson('/api/v1/login', [
+        $this->post('/customer/login', [
             'email'    => 'locked@homi.vn',
             'password' => '123456',
-        ])->assertStatus(403);
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
     }
 
-    public function test_unauthenticated_request_returns_401(): void // TC-RBAC-05
+    public function test_unauthenticated_request_redirects_to_login(): void
     {
-        $this->getJson('/api/v1/me')->assertStatus(401);
-        $this->putJson('/api/v1/profile', [])->assertStatus(401);
-        $this->putJson('/api/v1/change-password', [])->assertStatus(401);
-        $this->postJson('/api/v1/logout')->assertStatus(401);
+        $this->get('/customer/dashboard')->assertRedirect(route('login'));
+        $this->get('/admin/dashboard')->assertRedirect(route('login'));
     }
 
-    public function test_newly_registered_user_has_customer_role(): void // TC-RBAC-06
+    public function test_newly_registered_user_has_customer_role(): void
     {
-        $response = $this->postJson('/api/v1/register', [
+        $this->post('/customer/register', [
             'name'                  => 'Người Mới',
             'email'                 => 'moi@homi.vn',
-            'password'              => '123456',
-            'password_confirmation' => '123456',
+            'password'              => '12345678',
+            'password_confirmation' => '12345678',
         ]);
 
-        $response->assertJsonPath('data.user.role', 'customer');
-    }
-
-    public function test_revoked_token_returns_401(): void // TC-RBAC-07
-    {
-        $user  = User::factory()->create();
-        $token = $user->createToken('test')->plainTextToken;
-
-        $user->tokens()->delete();
-
-        $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/v1/me')
-            ->assertStatus(401);
+        $this->assertDatabaseHas('users', ['email' => 'moi@homi.vn', 'role' => 'customer']);
     }
 }

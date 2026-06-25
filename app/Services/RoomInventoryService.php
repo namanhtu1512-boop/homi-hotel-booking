@@ -9,9 +9,10 @@ use Illuminate\Validation\ValidationException;
  * Đọc dữ liệu room inventory (số lượng phòng, giá, trạng thái) phục vụ
  * AvailabilityService (tuần 9) và PricingService (tuần 10).
  *
- * Chỉ coi là "khả dụng" khi: room_type active, hotel active, chưa bị
- * xóa mềm và total_rooms hợp lệ (>= 1). SoftDeletes tự loại các bản ghi
- * đã xóa mềm khỏi truy vấn mặc định nên không cần xử lý thêm.
+ * Chỉ coi là "khả dụng" khi: room_type active, chưa bị xóa mềm và
+ * total_rooms hợp lệ (>= 1). SoftDeletes tự loại các bản ghi đã xóa mềm
+ * khỏi truy vấn mặc định nên không cần xử lý thêm. Homi chỉ quản lý 1
+ * khách sạn duy nhất nên room_types không còn gắn với hotel_id.
  */
 class RoomInventoryService
 {

@@ -62,21 +62,21 @@ class BookingSeeder extends Seeder
                 'customer_name'  => $customer->name,
                 'customer_email' => $customer->email,
                 'customer_phone' => $customer->phone ?? '0900000001',
-                'total_amount'   => $superiorRoom->price_per_night * 3,
+                'total_amount'   => $deluxeRoom->price_per_night * 3,
                 'status'         => 'confirmed',
             ]);
             BookingItem::create([
                 'booking_id'      => $b->id,
-                'room_type_id'    => $superiorRoom->id,
+                'room_type_id'    => $deluxeRoom->id,
                 'quantity'        => 1,
-                'price_per_night' => $superiorRoom->price_per_night,
+                'price_per_night' => $deluxeRoom->price_per_night,
                 'nights'          => 3,
-                'subtotal'        => $superiorRoom->price_per_night * 3,
+                'subtotal'        => $deluxeRoom->price_per_night * 3,
             ]);
             Payment::create([
                 'booking_id' => $b->id,
                 'method'     => 'bank_transfer',
-                'amount'     => $superiorRoom->price_per_night * 3,
+                'amount'     => $deluxeRoom->price_per_night * 3,
                 'status'     => 'paid',
                 'paid_at'    => now(),
             ]);

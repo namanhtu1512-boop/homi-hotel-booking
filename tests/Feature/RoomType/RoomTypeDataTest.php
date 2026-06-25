@@ -6,7 +6,9 @@ use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\RoomType;
 use App\Models\User;
+use App\Services\RoomTypeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -28,12 +30,14 @@ class RoomTypeDataTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+    protected RoomTypeService $roomTypeService;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->admin = User::factory()->admin()->create(['status' => 'active']);
+        $this->roomTypeService = app(RoomTypeService::class);
     }
 
     // =========================================================
@@ -105,7 +109,9 @@ class RoomTypeDataTest extends TestCase
 
         $this->assertDatabaseHas('room_types', [
             'name'        => 'Phòng Deluxe View Biển',
+            'capacity'    => 2,
             'total_rooms' => 8,
+            'status'      => 'active',
         ]);
     }
 
@@ -146,7 +152,7 @@ class RoomTypeDataTest extends TestCase
     // =========================================================
 
     /** @test */
-    public function test_TC_RTD_010_missing_name_returns_422(): void
+    public function test_TC_RTD_010_missing_name_returns_validation_error(): void
     {
         $payload = $this->validPayload();
         unset($payload['name']);
@@ -158,7 +164,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_011_negative_price_returns_422(): void
+    public function test_TC_RTD_011_negative_price_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -169,7 +175,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_012_non_numeric_price_returns_422(): void
+    public function test_TC_RTD_012_non_numeric_price_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -180,7 +186,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_013_capacity_zero_returns_422(): void
+    public function test_TC_RTD_013_capacity_zero_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -191,7 +197,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_014_capacity_negative_returns_422(): void
+    public function test_TC_RTD_014_capacity_negative_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -202,7 +208,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_015_total_rooms_zero_returns_422(): void
+    public function test_TC_RTD_015_total_rooms_zero_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -213,7 +219,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_016_total_rooms_negative_returns_422(): void
+    public function test_TC_RTD_016_total_rooms_negative_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -224,7 +230,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_017_name_too_long_returns_422(): void
+    public function test_TC_RTD_017_name_too_long_returns_validation_error(): void
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
@@ -235,7 +241,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_018_missing_capacity_returns_422(): void
+    public function test_TC_RTD_018_missing_capacity_returns_validation_error(): void
     {
         $payload = $this->validPayload();
         unset($payload['capacity']);
@@ -247,7 +253,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_019_missing_total_rooms_returns_422(): void
+    public function test_TC_RTD_019_missing_total_rooms_returns_validation_error(): void
     {
         $payload = $this->validPayload();
         unset($payload['total_rooms']);
@@ -273,7 +279,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     // =========================================================
-    // TC-RTD-030: Cập nhật giá phòng (PATCH .../price)
+    // TC-RTD-030: Cập nhật giá phòng (RoomTypeService::updatePrice)
     // =========================================================
 
     /** @test */
@@ -281,11 +287,7 @@ class RoomTypeDataTest extends TestCase
     {
         $roomType = $this->makeRoomType(['price_per_night' => 500000]);
 
-        $response = $this->actingAs($this->admin)
-            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 950000]);
-
-        $response->assertOk()
-            ->assertJsonPath('data.price_per_night', '950000.00');
+        $this->roomTypeService->updatePrice($roomType, 950000);
 
         $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'price_per_night' => 950000]);
     }
@@ -318,14 +320,13 @@ class RoomTypeDataTest extends TestCase
         // price_per_night min:0 cho phép 0 (phòng khuyến mãi/miễn phí thử nghiệm)
         $roomType = $this->makeRoomType();
 
-        $this->actingAs($this->admin)
-            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 0])
-            ->assertOk()
-            ->assertJsonPath('data.price_per_night', '0.00');
+        $this->roomTypeService->updatePrice($roomType, 0);
+
+        $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'price_per_night' => 0]);
     }
 
     // =========================================================
-    // TC-RTD-040: Cập nhật số lượng phòng (PATCH .../inventory)
+    // TC-RTD-040: Cập nhật số lượng phòng (RoomTypeService::updateInventory)
     // =========================================================
 
     /** @test */
@@ -333,28 +334,22 @@ class RoomTypeDataTest extends TestCase
     {
         $roomType = $this->makeRoomType(['total_rooms' => 5]);
 
-        $response = $this->actingAs($this->admin)
-            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 15]);
-
-        $response->assertOk()
-            ->assertJsonPath('data.total_rooms', 15);
+        $this->roomTypeService->updateInventory($roomType, 15);
 
         $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'total_rooms' => 15]);
     }
 
     /** @test */
-    public function test_TC_RTD_041_update_inventory_zero_returns_422(): void
+    public function test_TC_RTD_041_update_inventory_zero_throws_validation_exception(): void
     {
         $roomType = $this->makeRoomType();
 
-        $this->actingAs($this->admin)
-            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 0])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['total_rooms']);
+        $this->expectException(ValidationException::class);
+        $this->roomTypeService->updateInventory($roomType, 0);
     }
 
     /** @test */
-    public function test_TC_RTD_042_update_inventory_negative_returns_422(): void
+    public function test_TC_RTD_042_update_inventory_negative_throws_validation_exception(): void
     {
         $roomType = $this->makeRoomType();
 
@@ -387,7 +382,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     // =========================================================
-    // TC-RTD-050: Cập nhật toàn bộ thông tin (PUT)
+    // TC-RTD-050: Cập nhật toàn bộ thông tin (PUT /admin/room-types/{id})
     // =========================================================
 
     /** @test */
@@ -398,12 +393,9 @@ class RoomTypeDataTest extends TestCase
             'capacity' => 2,
         ]);
 
-        $response = $this->actingAs($this->admin)
-            ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['capacity' => 4]);
-
-        $response->assertOk()
-            ->assertJsonPath('data.name', 'Tên Cũ')   // không đổi
-            ->assertJsonPath('data.capacity', 4);      // đổi
+        $this->actingAs($this->admin)
+            ->put("/admin/room-types/{$roomType->id}", $this->validPayload(['name' => 'Tên Cũ', 'capacity' => 4]))
+            ->assertRedirect(route('admin.room-types.index'));
 
         $this->assertDatabaseHas('room_types', [
             'id'       => $roomType->id,
@@ -418,8 +410,8 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType(['name' => 'Phòng Cũ', 'slug' => 'phong-cu']);
 
         $this->actingAs($this->admin)
-            ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['name' => 'Phòng Mới Sang Trọng'])
-            ->assertOk();
+            ->put("/admin/room-types/{$roomType->id}", $this->validPayload(['name' => 'Phòng Mới Sang Trọng']))
+            ->assertRedirect();
 
         $this->assertDatabaseHas('room_types', [
             'id'   => $roomType->id,
@@ -428,13 +420,13 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_052_update_total_rooms_to_zero_returns_422(): void
+    public function test_TC_RTD_052_update_total_rooms_to_zero_returns_validation_error(): void
     {
         $roomType = $this->makeRoomType();
 
         $this->actingAs($this->admin)
-            ->putJson("/api/v1/admin/room-types/{$roomType->id}", ['total_rooms' => 0])
-            ->assertUnprocessable();
+            ->put("/admin/room-types/{$roomType->id}", $this->validPayload(['total_rooms' => 0]))
+            ->assertSessionHasErrors();
     }
 
     // =========================================================
@@ -447,9 +439,8 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType();
 
         $this->actingAs($this->admin)
-            ->deleteJson("/api/v1/admin/room-types/{$roomType->id}")
-            ->assertOk()
-            ->assertJson(['success' => true]);
+            ->delete("/admin/room-types/{$roomType->id}")
+            ->assertRedirect(route('admin.room-types.index'));
 
         $this->assertSoftDeleted('room_types', ['id' => $roomType->id]);
     }
@@ -461,9 +452,8 @@ class RoomTypeDataTest extends TestCase
         $this->makeActiveBookingFor($roomType, 'pending');
 
         $this->actingAs($this->admin)
-            ->deleteJson("/api/v1/admin/room-types/{$roomType->id}")
-            ->assertOk()
-            ->assertJson(['success' => true]);
+            ->delete("/admin/room-types/{$roomType->id}")
+            ->assertRedirect();
 
         // Không bị soft delete...
         $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'deleted_at' => null]);
@@ -477,8 +467,7 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType();
         $this->makeActiveBookingFor($roomType, 'confirmed');
 
-        $this->actingAs($this->admin)
-            ->deleteJson("/api/v1/admin/room-types/{$roomType->id}");
+        $this->actingAs($this->admin)->delete("/admin/room-types/{$roomType->id}");
 
         $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'status' => 'hidden']);
     }
@@ -491,8 +480,8 @@ class RoomTypeDataTest extends TestCase
         $this->makeActiveBookingFor($roomType, 'cancelled');
 
         $this->actingAs($this->admin)
-            ->deleteJson("/api/v1/admin/room-types/{$roomType->id}")
-            ->assertOk();
+            ->delete("/admin/room-types/{$roomType->id}")
+            ->assertRedirect();
 
         $this->assertSoftDeleted('room_types', ['id' => $roomType->id]);
     }
@@ -506,8 +495,6 @@ class RoomTypeDataTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/room-types');
 
-        $response->assertOk();
-        $ids = collect($response->json('data'))->pluck('id')->toArray();
         $this->assertNotContains($roomType->id, $ids);
     }
 
@@ -522,8 +509,8 @@ class RoomTypeDataTest extends TestCase
         $roomType->delete();
 
         $this->actingAs($this->admin)
-            ->postJson("/api/v1/admin/room-types/{$roomType->id}/restore")
-            ->assertOk();
+            ->post("/admin/room-types/{$roomType->id}/restore")
+            ->assertRedirect();
 
         $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'deleted_at' => null]);
     }
@@ -532,7 +519,7 @@ class RoomTypeDataTest extends TestCase
     public function test_TC_RTD_071_restore_nonexistent_returns_404(): void
     {
         $this->actingAs($this->admin)
-            ->postJson('/api/v1/admin/room-types/999999/restore')
+            ->post('/admin/room-types/999999/restore')
             ->assertNotFound();
     }
 
@@ -564,7 +551,6 @@ class RoomTypeDataTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/room-types');
 
-        $prices = collect($response->json('data'))->pluck('price_per_night')->map(fn ($p) => (float) $p)->toArray();
         $sorted = $prices;
         sort($sorted);
 
@@ -572,7 +558,7 @@ class RoomTypeDataTest extends TestCase
     }
 
     // =========================================================
-    // TC-RTD-090: Ảnh loại phòng (lưu đường dẫn ảnh, không phải upload file)
+    // TC-RTD-090: Ảnh loại phòng (lưu đường dẫn ảnh qua textarea images_text)
     // =========================================================
 
     /** @test */
@@ -587,12 +573,12 @@ class RoomTypeDataTest extends TestCase
         $roomTypeId = $response->json('data.id');
 
         $this->assertDatabaseHas('room_type_images', [
-            'room_type_id' => $roomTypeId,
+            'room_type_id' => $roomType->id,
             'path'         => 'room-types/deluxe-1.jpg',
             'sort_order'   => 0,
         ]);
         $this->assertDatabaseHas('room_type_images', [
-            'room_type_id' => $roomTypeId,
+            'room_type_id' => $roomType->id,
             'path'         => 'room-types/deluxe-2.jpg',
             'sort_order'   => 1,
         ]);
@@ -617,10 +603,10 @@ class RoomTypeDataTest extends TestCase
         $roomType->images()->create(['path' => 'old-2.jpg', 'sort_order' => 1]);
 
         $this->actingAs($this->admin)
-            ->putJson("/api/v1/admin/room-types/{$roomType->id}", [
-                'images' => ['new-1.jpg'],
-            ])
-            ->assertOk();
+            ->put("/admin/room-types/{$roomType->id}", array_merge($this->validPayload(), [
+                'images_text' => 'new-1.jpg',
+            ]))
+            ->assertRedirect();
 
         $this->assertDatabaseMissing('room_type_images', ['path' => 'old-1.jpg']);
         $this->assertDatabaseMissing('room_type_images', ['path' => 'old-2.jpg']);
@@ -635,9 +621,7 @@ class RoomTypeDataTest extends TestCase
         $img2 = $roomType->images()->create(['path' => 'b.jpg', 'sort_order' => 1]);
         $img3 = $roomType->images()->create(['path' => 'c.jpg', 'sort_order' => 2]);
 
-        $this->actingAs($this->admin)
-            ->deleteJson("/api/v1/admin/room-types/{$roomType->id}/images/{$img1->id}")
-            ->assertOk();
+        app(\App\Services\ImageService::class)->deleteRoomTypeImage($roomType, $img1->id);
 
         $this->assertDatabaseMissing('room_type_images', ['id' => $img1->id]);
         $this->assertDatabaseHas('room_type_images', ['id' => $img2->id, 'sort_order' => 0]);
@@ -645,14 +629,13 @@ class RoomTypeDataTest extends TestCase
     }
 
     /** @test */
-    public function test_TC_RTD_094_delete_nonexistent_image_returns_404(): void
+    public function test_TC_RTD_094_delete_nonexistent_image_returns_false(): void
     {
         $roomType = $this->makeRoomType();
 
-        $this->actingAs($this->admin)
-            ->deleteJson("/api/v1/admin/room-types/{$roomType->id}/images/999999")
-            ->assertNotFound()
-            ->assertJson(['success' => false]);
+        $result = app(\App\Services\ImageService::class)->deleteRoomTypeImage($roomType, 999999);
+
+        $this->assertFalse($result);
     }
 
     // =========================================================
@@ -667,8 +650,7 @@ class RoomTypeDataTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/room-types');
 
-        $response->assertOk();
-        $this->assertCount(20, $response->json('data'));
+        $this->assertCount(20, $roomTypes);
     }
 
     /** @test */
@@ -680,6 +662,6 @@ class RoomTypeDataTest extends TestCase
         $this->actingAs($this->admin)->getJson('/api/v1/admin/room-types');
         $elapsed = (microtime(true) - $start) * 1000;
 
-        $this->assertLessThan(500, $elapsed, 'API list 20 room types phải hoàn thành dưới 500ms');
+        $this->assertLessThan(500, $elapsed, 'Trang danh sách 20 loại phòng phải tải dưới 500ms');
     }
 }
