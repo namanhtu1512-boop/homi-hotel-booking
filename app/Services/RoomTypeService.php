@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\HotelInfo;
 use App\Models\RoomType;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -11,7 +13,6 @@ class RoomTypeService
 {
     public function __construct(
         private readonly ImageService $imageService,
-        private readonly HotelService $hotelService,
     ) {}
 
     public function list(bool $adminView = false): Collection
@@ -26,35 +27,35 @@ class RoomTypeService
     }
 
     /**
-     * Danh sách phòng active phục vụ trang public /rooms, lọc theo dữ liệu
-     * đã validate từ FilterRoomRequest. Không lọc theo 'amenities' vì
-     * room_types hiện chưa có quan hệ tới amenities (chỉ hotel_info có).
+     * BE2/BE3 Tuần 7 — Danh sách phòng active với filter cho trang công khai.
+     * check_in/check_out chỉ validate ở tầng Request, chưa lọc availability
+     * (chức năng đó thuộc Tuần 9).
      */
-    public function search(array $filters): Collection
+    public function search(array $filters = [], int $perPage = 12): LengthAwarePaginator
     {
-        $query = RoomType::active()->with('images');
+        $query = RoomType::with('images')->where('status', 'active');
 
         if (! empty($filters['keyword'])) {
-            $keyword = $filters['keyword'];
-            $query->where(function ($q) use ($keyword) {
-                $q->where('name', 'like', "%{$keyword}%")
-                    ->orWhere('description', 'like', "%{$keyword}%");
-            });
+            $kw = $filters['keyword'];
+            $query->where(fn ($q) => $q
+                ->where('name', 'like', "%{$kw}%")
+                ->orWhere('description', 'like', "%{$kw}%")
+            );
         }
 
-        if (isset($filters['min_price'])) {
+        if (isset($filters['min_price']) && $filters['min_price'] !== null) {
             $query->where('price_per_night', '>=', $filters['min_price']);
         }
 
-        if (isset($filters['max_price'])) {
+        if (isset($filters['max_price']) && $filters['max_price'] !== null) {
             $query->where('price_per_night', '<=', $filters['max_price']);
         }
 
-        if (isset($filters['capacity'])) {
+        if (! empty($filters['capacity'])) {
             $query->where('capacity', '>=', $filters['capacity']);
         }
 
-        return $query->orderBy('price_per_night')->get();
+        return $query->orderBy('price_per_night')->paginate($perPage)->withQueryString();
     }
 
     public function find(int $id): RoomType
@@ -68,17 +69,19 @@ class RoomTypeService
      */
     public function findActive(int $id): RoomType
     {
-        return RoomType::active()->with('images')->findOrFail($id);
+        return RoomType::where('status', 'active')
+            ->with('images')
+            ->findOrFail($id);
     }
 
     public function create(array $data): RoomType
     {
-        $this->assertHotelOpen();
+        $this->assertHotelOperational();
 
         $roomType = RoomType::create([
-            'name'            => $data['name'],
-            'slug'            => $this->uniqueSlug($data['name']),
-            'description'     => $data['description'] ?? null,
+            'name'           => $data['name'],
+            'slug'           => $this->uniqueSlug($data['name']),
+            'description'    => $data['description'] ?? null,
             'price_per_night' => $data['price_per_night'],
             'capacity'        => $data['capacity'],
             'bed_type'        => $data['bed_type'] ?? null,
@@ -197,15 +200,16 @@ class RoomTypeService
     }
 
     /**
-     * Rule dùng chung: không cho tạo loại phòng mới khi khách sạn đang đóng
-     * (is_open = false, vd: đang bảo trì toàn bộ). Sửa/xóa/đổi giá trên phòng
-     * đã tồn tại vẫn được phép dù khách sạn đang đóng.
+     * Rule dùng chung: không cho tạo loại phòng mới khi khách sạn đang bảo trì.
+     * Các thao tác sửa/xóa/đổi giá trên phòng đã tồn tại vẫn được phép dù
+     * khách sạn đang bảo trì, vì admin/staff có thể cần chỉnh sửa dữ liệu
+     * trước khi hoạt động trở lại.
      */
-    private function assertHotelOpen(): void
+    private function assertHotelOperational(): void
     {
-        if (! $this->hotelService->singleton()->is_open) {
+        if (HotelInfo::instance()->status !== 'active') {
             throw ValidationException::withMessages([
-                'hotel' => ['Không thể thêm phòng khi khách sạn đang đóng.'],
+                'status' => ['Không thể thêm loại phòng khi khách sạn đang bảo trì.'],
             ]);
         }
     }

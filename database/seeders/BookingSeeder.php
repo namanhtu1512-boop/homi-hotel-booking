@@ -19,7 +19,7 @@ class BookingSeeder extends Seeder
         }
 
         $standardRoom = RoomType::where('name', 'Phòng Standard')->first();
-        $deluxeRoom   = RoomType::where('name', 'Phòng Deluxe')->first();
+        $superiorRoom = RoomType::where('name', 'Phòng Superior')->first();
 
         // ---------- Đơn 1: pending, khách vừa đặt ----------
         if ($standardRoom) {
@@ -52,7 +52,7 @@ class BookingSeeder extends Seeder
         }
 
         // ---------- Đơn 2: confirmed + paid ----------
-        if ($deluxeRoom) {
+        if ($superiorRoom) {
             $b = Booking::create([
                 'booking_code'   => 'HOMI-DEMO-CONFIRMED',
                 'user_id'        => $customer->id,
@@ -62,21 +62,21 @@ class BookingSeeder extends Seeder
                 'customer_name'  => $customer->name,
                 'customer_email' => $customer->email,
                 'customer_phone' => $customer->phone ?? '0900000001',
-                'total_amount'   => $deluxeRoom->price_per_night * 3,
+                'total_amount'   => $superiorRoom->price_per_night * 3,
                 'status'         => 'confirmed',
             ]);
             BookingItem::create([
                 'booking_id'      => $b->id,
-                'room_type_id'    => $deluxeRoom->id,
+                'room_type_id'    => $superiorRoom->id,
                 'quantity'        => 1,
-                'price_per_night' => $deluxeRoom->price_per_night,
+                'price_per_night' => $superiorRoom->price_per_night,
                 'nights'          => 3,
-                'subtotal'        => $deluxeRoom->price_per_night * 3,
+                'subtotal'        => $superiorRoom->price_per_night * 3,
             ]);
             Payment::create([
                 'booking_id' => $b->id,
                 'method'     => 'bank_transfer',
-                'amount'     => $deluxeRoom->price_per_night * 3,
+                'amount'     => $superiorRoom->price_per_night * 3,
                 'status'     => 'paid',
                 'paid_at'    => now(),
             ]);

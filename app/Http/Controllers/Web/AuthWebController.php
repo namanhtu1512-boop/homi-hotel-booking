@@ -33,6 +33,7 @@ class AuthWebController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('login_context', 'customer');
 
         return redirect()->route('customer.dashboard');
     }
@@ -55,7 +56,9 @@ class AuthWebController extends Controller
                 ->onlyInput('email');
         }
 
-        if (Auth::user()->status !== 'active') {
+        $user = Auth::user();
+
+        if ($user->status !== 'active') {
             Auth::logout();
 
             return back()
@@ -64,8 +67,17 @@ class AuthWebController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('login_context', 'customer');
 
-        return $this->redirectByRole($request->user());
+        return redirect()->route('customer.dashboard');
+    }
+
+    private function redirectByRole(User $user)
+    {
+        return match (true) {
+            in_array($user->role, ['admin', 'staff']) => redirect()->route('admin.dashboard'),
+            default                                   => redirect()->route('customer.dashboard'),
+        };
     }
 
     public function logout(Request $request)
@@ -78,10 +90,59 @@ class AuthWebController extends Controller
         return redirect()->route('login');
     }
 
-    private function redirectByRole(User $user)
+    public function showAdminLogin()
     {
-        return $user->role === 'customer'
-            ? redirect()->route('customer.dashboard')
-            : redirect()->route('admin.dashboard');
+        if (Auth::check() && in_array(Auth::user()->role, ['admin', 'staff'])) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return view('auth.admin-login');
+    }
+
+    public function adminLogin(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        if (!Auth::attempt($data)) {
+            return back()
+                ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])
+                ->onlyInput('email');
+        }
+
+        $user = Auth::user();
+
+        if ($user->status !== 'active') {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản đang bị khóa hoặc chưa hoạt động.'])
+                ->onlyInput('email');
+        }
+
+        if (!in_array($user->role, ['admin', 'staff'])) {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản này không có quyền truy cập khu vực quản trị.'])
+                ->onlyInput('email');
+        }
+
+        $request->session()->regenerate();
+        $request->session()->put('login_context', 'admin');
+
+        return redirect()->route('admin.dashboard');
+    }
+
+    public function adminLogout(Request $request)
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('admin.login');
     }
 }

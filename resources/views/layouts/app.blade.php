@@ -815,16 +815,9 @@
                     <a href="{{ route('home') }}" class="nav-link">Trang chủ</a>
                     <a href="{{ route('rooms.index') }}" class="nav-link">Phòng</a>
 
-                    @if (auth()->check())
-                        @if (auth()->user()->role === 'customer')
-                            <a href="{{ route('customer.dashboard') }}" class="nav-link">Dashboard</a>
-                            <a href="{{ route('customer.bookings.index') }}" class="nav-link">Đơn của tôi</a>
-                        @else
-                            <a href="{{ route('admin.dashboard') }}" class="nav-link">Dashboard</a>
-                            <a href="{{ route('admin.hotel-info.edit') }}" class="nav-link">Thông tin khách sạn</a>
-                            <a href="{{ route('admin.room-types.index') }}" class="nav-link">Loại phòng</a>
-                            <a href="{{ route('admin.users.index') }}" class="nav-link">Tài khoản</a>
-                            <a href="{{ route('admin.database') }}" class="nav-link">Database</a>
+                    @auth
+                        @if (session('login_context') === 'admin')
+                            <a href="{{ route('admin.dashboard') }}" class="nav-link">Trang quản trị</a>
                         @endif
 
                         <form method="POST" action="{{ route('logout') }}" class="logout-form">
@@ -834,7 +827,7 @@
                     @else
                         <a href="{{ route('login') }}" class="nav-link">Đăng nhập</a>
                         <a href="{{ route('register') }}" class="btn btn-light">Đăng ký</a>
-                    @endif
+                    @endauth
                 </div>
             </div>
 

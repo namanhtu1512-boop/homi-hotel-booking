@@ -61,13 +61,14 @@ class QaChecklistCommand extends Command
             'Tài khoản locked không được đăng nhập (middleware role kiểm tra status)',
         ],
         'hotel' => [
-            'hotel_info là bảng singleton (chỉ 1 dòng, id = 1), không có create/list/delete nhiều khách sạn',
-            'Chỉ admin/staff sửa được /admin/hotel-info',
+            'hotel_info chỉ có đúng 1 bản ghi singleton — không có create/list/delete',
+            'Chỉ admin/staff được sửa thông tin khách sạn (PUT /admin/hotel-info)',
+            'Toggle maintenance: khách sạn bảo trì không cho tạo loại phòng mới',
             'Upload ảnh: đường dẫn lưu đúng, không lưu binary vào DB',
             'Amenities được gắn đúng quan hệ many-to-many qua hotel_info_amenity',
         ],
         'room' => [
-            'room_types không còn cột hotel_id (chỉ có 1 khách sạn duy nhất)',
+            'room_types không gắn hotel_id (chỉ có 1 khách sạn duy nhất)',
             'Không hard delete phòng đã có booking, dùng soft delete hoặc inactive',
             'total_rooms không âm, quantity update không vượt quá tổng phòng',
             'price_per_night > 0',

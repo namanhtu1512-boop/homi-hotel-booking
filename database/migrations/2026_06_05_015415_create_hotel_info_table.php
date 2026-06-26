@@ -7,10 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
-     *
-     * hotel_info là bảng singleton (luôn chỉ có đúng 1 dòng, id = 1) — Homi
-     * chỉ quản lý 1 khách sạn duy nhất, không phải nền tảng đa khách sạn.
+     * hotel_info — bảng singleton, luôn chỉ có đúng 1 bản ghi vì hệ thống
+     * Homi chỉ vận hành 1 khách sạn duy nhất. Không có slug/city/district
+     * vì không cần định danh hay tìm kiếm theo nhiều khách sạn.
      */
     public function up(): void
     {
@@ -18,17 +17,17 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->text('description')->nullable();
             $table->string('address');
-            $table->string('hotline')->nullable();
-            $table->string('email')->nullable();
+            $table->text('description')->nullable();
 
-            $table->string('check_in_time')->nullable();
-            $table->string('check_out_time')->nullable();
+            $table->time('check_in_time')->nullable();
+            $table->time('check_out_time')->nullable();
             $table->text('policies')->nullable();
 
             $table->unsignedTinyInteger('star_rating')->nullable();
-            $table->boolean('is_open')->default(true);
+
+            $table->enum('status', ['active', 'maintenance'])
+                ->default('active');
 
             $table->timestamps();
         });

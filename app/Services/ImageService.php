@@ -12,7 +12,7 @@ class ImageService
      *
      * @param  string[]  $paths
      */
-    public function syncHotelImages(HotelInfo $hotel, array $paths, bool $replace = false): void
+    public function syncHotelInfoImages(HotelInfo $hotel, array $paths, bool $replace = false): void
     {
         if ($replace) {
             $hotel->images()->delete();
@@ -52,7 +52,7 @@ class ImageService
     /**
      * Xóa một ảnh khách sạn theo ID, sắp xếp lại sort_order sau khi xóa.
      */
-    public function deleteHotelImage(HotelInfo $hotel, int $imageId): bool
+    public function deleteHotelInfoImage(HotelInfo $hotel, int $imageId): bool
     {
         $image = $hotel->images()->find($imageId);
 

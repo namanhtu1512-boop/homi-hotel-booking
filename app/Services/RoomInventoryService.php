@@ -21,7 +21,8 @@ class RoomInventoryService
      */
     public function getBookableRoomType(int $roomTypeId): RoomType
     {
-        $roomType = RoomType::where('status', 'active')->find($roomTypeId);
+        $roomType = RoomType::where('status', 'active')
+            ->find($roomTypeId);
 
         if (! $roomType) {
             throw ValidationException::withMessages([
@@ -52,9 +53,9 @@ class RoomInventoryService
     }
 
     /**
-     * Tổng số phòng active trong khách sạn (phòng inactive/xóa mềm không tính).
+     * Tổng số phòng active của khách sạn (phòng inactive/xóa mềm không tính).
      */
-    public function getTotalActiveRooms(): int
+    public function getTotalRooms(): int
     {
         return (int) RoomType::where('status', 'active')->sum('total_rooms');
     }

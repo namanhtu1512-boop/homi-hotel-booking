@@ -1,25 +1,17 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
-@section('title', 'Thông tin khách sạn · Homi')
-@section('banner_tag', 'Admin · Hotel Info')
-@section('banner_title', 'Thông tin khách sạn')
-@section('banner_subtitle', 'Cập nhật thông tin duy nhất của khách sạn Homi.')
+@section('title', 'Sửa thông tin khách sạn · Homi Admin')
+@section('page_title', 'Sửa thông tin khách sạn')
+@section('page_subtitle', 'Các trường có dấu * là bắt buộc.')
 
 @section('content')
 <div class="card">
-    @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
+    <div class="page-actions">
+        <div></div>
+        <a href="{{ route('admin.hotel-info.show') }}" class="btn btn-outline">Quay lại</a>
+    </div>
 
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            @foreach ($errors->all() as $error)
-                <div>{{ $error }}</div>
-            @endforeach
-        </div>
-    @endif
-
-    <form method="POST" action="{{ route('admin.hotel-info.update') }}" class="form-grid">
+    <form method="POST" action="{{ route('admin.hotel-info.update') }}" class="form-grid" enctype="multipart/form-data">
         @csrf
         @method('PUT')
 
@@ -34,26 +26,6 @@
         </div>
 
         <div class="form-group">
-            <label for="hotline">Hotline</label>
-            <input id="hotline" type="text" name="hotline" value="{{ old('hotline', $hotel->hotline) }}">
-        </div>
-
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input id="email" type="email" name="email" value="{{ old('email', $hotel->email) }}">
-        </div>
-
-        <div class="form-group">
-            <label for="check_in_time">Giờ nhận phòng</label>
-            <input id="check_in_time" type="text" name="check_in_time" value="{{ old('check_in_time', $hotel->check_in_time) }}" placeholder="VD: 14:00">
-        </div>
-
-        <div class="form-group">
-            <label for="check_out_time">Giờ trả phòng</label>
-            <input id="check_out_time" type="text" name="check_out_time" value="{{ old('check_out_time', $hotel->check_out_time) }}" placeholder="VD: 12:00">
-        </div>
-
-        <div class="form-group">
             <label for="star_rating">Xếp hạng sao (1-5)</label>
             <select id="star_rating" name="star_rating">
                 <option value="">Không chọn</option>
@@ -63,6 +35,17 @@
             </select>
         </div>
 
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+                <label for="check_in_time">Giờ nhận phòng (HH:mm)</label>
+                <input id="check_in_time" type="time" name="check_in_time" value="{{ old('check_in_time', $hotel->check_in_time) }}">
+            </div>
+            <div class="form-group">
+                <label for="check_out_time">Giờ trả phòng (HH:mm)</label>
+                <input id="check_out_time" type="time" name="check_out_time" value="{{ old('check_out_time', $hotel->check_out_time) }}">
+            </div>
+        </div>
+
         <div class="form-group">
             <label for="description">Mô tả</label>
             <textarea id="description" name="description" rows="4">{{ old('description', $hotel->description) }}</textarea>
@@ -70,14 +53,7 @@
 
         <div class="form-group">
             <label for="policies">Chính sách</label>
-            <textarea id="policies" name="policies" rows="4" placeholder="Chính sách hủy phòng, trẻ em, thú cưng...">{{ old('policies', $hotel->policies) }}</textarea>
-        </div>
-
-        <div class="form-group">
-            <label class="checkbox-item">
-                <input type="checkbox" name="is_open" value="1" @checked(old('is_open', $hotel->is_open))>
-                Khách sạn đang mở nhận đặt phòng
-            </label>
+            <textarea id="policies" name="policies" rows="4" placeholder="Mỗi dòng 1 quy định">{{ old('policies', $hotel->policies) }}</textarea>
         </div>
 
         <div class="form-group">
@@ -96,10 +72,29 @@
         </div>
 
         <div class="form-group">
-            <label for="images_text">Ảnh khách sạn (mỗi dòng 1 đường dẫn/URL)</label>
+            <label for="image_files">Tải ảnh lên từ máy</label>
+            <input id="image_files" type="file" name="image_files[]" multiple accept="image/*">
+            @error('image_files.*')
+                <p style="color: red; font-size: 13px; margin-top: 4px;">{{ $message }}</p>
+            @enderror
+
+            @if ($hotel->images->isNotEmpty())
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                    @foreach ($hotel->images as $image)
+                        <img
+                            src="{{ Str::startsWith($image->path, ['http://', 'https://']) ? $image->path : asset('storage/' . $image->path) }}"
+                            style="width: 100px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;"
+                        >
+                    @endforeach
+                </div>
+                <p class="section-desc" style="margin-top: 6px;">Ảnh hiện tại — tải ảnh mới lên sẽ thay thế toàn bộ ảnh trên.</p>
+            @endif
+        </div>
+
+        <div class="form-group">
+            <label for="images_text">Hoặc nhập đường dẫn / URL (mỗi dòng 1 ảnh)</label>
             <textarea id="images_text" name="images_text" rows="3"
-                placeholder="hotel/anh1.jpg&#10;hotel/anh2.jpg">{{ old('images_text', $hotel->images->pluck('path')->implode("\n")) }}</textarea>
-            <p class="section-desc">Lưu ý: nếu nhập ảnh mới ở đây, toàn bộ ảnh cũ sẽ bị thay thế. Để trống nếu không muốn đổi ảnh.</p>
+                placeholder="hotel/anh1.jpg&#10;https://example.com/anh2.jpg">{{ old('images_text', $hotel->images->pluck('path')->implode("\n")) }}</textarea>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block">Lưu thay đổi</button>

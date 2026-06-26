@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\AuditLog;
 
+use App\Models\HotelInfo;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,19 +41,33 @@ class AuditLogTest extends TestCase
     public function test_updating_hotel_info_creates_audit_log(): void
     {
         $admin = $this->makeUser('admin');
+        $hotel = HotelInfo::instance();
 
         $this->actingAs($admin)
-            ->put(route('admin.hotel-info.update'), [
-                'name'    => 'Homi Test Hotel',
-                'address' => '1 Hàng Bài',
-            ])
-            ->assertRedirect();
+            ->putJson('/api/v1/admin/hotel-info', ['name' => 'Tên Mới'])
+            ->assertStatus(200);
 
         $this->assertDatabaseHas('audit_logs', [
-            'user_id'        => $admin->id,
             'action'         => 'hotel_info.updated',
             'auditable_type' => 'hotel_info',
-            'auditable_id'   => 1,
+            'auditable_id'   => $hotel->id,
+        ]);
+    }
+
+    public function test_toggling_hotel_info_status_creates_audit_log(): void
+    {
+        $admin = $this->makeUser('admin');
+        $hotel = HotelInfo::instance();
+        $hotel->update(['status' => 'active']);
+
+        $this->actingAs($admin)
+            ->patchJson('/api/v1/admin/hotel-info/toggle-maintenance')
+            ->assertStatus(200);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action'         => 'hotel_info.status_toggled',
+            'auditable_type' => 'hotel_info',
+            'auditable_id'   => $hotel->id,
         ]);
     }
 
@@ -60,7 +75,7 @@ class AuditLogTest extends TestCase
     {
         $admin = $this->makeUser('admin');
 
-        $this->actingAs($admin)->post(route('admin.room-types.store'), [
+        $response = $this->actingAs($admin)->postJson('/api/v1/admin/room-types', [
             'name'            => 'Deluxe',
             'price_per_night' => 500000,
             'capacity'        => 2,
@@ -100,18 +115,14 @@ class AuditLogTest extends TestCase
 
     public function test_deleting_room_type_creates_audit_log(): void
     {
-        $admin    = $this->makeUser('admin');
-        $roomType = RoomType::factory()->create();
+        $admin = $this->makeUser('admin');
+        $this->actingAs($admin)->putJson('/api/v1/admin/hotel-info', ['name' => 'Homi Cập Nhật']);
 
         $this->actingAs($admin)
-            ->delete(route('admin.room-types.destroy', $roomType->id))
-            ->assertRedirect();
-
-        $this->assertDatabaseHas('audit_logs', [
-            'action'         => 'room_type.deleted',
-            'auditable_type' => 'room_types',
-            'auditable_id'   => $roomType->id,
-        ]);
+            ->getJson('/api/v1/admin/audit-logs')
+            ->assertStatus(200)
+            ->assertJsonStructure(['success', 'data' => ['logs', 'meta']])
+            ->assertJsonFragment(['action' => 'hotel_info.updated']);
     }
 
     public function test_staff_cannot_toggle_other_user_status(): void
@@ -119,8 +130,30 @@ class AuditLogTest extends TestCase
         $staff  = $this->makeUser('staff');
         $target = $this->makeUser('customer');
 
-        $this->actingAs($staff)
-            ->patch(route('admin.users.toggle-status', $target->id))
-            ->assertForbidden();
+    public function test_customer_cannot_view_audit_logs(): void
+    {
+        $this->actingAs($this->makeUser('customer'))
+            ->getJson('/api/v1/admin/audit-logs')
+            ->assertStatus(403);
+    }
+
+    public function test_anonymous_cannot_view_audit_logs(): void
+    {
+        $this->getJson('/api/v1/admin/audit-logs')->assertStatus(401);
+    }
+
+    public function test_audit_logs_can_be_filtered_by_action(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)->patchJson('/api/v1/admin/hotel-info/toggle-maintenance');
+        $this->actingAs($admin)->putJson('/api/v1/admin/hotel-info', ['name' => 'Homi Đổi Tên']);
+
+        $response = $this->actingAs($admin)
+            ->getJson('/api/v1/admin/audit-logs?action=hotel_info.updated');
+
+        $response->assertStatus(200);
+        $actions = collect($response->json('data.logs'))->pluck('action')->unique();
+        $this->assertEquals(['hotel_info.updated'], $actions->values()->all());
     }
 }

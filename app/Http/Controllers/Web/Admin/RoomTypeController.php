@@ -3,26 +3,28 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\RoomType\CreateRoomTypeRequest;
-use App\Http\Requests\RoomType\UpdateRoomTypeRequest;
 use App\Models\RoomType;
-use App\Services\AuditLogService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class RoomTypeController extends Controller
 {
-    public function __construct(
-        private readonly RoomTypeService $roomTypeService,
-        private readonly AuditLogService $auditLogService,
-    ) {}
+    public function __construct(private readonly RoomTypeService $roomTypeService) {}
 
     public function index(): View
     {
-        return view('admin.room-types.index', [
-            'roomTypes' => $this->roomTypeService->list(adminView: true),
-        ]);
+        $roomTypes = $this->roomTypeService->list(adminView: true);
+
+        return view('admin.room-types.index', ['roomTypes' => $roomTypes]);
+    }
+
+    public function show(int $id): View
+    {
+        $roomType = $this->roomTypeService->find($id);
+
+        return view('admin.room-types.show', ['roomType' => $roomType]);
     }
 
     public function create(): View
@@ -30,12 +32,11 @@ class RoomTypeController extends Controller
         return view('admin.room-types.form', ['roomType' => null]);
     }
 
-    public function store(CreateRoomTypeRequest $request): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        $data = $this->withImages($request);
+        $data = $this->validateRoomType($request);
 
         $roomType = $this->roomTypeService->create($data);
-        $this->auditLogService->log('room_type.created', $roomType);
 
         return redirect()
             ->route('admin.room-types.index')
@@ -49,14 +50,13 @@ class RoomTypeController extends Controller
         return view('admin.room-types.form', ['roomType' => $roomType]);
     }
 
-    public function update(UpdateRoomTypeRequest $request, int $id): RedirectResponse
+    public function update(Request $request, int $id): RedirectResponse
     {
-        $roomType = RoomType::withTrashed()->findOrFail($id);
+        $roomType = RoomType::findOrFail($id);
 
-        $data = $this->withImages($request);
+        $data = $this->validateRoomType($request);
 
         $this->roomTypeService->update($roomType, $data);
-        $this->auditLogService->log('room_type.updated', $roomType);
 
         return redirect()
             ->route('admin.room-types.index')
@@ -66,13 +66,13 @@ class RoomTypeController extends Controller
     public function destroy(int $id): RedirectResponse
     {
         $roomType = RoomType::findOrFail($id);
+        $name     = $roomType->name;
 
         $this->roomTypeService->softDeleteOrDeactivate($roomType);
-        $this->auditLogService->log('room_type.deleted', $roomType);
 
         return redirect()
             ->route('admin.room-types.index')
-            ->with('success', "Đã xóa/ẩn loại phòng \"{$roomType->name}\".");
+            ->with('success', "Đã xóa loại phòng \"{$name}\".");
     }
 
     public function restore(int $id): RedirectResponse
@@ -80,28 +80,32 @@ class RoomTypeController extends Controller
         $roomType = RoomType::onlyTrashed()->findOrFail($id);
 
         $this->roomTypeService->restore($roomType);
-        $this->auditLogService->log('room_type.restored', $roomType);
 
         return redirect()
             ->route('admin.room-types.index')
             ->with('success', "Đã khôi phục loại phòng \"{$roomType->name}\".");
     }
 
-    public function toggleStatus(int $id): RedirectResponse
+    private function validateRoomType(Request $request): array
     {
-        $roomType = RoomType::findOrFail($id);
-
-        $roomType = $this->roomTypeService->toggleStatus($roomType);
-        $this->auditLogService->log('room_type.status_toggled', $roomType);
-
-        return redirect()
-            ->route('admin.room-types.index')
-            ->with('success', "Đã chuyển loại phòng \"{$roomType->name}\" sang trạng thái \"{$roomType->status}\".");
-    }
-
-    private function withImages($request): array
-    {
-        $data = $request->validated();
+        $data = $request->validate([
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['nullable', 'string', 'max:5000'],
+            'price_per_night' => ['required', 'numeric', 'min:0'],
+            'capacity'        => ['required', 'integer', 'min:1'],
+            'bed_type'        => ['nullable', 'string', 'max:100'],
+            'area'            => ['nullable', 'numeric', 'min:0'],
+            'total_rooms'     => ['required', 'integer', 'min:1'],
+            'images_text'     => ['nullable', 'string'],
+        ], [], [
+            'name'            => 'tên loại phòng',
+            'description'     => 'mô tả',
+            'price_per_night' => 'giá theo đêm',
+            'capacity'        => 'sức chứa',
+            'bed_type'        => 'loại giường',
+            'area'            => 'diện tích',
+            'total_rooms'     => 'tổng số phòng',
+        ]);
 
         $data['images'] = collect(explode("\n", $data['images_text'] ?? ''))
             ->map(fn ($line) => trim($line))

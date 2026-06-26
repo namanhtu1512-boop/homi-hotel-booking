@@ -11,16 +11,32 @@ class RoleMiddleware
     {
         $user = $request->user();
 
-        if (! $user) {
-            return redirect()->route('login');
+        if (!$user) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn chưa đăng nhập.',
+                ], 401);
+            }
+
+            return redirect()->route('admin.login');
         }
 
         if ($user->status === 'locked') {
             abort(403, 'Tài khoản của bạn đã bị khóa.');
         }
 
-        if (! in_array($user->role, $roles, true)) {
-            abort(403, 'Bạn không có quyền truy cập trang này.');
+        $isAdminRoute = in_array('admin', $roles) || in_array('staff', $roles);
+
+        if (! in_array($user->role, $roles, true) || ($isAdminRoute && $request->session()->get('login_context') !== 'admin')) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền truy cập trang này.',
+                ], 403);
+            }
+
+            return redirect()->route('customer.dashboard');
         }
 
         return $next($request);
