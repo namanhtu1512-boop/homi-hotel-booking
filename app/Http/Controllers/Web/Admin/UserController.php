@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,8 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly AuditLogService $auditLog) {}
+
     public function index(Request $request): View
     {
         $query = User::query();
@@ -46,6 +49,8 @@ class UserController extends Controller
         $user->update([
             'status' => $user->status === 'active' ? 'locked' : 'active',
         ]);
+
+        $this->auditLog->log('user.status_toggled', $user, "Đổi trạng thái \"{$user->name}\" thành \"{$user->status}\".");
 
         return redirect()
             ->route('admin.users.index')

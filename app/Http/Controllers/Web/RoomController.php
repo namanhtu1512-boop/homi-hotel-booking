@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\FilterRoomRequest;
 use App\Services\AvailabilityService;
+use App\Services\HotelInfoService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,7 @@ class RoomController extends Controller
     public function __construct(
         private readonly RoomTypeService $roomTypeService,
         private readonly AvailabilityService $availabilityService,
+        private readonly HotelInfoService $hotelInfoService,
     ) {}
 
     public function index(FilterRoomRequest $request): View
@@ -53,6 +55,7 @@ class RoomController extends Controller
 
         return view('rooms.show', [
             'roomType'          => $roomType,
+            'hotel'             => $this->hotelInfoService->get(),
             'availability'      => $availability,
             'availabilityError' => $availabilityError,
             'checkIn'           => $checkIn,

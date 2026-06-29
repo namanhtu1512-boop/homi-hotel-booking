@@ -22,7 +22,7 @@ class HotelInfoWebTest extends TestCase
 
     public function test_admin_can_view_hotel_info_page(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->get(route('admin.hotel-info.show'))
             ->assertOk()
             ->assertViewIs('admin.hotel-info.show');
@@ -30,16 +30,17 @@ class HotelInfoWebTest extends TestCase
 
     public function test_customer_cannot_view_hotel_info_page(): void
     {
+        /** @var User $customer */
         $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
 
         $this->actingAs($customer)
             ->get(route('admin.hotel-info.show'))
-            ->assertForbidden();
+            ->assertRedirect(route('customer.dashboard'));
     }
 
     public function test_admin_can_view_edit_page(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->get(route('admin.hotel-info.edit'))
             ->assertOk()
             ->assertViewIs('admin.hotel-info.edit');
@@ -49,7 +50,7 @@ class HotelInfoWebTest extends TestCase
     {
         HotelInfo::instance();
 
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->put(route('admin.hotel-info.update'), [
                 'name'    => 'Homi Cần Thơ Hotel',
                 'address' => '10 Hòa Bình, Ninh Kiều',
@@ -61,7 +62,7 @@ class HotelInfoWebTest extends TestCase
 
     public function test_update_form_fails_when_name_missing(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->put(route('admin.hotel-info.update'), [
                 'address' => '10 Hòa Bình',
             ])
@@ -72,7 +73,7 @@ class HotelInfoWebTest extends TestCase
     {
         HotelInfo::instance()->update(['status' => 'active']);
 
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->patch(route('admin.hotel-info.toggle-maintenance'))
             ->assertRedirect(route('admin.hotel-info.show'));
 

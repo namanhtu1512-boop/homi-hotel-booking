@@ -14,10 +14,22 @@ class AdminAuditLogController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $logs = AuditLog::with('user')
-            ->orderBy('created_at', 'desc')
-            ->paginate(50);
+        $query = AuditLog::with('user')->orderBy('created_at', 'desc');
 
-        return $this->success($logs);
+        if ($action = $request->query('action')) {
+            $query->where('action', $action);
+        }
+
+        $paginator = $query->paginate(50);
+
+        return $this->success([
+            'logs' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page'    => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
+            ],
+        ]);
     }
 }

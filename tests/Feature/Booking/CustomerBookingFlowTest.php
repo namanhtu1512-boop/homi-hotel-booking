@@ -48,7 +48,7 @@ class CustomerBookingFlowTest extends TestCase
 
     public function test_guest_is_redirected_to_login_when_creating_booking(): void
     {
-        $this->get('/customer/booking/create')->assertRedirect(route('login'));
+        $this->get('/customer/bookings/create')->assertRedirect(route('login'));
     }
 
     public function test_customer_can_create_booking(): void
@@ -57,7 +57,7 @@ class CustomerBookingFlowTest extends TestCase
         $roomType = RoomType::factory()->create(['total_rooms' => 3, 'price_per_night' => 1000000]);
 
         $response = $this->actingAs($customer)
-            ->post('/customer/booking', $this->validBookingPayload($roomType));
+            ->post('/customer/bookings', $this->validBookingPayload($roomType));
 
         $booking = $customer->bookings()->first();
 
@@ -76,9 +76,9 @@ class CustomerBookingFlowTest extends TestCase
         $payload = $this->validBookingPayload($roomType, ['quantity' => 1]);
 
         // Phòng duy nhất đã có người đặt trước cho cùng khoảng ngày.
-        $this->actingAs(User::factory()->customer()->create())->post('/customer/booking', $payload);
+        $this->actingAs(User::factory()->customer()->create())->post('/customer/bookings', $payload);
 
-        $response = $this->actingAs($customer)->post('/customer/booking', $payload);
+        $response = $this->actingAs($customer)->post('/customer/bookings', $payload);
 
         $response->assertSessionHasErrors('room_type_id');
         $this->assertCount(0, $customer->bookings);
@@ -89,7 +89,7 @@ class CustomerBookingFlowTest extends TestCase
         $customer = User::factory()->customer()->create();
         $roomType = RoomType::factory()->create();
 
-        $this->actingAs($customer)->post('/customer/booking', $this->validBookingPayload($roomType));
+        $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($roomType));
         $booking = $customer->bookings()->first();
 
         $this->actingAs($customer)
@@ -109,7 +109,7 @@ class CustomerBookingFlowTest extends TestCase
         $intruder = User::factory()->customer()->create();
         $roomType = RoomType::factory()->create();
 
-        $this->actingAs($owner)->post('/customer/booking', $this->validBookingPayload($roomType));
+        $this->actingAs($owner)->post('/customer/bookings', $this->validBookingPayload($roomType));
         $booking = $owner->bookings()->first();
 
         $this->actingAs($intruder)
@@ -122,7 +122,7 @@ class CustomerBookingFlowTest extends TestCase
         $customer = User::factory()->customer()->create();
         $roomType = RoomType::factory()->create();
 
-        $this->actingAs($customer)->post('/customer/booking', $this->validBookingPayload($roomType));
+        $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($roomType));
         $booking = $customer->bookings()->first();
 
         $response = $this->actingAs($customer)->post("/customer/bookings/{$booking->id}/cancel");

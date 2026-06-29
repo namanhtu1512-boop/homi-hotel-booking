@@ -27,6 +27,7 @@ class AuditLogTest extends TestCase
         $target = $this->makeUser('customer');
 
         $this->actingAs($admin)
+            ->withSession(['login_context' => 'admin'])
             ->patch(route('admin.users.toggle-status', $target->id))
             ->assertRedirect();
 
@@ -98,6 +99,7 @@ class AuditLogTest extends TestCase
         $roomType = RoomType::factory()->create();
 
         $this->actingAs($admin)
+            ->withSession(['login_context' => 'admin'])
             ->put(route('admin.room-types.update', $roomType->id), [
                 'name'            => 'Tên Mới',
                 'price_per_night' => 999000,
@@ -129,6 +131,11 @@ class AuditLogTest extends TestCase
     {
         $staff  = $this->makeUser('staff');
         $target = $this->makeUser('customer');
+
+        $this->actingAs($staff)
+            ->patchJson("/api/v1/admin/users/{$target->id}/toggle-status")
+            ->assertStatus(403);
+    }
 
     public function test_customer_cannot_view_audit_logs(): void
     {

@@ -23,4 +23,19 @@ class CreateRoomTypeRequest extends BaseFormRequest
             'images_text'     => ['nullable', 'string', $this->eachImageLineMax500()],
         ];
     }
+
+    public function validated($key = null, $default = null): array
+    {
+        $data = parent::validated($key, $default);
+
+        $data['images'] = collect(explode("\n", $data['images_text'] ?? ''))
+            ->map(fn(string $line): string => trim($line))
+            ->filter()
+            ->values()
+            ->all();
+
+        unset($data['images_text']);
+
+        return $data;
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\RoomType;
+use App\Services\AuditLogService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,7 +12,10 @@ use Illuminate\View\View;
 
 class RoomTypeController extends Controller
 {
-    public function __construct(private readonly RoomTypeService $roomTypeService) {}
+    public function __construct(
+        private readonly RoomTypeService $roomTypeService,
+        private readonly AuditLogService $auditLog,
+    ) {}
 
     public function index(): View
     {
@@ -57,6 +61,8 @@ class RoomTypeController extends Controller
         $data = $this->validateRoomType($request);
 
         $this->roomTypeService->update($roomType, $data);
+
+        $this->auditLog->log('room_type.updated', $roomType->fresh(), "Cập nhật loại phòng \"{$roomType->name}\".");
 
         return redirect()
             ->route('admin.room-types.index')

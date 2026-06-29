@@ -393,7 +393,7 @@ class RoomTypeDataTest extends TestCase
             'capacity' => 2,
         ]);
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->put("/admin/room-types/{$roomType->id}", $this->validPayload(['name' => 'Tên Cũ', 'capacity' => 4]))
             ->assertRedirect(route('admin.room-types.index'));
 
@@ -409,7 +409,7 @@ class RoomTypeDataTest extends TestCase
     {
         $roomType = $this->makeRoomType(['name' => 'Phòng Cũ', 'slug' => 'phong-cu']);
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->put("/admin/room-types/{$roomType->id}", $this->validPayload(['name' => 'Phòng Mới Sang Trọng']))
             ->assertRedirect();
 
@@ -424,7 +424,7 @@ class RoomTypeDataTest extends TestCase
     {
         $roomType = $this->makeRoomType();
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->put("/admin/room-types/{$roomType->id}", $this->validPayload(['total_rooms' => 0]))
             ->assertSessionHasErrors();
     }
@@ -438,7 +438,7 @@ class RoomTypeDataTest extends TestCase
     {
         $roomType = $this->makeRoomType();
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->delete("/admin/room-types/{$roomType->id}")
             ->assertRedirect(route('admin.room-types.index'));
 
@@ -451,7 +451,7 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType();
         $this->makeActiveBookingFor($roomType, 'pending');
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->delete("/admin/room-types/{$roomType->id}")
             ->assertRedirect();
 
@@ -467,7 +467,7 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType();
         $this->makeActiveBookingFor($roomType, 'confirmed');
 
-        $this->actingAs($this->admin)->delete("/admin/room-types/{$roomType->id}");
+        $this->actingAsAdmin($this->admin)->delete("/admin/room-types/{$roomType->id}");
 
         $this->assertDatabaseHas('room_types', ['id' => $roomType->id, 'status' => 'hidden']);
     }
@@ -479,7 +479,7 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType();
         $this->makeActiveBookingFor($roomType, 'cancelled');
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->delete("/admin/room-types/{$roomType->id}")
             ->assertRedirect();
 
@@ -495,6 +495,7 @@ class RoomTypeDataTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/room-types');
 
+        $ids = collect($response->json('data'))->pluck('id')->all();
         $this->assertNotContains($roomType->id, $ids);
     }
 
@@ -508,7 +509,7 @@ class RoomTypeDataTest extends TestCase
         $roomType = $this->makeRoomType();
         $roomType->delete();
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->post("/admin/room-types/{$roomType->id}/restore")
             ->assertRedirect();
 
@@ -518,7 +519,7 @@ class RoomTypeDataTest extends TestCase
     /** @test */
     public function test_TC_RTD_071_restore_nonexistent_returns_404(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->post('/admin/room-types/999999/restore')
             ->assertNotFound();
     }
@@ -551,6 +552,7 @@ class RoomTypeDataTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/room-types');
 
+        $prices = collect($response->json('data'))->pluck('price_per_night')->all();
         $sorted = $prices;
         sort($sorted);
 
@@ -566,19 +568,19 @@ class RoomTypeDataTest extends TestCase
     {
         $response = $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
-                'images' => ['room-types/deluxe-1.jpg', 'room-types/deluxe-2.jpg'],
+                'images_text' => "room-types/deluxe-1.jpg\nroom-types/deluxe-2.jpg",
             ]));
 
         $response->assertCreated();
         $roomTypeId = $response->json('data.id');
 
         $this->assertDatabaseHas('room_type_images', [
-            'room_type_id' => $roomType->id,
+            'room_type_id' => $roomTypeId,
             'path'         => 'room-types/deluxe-1.jpg',
             'sort_order'   => 0,
         ]);
         $this->assertDatabaseHas('room_type_images', [
-            'room_type_id' => $roomType->id,
+            'room_type_id' => $roomTypeId,
             'path'         => 'room-types/deluxe-2.jpg',
             'sort_order'   => 1,
         ]);
@@ -589,10 +591,10 @@ class RoomTypeDataTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->postJson('/api/v1/admin/room-types', $this->validPayload([
-                'images' => [str_repeat('a', 501) . '.jpg'],
+                'images_text' => str_repeat('a', 501) . '.jpg',
             ]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['images.0']);
+            ->assertJsonValidationErrors(['images_text']);
     }
 
     /** @test */
@@ -602,7 +604,7 @@ class RoomTypeDataTest extends TestCase
         $roomType->images()->create(['path' => 'old-1.jpg', 'sort_order' => 0]);
         $roomType->images()->create(['path' => 'old-2.jpg', 'sort_order' => 1]);
 
-        $this->actingAs($this->admin)
+        $this->actingAsAdmin($this->admin)
             ->put("/admin/room-types/{$roomType->id}", array_merge($this->validPayload(), [
                 'images_text' => 'new-1.jpg',
             ]))
@@ -650,6 +652,7 @@ class RoomTypeDataTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/room-types');
 
+        $roomTypes = $response->json('data');
         $this->assertCount(20, $roomTypes);
     }
 

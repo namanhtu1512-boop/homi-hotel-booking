@@ -19,16 +19,25 @@ class RoleMiddleware
                 ], 401);
             }
 
-            return redirect()->route('admin.login');
+            $isAdminRoute = in_array('admin', $roles) || in_array('staff', $roles);
+
+            return redirect()->route($isAdminRoute ? 'admin.login' : 'login');
         }
 
         if ($user->status === 'locked') {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success'    => false,
+                    'error_code' => 'ACCOUNT_LOCKED',
+                    'message'    => 'Tài khoản của bạn đã bị khóa.',
+                ], 403);
+            }
             abort(403, 'Tài khoản của bạn đã bị khóa.');
         }
 
         $isAdminRoute = in_array('admin', $roles) || in_array('staff', $roles);
 
-        if (! in_array($user->role, $roles, true) || ($isAdminRoute && $request->session()->get('login_context') !== 'admin')) {
+        if (! in_array($user->role, $roles, true) || ($isAdminRoute && $request->hasSession() && $request->session()->get('login_context') !== 'admin')) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -36,7 +45,9 @@ class RoleMiddleware
                 ], 403);
             }
 
-            return redirect()->route('customer.dashboard');
+            $redirectRoute = in_array($user->role, ['admin', 'staff']) ? 'admin.dashboard' : 'customer.dashboard';
+
+            return redirect()->route($redirectRoute);
         }
 
         return $next($request);

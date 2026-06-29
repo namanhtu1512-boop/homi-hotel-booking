@@ -22,7 +22,7 @@ class AdminHotelInfoTest extends TestCase
 
     public function test_admin_can_view_hotel_info_page(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->get(route('admin.hotel-info.edit'))
             ->assertOk()
             ->assertViewIs('admin.hotel-info.edit');
@@ -34,23 +34,23 @@ class AdminHotelInfoTest extends TestCase
 
         $this->actingAs($customer)
             ->get(route('admin.hotel-info.edit'))
-            ->assertForbidden();
+            ->assertRedirect(route('customer.dashboard'));
     }
 
     public function test_guest_cannot_view_hotel_info_page(): void
     {
         $this->get(route('admin.hotel-info.edit'))
-            ->assertRedirect(route('login'));
+            ->assertRedirect(route('admin.login'));
     }
 
     public function test_admin_can_update_hotel_info(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->put(route('admin.hotel-info.update'), [
                 'name'    => 'Homi Updated Hotel',
                 'address' => '999 Đường Mới',
             ])
-            ->assertRedirect(route('admin.hotel-info.edit'));
+            ->assertRedirect(route('admin.hotel-info.show'));
 
         $this->assertDatabaseHas('hotel_info', [
             'id'      => 1,
@@ -63,10 +63,10 @@ class AdminHotelInfoTest extends TestCase
     {
         $admin = $this->admin();
 
-        $this->actingAs($admin)->put(route('admin.hotel-info.update'), [
+        $this->actingAsAdmin($admin)->put(route('admin.hotel-info.update'), [
             'name' => 'Lần 1', 'address' => 'Địa chỉ 1',
         ]);
-        $this->actingAs($admin)->put(route('admin.hotel-info.update'), [
+        $this->actingAsAdmin($admin)->put(route('admin.hotel-info.update'), [
             'name' => 'Lần 2', 'address' => 'Địa chỉ 2',
         ]);
 
@@ -76,7 +76,7 @@ class AdminHotelInfoTest extends TestCase
 
     public function test_update_fails_when_name_missing(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->put(route('admin.hotel-info.update'), ['address' => 'Có địa chỉ'])
             ->assertSessionHasErrors(['name']);
     }
@@ -88,7 +88,7 @@ class AdminHotelInfoTest extends TestCase
             Amenity::create(['name' => 'Bãi đỗ xe']),
         ]);
 
-        $this->actingAs($this->admin())
+        $this->actingAsAdmin($this->admin())
             ->put(route('admin.hotel-info.update'), [
                 'name'        => 'Homi Hotel',
                 'address'     => '1 Đường ABC',
@@ -96,8 +96,8 @@ class AdminHotelInfoTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('hotel_info_amenity', [
-            'hotel_id'   => 1,
-            'amenity_id' => $amenities->first()->id,
+            'hotel_info_id' => 1,
+            'amenity_id'    => $amenities->first()->id,
         ]);
     }
 
@@ -107,6 +107,6 @@ class AdminHotelInfoTest extends TestCase
 
         $this->actingAs($customer)
             ->put(route('admin.hotel-info.update'), ['name' => 'Hack', 'address' => 'X'])
-            ->assertForbidden();
+            ->assertRedirect(route('customer.dashboard'));
     }
 }

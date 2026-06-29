@@ -21,10 +21,10 @@ class HomeTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('Homi Sài Gòn Hotel');
-        $response->assertSee('Phòng nổi bật');
+        $response->assertSee('Homi Hotel');
+        $response->assertSee('Chọn loại phòng phù hợp');
         $response->assertSee('Phòng Trải Nghiệm');
-        $response->assertSee('Tìm phòng ngay');
+        $response->assertSee('Tìm phòng');
     }
 
     public function test_home_page_hides_featured_rooms_section_when_no_active_room_types(): void

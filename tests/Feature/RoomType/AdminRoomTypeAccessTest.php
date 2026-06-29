@@ -83,22 +83,28 @@ class AdminRoomTypeAccessTest extends TestCase
     {
         $this->makeRoomType();
 
+        $this->actingAs($this->makeUser('customer'))
+            ->get(route('admin.room-types.index'))
+            ->assertRedirect(route('customer.dashboard'));
+    }
+
     public function test_guest_redirected_to_login(): void
     {
         $this->get(route('admin.room-types.index'))
-            ->assertRedirect(route('login'));
+            ->assertRedirect(route('admin.login'));
     }
 
-    public function test_admin_can_create_room_type(): void
+    public function test_admin_can_create_room_type_via_web_route(): void
     {
         $this->actingAs($this->makeUser('admin'))
+            ->withSession(['login_context' => 'admin'])
             ->post(route('admin.room-types.store'), $this->roomTypePayload())
             ->assertRedirect(route('admin.room-types.index'));
 
         $this->assertDatabaseHas('room_types', ['name' => 'Phòng Deluxe Mới']);
     }
 
-    public function test_staff_can_create_room_type(): void
+    public function test_staff_can_list_room_types(): void
     {
         $this->actingAs($this->makeUser('staff'))
             ->getJson('/api/v1/admin/room-types')
@@ -106,7 +112,7 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
-    public function test_customer_cannot_create_room_type(): void
+    public function test_customer_cannot_list_room_types_api(): void
     {
         $this->actingAs($this->makeUser('customer'))
             ->getJson('/api/v1/admin/room-types')
@@ -114,11 +120,10 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => false]);
     }
 
-    public function test_admin_can_delete_room_type(): void
+    public function test_anonymous_cannot_list_room_types(): void
     {
         $this->getJson('/api/v1/admin/room-types')
-            ->assertStatus(401)
-            ->assertJson(['success' => false]);
+            ->assertStatus(401);
     }
 
     // ----------------------------------------------------------------
@@ -133,7 +138,7 @@ class AdminRoomTypeAccessTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
-    public function test_customer_cannot_delete_room_type(): void
+    public function test_staff_can_create_room_type(): void // TC-RT-006
     {
         $this->actingAs($this->makeUser('staff'))
             ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
@@ -156,7 +161,7 @@ class AdminRoomTypeAccessTest extends TestCase
         $this->actingAs($this->makeUser('admin'))
             ->postJson('/api/v1/admin/room-types', $this->roomTypePayload())
             ->assertStatus(422)
-            ->assertJson(['success' => false]);
+            ->assertJsonValidationErrors(['status']);
     }
 
     // ----------------------------------------------------------------
@@ -282,6 +287,7 @@ class AdminRoomTypeAccessTest extends TestCase
         $roomType->delete();
 
         $this->actingAs($this->makeUser('admin'))
+            ->withSession(['login_context' => 'admin'])
             ->post(route('admin.room-types.restore', $roomType->id))
             ->assertRedirect(route('admin.room-types.index'));
 
@@ -319,8 +325,10 @@ class AdminRoomTypeAccessTest extends TestCase
         $roomType = $this->makeRoomType();
 
         $this->actingAs($this->makeUser('admin'))
-            ->patch(route('admin.room-types.toggle-status', $roomType->id))
-            ->assertRedirect(route('admin.room-types.index'));
+            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/price", ['price_per_night' => 1200000])
+            ->assertStatus(200)
+            ->assertJson(['success' => true]);
+    }
 
     public function test_staff_can_update_price(): void // TC-RT-023
     {

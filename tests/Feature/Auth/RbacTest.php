@@ -28,7 +28,7 @@ class RbacTest extends TestCase
 
         $this->actingAs($user)
             ->get('/admin/dashboard')
-            ->assertForbidden();
+            ->assertRedirect(route('customer.dashboard'));
     }
 
     public function test_staff_can_access_admin_dashboard(): void
@@ -36,6 +36,7 @@ class RbacTest extends TestCase
         $user = User::factory()->staff()->create();
 
         $this->actingAs($user)
+            ->withSession(['login_context' => 'admin'])
             ->get('/admin/dashboard')
             ->assertOk();
     }
@@ -45,6 +46,7 @@ class RbacTest extends TestCase
         $user = User::factory()->admin()->create();
 
         $this->actingAs($user)
+            ->withSession(['login_context' => 'admin'])
             ->get('/admin/dashboard')
             ->assertOk();
     }
@@ -55,7 +57,7 @@ class RbacTest extends TestCase
 
         $this->actingAs($user)
             ->get('/customer/dashboard')
-            ->assertForbidden();
+            ->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_only_admin_can_toggle_user_status(): void
@@ -65,7 +67,7 @@ class RbacTest extends TestCase
 
         $this->actingAs($staff)
             ->patch("/admin/users/{$target->id}/toggle-status")
-            ->assertForbidden();
+            ->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_locked_account_cannot_login(): void
@@ -86,7 +88,7 @@ class RbacTest extends TestCase
     public function test_unauthenticated_request_redirects_to_login(): void
     {
         $this->get('/customer/dashboard')->assertRedirect(route('login'));
-        $this->get('/admin/dashboard')->assertRedirect(route('login'));
+        $this->get('/admin/dashboard')->assertRedirect(route('admin.login'));
     }
 
     public function test_newly_registered_user_has_customer_role(): void

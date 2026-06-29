@@ -7,7 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Test case đăng nhập qua form Blade (/customer/login).
+ * Test case đăng nhập qua form Blade (/customer/login và /admin/login).
  */
 class LoginTest extends TestCase
 {
@@ -37,7 +37,7 @@ class LoginTest extends TestCase
             'status'   => 'active',
         ]);
 
-        $this->post('/customer/login', [
+        $this->post('/admin/login', [
             'email'    => 'admin@homi.vn',
             'password' => '123456',
         ])->assertRedirect(route('admin.dashboard'));

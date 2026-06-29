@@ -45,7 +45,7 @@ Route::post('/admin/logout', [AuthWebController::class, 'adminLogout'])
 // ---------------------------------------------------------------
 // CUSTOMER — authenticated customers
 // ---------------------------------------------------------------
-Route::middleware(['auth'])->prefix('customer')->name('customer.')->group(function () {
+Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer.')->group(function () {
     Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
