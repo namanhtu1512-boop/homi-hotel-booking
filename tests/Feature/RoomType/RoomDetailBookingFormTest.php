@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\RoomType;
 
+use App\Models\Amenity;
 use App\Models\HotelInfo;
 use App\Models\RoomType;
 use App\Models\RoomTypeImage;
@@ -14,7 +15,7 @@ use Tests\TestCase;
  *
  * Bao gồm:
  *  - Room detail /rooms/{id}: hiển thị đủ thông tin, phòng inactive/không tồn tại → 404
- *  - Dữ liệu thiếu ảnh, thiếu tiện ích không làm vỡ trang
+ *  - Dữ liệu thiếu ảnh, thiếu tiện ích khách sạn không làm vỡ trang (và hiện đúng khi có)
  *  - Thông tin chính sách khách sạn hiển thị trên trang detail
  *  - Luồng danh sách → detail → booking form liền mạch
  *  - Booking form /customer/bookings/create: accessible với customer, redirect login khi chưa đăng nhập
@@ -84,6 +85,38 @@ class RoomDetailBookingFormTest extends TestCase
     }
 
     // ----------------------------------------------------------------
+    // Room detail — thiếu tiện ích khách sạn (hotel_info không có amenity)
+    // ----------------------------------------------------------------
+
+    public function test_room_detail_without_hotel_amenities_does_not_crash(): void
+    {
+        // HotelInfo::instance() mặc định không có amenity nào gắn kèm.
+        $room = RoomType::factory()->create();
+
+        $response = $this->get("/rooms/{$room->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Tiện nghi khách sạn');
+    }
+
+    public function test_room_detail_shows_hotel_amenities_when_present(): void
+    {
+        $hotel = HotelInfo::instance();
+        $wifi = Amenity::create(['name' => 'Wifi miễn phí']);
+        $pool = Amenity::create(['name' => 'Hồ bơi']);
+        $hotel->amenities()->attach([$wifi->id, $pool->id]);
+
+        $room = RoomType::factory()->create();
+
+        $response = $this->get("/rooms/{$room->id}");
+
+        $response->assertOk();
+        $response->assertSee('Tiện nghi khách sạn');
+        $response->assertSee('Wifi miễn phí');
+        $response->assertSee('Hồ bơi');
+    }
+
+    // ----------------------------------------------------------------
     // Room detail — phòng inactive / không tồn tại → 404
     // ----------------------------------------------------------------
 
@@ -149,6 +182,34 @@ class RoomDetailBookingFormTest extends TestCase
         $response->assertOk();
         $response->assertSee('Homi Hotel Đà Nẵng');
         $response->assertSee('123 Bạch Đằng');
+    }
+
+    // ----------------------------------------------------------------
+    // Room detail — kiểm tra phòng trống với ngày không hợp lệ
+    // ----------------------------------------------------------------
+
+    public function test_room_detail_shows_error_when_check_out_before_check_in(): void
+    {
+        $room     = RoomType::factory()->create();
+        $checkIn  = now()->addDays(5)->format('Y-m-d');
+        $checkOut = now()->addDays(2)->format('Y-m-d');
+
+        $response = $this->get("/rooms/{$room->id}?check_in={$checkIn}&check_out={$checkOut}");
+
+        $response->assertOk();
+        $response->assertSee('Ngày trả phòng phải sau ngày nhận phòng ít nhất 1 đêm.');
+    }
+
+    public function test_room_detail_shows_error_when_check_in_in_the_past(): void
+    {
+        $room     = RoomType::factory()->create();
+        $checkIn  = now()->subDay()->format('Y-m-d');
+        $checkOut = now()->addDays(2)->format('Y-m-d');
+
+        $response = $this->get("/rooms/{$room->id}?check_in={$checkIn}&check_out={$checkOut}");
+
+        $response->assertOk();
+        $response->assertSee('Ngày nhận phòng không được trước hôm nay.');
     }
 
     // ----------------------------------------------------------------
