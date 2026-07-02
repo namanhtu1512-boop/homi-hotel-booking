@@ -92,7 +92,7 @@ class AuthWebController extends Controller
 
     public function showAdminLogin()
     {
-        if (Auth::check() && in_array(Auth::user()->role, ['admin', 'staff'])) {
+        if (Auth::check() && in_array(Auth::user()->role, ['admin', 'staff']) && session('login_context') === 'admin') {
             return redirect()->route('admin.dashboard');
         }
 

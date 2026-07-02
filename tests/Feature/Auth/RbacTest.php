@@ -67,7 +67,7 @@ class RbacTest extends TestCase
 
         $this->actingAs($staff)
             ->patch("/admin/users/{$target->id}/toggle-status")
-            ->assertRedirect(route('admin.dashboard'));
+            ->assertRedirect(route('admin.login'));
     }
 
     public function test_locked_account_cannot_login(): void

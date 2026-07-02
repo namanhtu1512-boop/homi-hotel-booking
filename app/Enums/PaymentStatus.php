@@ -21,6 +21,19 @@ enum PaymentStatus: string
         };
     }
 
+    /**
+     * Class màu badge tương ứng (dùng chung với .badge-* trong layout).
+     */
+    public function badgeClass(): string
+    {
+        return match($this) {
+            self::UNPAID, self::PENDING => 'badge-orange',
+            self::PAID     => 'badge-green',
+            self::REFUNDED => 'badge-blue',
+            self::FAILED   => 'badge-red',
+        };
+    }
+
     public function isPaid(): bool
     {
         return $this === self::PAID;
@@ -29,5 +42,18 @@ enum PaymentStatus: string
     public function canRefund(): bool
     {
         return $this === self::PAID;
+    }
+
+    /**
+     * Admin chỉ được đổi thanh toán theo 2 hướng hợp lệ:
+     * unpaid/pending -> paid (khách thanh toán tại quầy), paid -> refunded (hủy đơn đã trả).
+     */
+    public function canTransitionTo(self $target): bool
+    {
+        return match($this) {
+            self::UNPAID, self::PENDING => $target === self::PAID,
+            self::PAID => $target === self::REFUNDED,
+            default => false,
+        };
     }
 }

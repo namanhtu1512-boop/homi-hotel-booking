@@ -37,7 +37,7 @@ class RoleMiddleware
 
         $isAdminRoute = in_array('admin', $roles) || in_array('staff', $roles);
 
-        if (! in_array($user->role, $roles, true) || ($isAdminRoute && $request->hasSession() && $request->session()->get('login_context') !== 'admin')) {
+        if (! in_array($user->role, $roles, true)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -48,6 +48,17 @@ class RoleMiddleware
             $redirectRoute = in_array($user->role, ['admin', 'staff']) ? 'admin.dashboard' : 'customer.dashboard';
 
             return redirect()->route($redirectRoute);
+        }
+
+        if ($isAdminRoute && $request->hasSession() && $request->session()->get('login_context') !== 'admin') {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền truy cập trang này.',
+                ], 403);
+            }
+
+            return redirect()->route('admin.login');
         }
 
         return $next($request);

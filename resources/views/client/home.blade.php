@@ -757,13 +757,17 @@
             <div class="room-grid">
                 @forelse ($roomTypes as $room)
                     <article class="room-card">
-                        <div class="room-image">
-                            <div class="room-capacity">{{ $room->capacity }} khách</div>
-                        </div>
+                        <a href="{{ route('rooms.show', $room->id) }}" style="display:block;text-decoration:none;color:inherit;">
+                            <div class="room-image">
+                                <div class="room-capacity">{{ $room->capacity }} khách</div>
+                            </div>
+                        </a>
 
                         <div class="room-body">
                             <div class="room-bed">{{ $room->bed_type ?: 'Phòng nghỉ' }}</div>
-                            <h3 class="room-name">{{ $room->name }}</h3>
+                            <h3 class="room-name">
+                                <a href="{{ route('rooms.show', $room->id) }}" style="text-decoration:none;color:inherit;">{{ $room->name }}</a>
+                            </h3>
 
                             <div class="room-desc">{{ $room->description }}</div>
 
@@ -773,7 +777,7 @@
                                     <small>/ đêm</small>
                                 </div>
 
-                                <span class="mini-btn">{{ $room->total_rooms }} phòng</span>
+                                <a href="{{ route('rooms.show', $room->id) }}" class="mini-btn" style="text-decoration:none;">Xem chi tiết →</a>
                             </div>
                         </div>
                     </article>

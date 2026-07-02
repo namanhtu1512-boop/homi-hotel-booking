@@ -24,6 +24,19 @@ enum BookingStatus: string
     }
 
     /**
+     * Class màu badge tương ứng (dùng chung với .badge-* trong layout).
+     */
+    public function badgeClass(): string
+    {
+        return match($this) {
+            self::PENDING     => 'badge-orange',
+            self::CONFIRMED, self::CHECKED_IN => 'badge-blue',
+            self::CHECKED_OUT, self::COMPLETED => 'badge-green',
+            self::CANCELLED   => 'badge-red',
+        };
+    }
+
+    /**
      * Các trạng thái đang "giữ phòng" — dùng để tính availability.
      * pending + confirmed + checked_in đều chiếm slot phòng.
      */

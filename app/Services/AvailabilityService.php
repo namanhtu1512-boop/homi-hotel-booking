@@ -16,6 +16,7 @@ class AvailabilityService
      * Kiểm tra availability cho một room type trong khoảng ngày.
      *
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException nếu room_type không tồn tại/không active
      */
     public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1): array
     {
@@ -45,14 +46,20 @@ class AvailabilityService
      * Điều kiện overlap được đưa vào whereHas('booking') thay vì query trực tiếp booking_items.
      *
      * Overlap condition: booking.check_in < $checkOut AND booking.check_out > $checkIn
+     *
+     * Dùng whereDate() thay vì where() để so sánh: cột `check_in`/`check_out` là
+     * cast 'date' nhưng Eloquent vẫn ghi xuống DB theo $dateFormat đầy đủ
+     * (Y-m-d H:i:s) — MySQL tự cắt phần giờ vì kiểu cột DATE, nhưng SQLite (dùng
+     * khi chạy test) không ép kiểu nên có thể lưu kèm "00:00:00". whereDate()
+     * chuẩn hóa cả hai vế về phần ngày, tránh sai lệch giữa 2 loại DB.
      */
     public function getBookedQuantity(int $roomTypeId, string $checkIn, string $checkOut): int
     {
         return (int) BookingItem::where('room_type_id', $roomTypeId)
             ->whereHas('booking', fn ($q) => $q
                 ->whereIn('status', BookingStatus::holdingStatuses())
-                ->where('check_in', '<', $checkOut)
-                ->where('check_out', '>', $checkIn)
+                ->whereDate('check_in', '<', $checkOut)
+                ->whereDate('check_out', '>', $checkIn)
             )
             ->sum('quantity');
     }

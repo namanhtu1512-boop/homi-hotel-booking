@@ -7,9 +7,12 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\BookingStatusLog;
+use App\Models\Payment;
+use App\Models\PaymentStatusLog;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -76,11 +79,12 @@ class BookingService
                 'subtotal'        => $pricing['total_price'],
             ]);
 
-            $booking->payment()->create([
+            $payment = $booking->payment()->create([
                 'amount' => $pricing['total_price'],
                 'status' => PaymentStatus::UNPAID,
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
+            $this->logPaymentStatus($payment, null, PaymentStatus::UNPAID, $customer->id, 'Tạo đơn đặt phòng.');
 
             return $booking->load(['bookingItems.roomType', 'payment']);
         });
@@ -160,6 +164,38 @@ class BookingService
         return $query->paginate($perPage);
     }
 
+    public function findForAdmin(int $bookingId): Booking
+    {
+        return Booking::with(['user', 'bookingItems.roomType', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
+            ->findOrFail($bookingId);
+    }
+
+    public function updatePaymentStatus(Booking $booking, string $status): Booking
+    {
+        if (! $booking->payment) {
+            throw ValidationException::withMessages([
+                'status' => ['Đơn này chưa có thông tin thanh toán.'],
+            ]);
+        }
+
+        $oldStatus = $booking->payment->status;
+        $newStatus = PaymentStatus::from($status);
+
+        if (! $oldStatus->canTransitionTo($newStatus)) {
+            throw ValidationException::withMessages([
+                'status' => ["Không thể chuyển thanh toán từ \"{$oldStatus->label()}\" sang \"{$newStatus->label()}\"."],
+            ]);
+        }
+
+        $booking->payment->update([
+            'status'  => $newStatus,
+            'paid_at' => $newStatus === PaymentStatus::PAID ? now() : $booking->payment->paid_at,
+        ]);
+        $this->logPaymentStatus($booking->payment, $oldStatus, $newStatus, Auth::id(), 'Admin/staff cập nhật trạng thái thanh toán.');
+
+        return $booking->fresh('payment');
+    }
+
     public function confirm(Booking $booking): Booking
     {
         if (! $booking->canConfirm()) {
@@ -188,7 +224,9 @@ class BookingService
         $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, note: 'Admin/staff hủy đơn.');
 
         if ($booking->payment && $booking->payment->canRefund()) {
+            $oldPaymentStatus = $booking->payment->status;
             $booking->payment->update(['status' => PaymentStatus::REFUNDED]);
+            $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::REFUNDED, Auth::id(), 'Tự động hoàn tiền khi hủy đơn.');
         }
 
         return $booking->fresh(['payment']);
@@ -207,6 +245,22 @@ class BookingService
     ): void {
         BookingStatusLog::create([
             'booking_id'  => $booking->id,
+            'changed_by'  => $changedById,
+            'from_status' => $from?->value,
+            'to_status'   => $to->value,
+            'note'        => $note,
+        ]);
+    }
+
+    private function logPaymentStatus(
+        Payment $payment,
+        ?PaymentStatus $from,
+        PaymentStatus $to,
+        ?int $changedById = null,
+        ?string $note = null,
+    ): void {
+        PaymentStatusLog::create([
+            'payment_id'  => $payment->id,
             'changed_by'  => $changedById,
             'from_status' => $from?->value,
             'to_status'   => $to->value,

@@ -46,10 +46,10 @@
                             <td>{{ $booking->bookingItems->pluck('roomType.name')->filter()->implode(', ') }}</td>
                             <td>{{ $booking->check_in->format('d/m/Y') }} – {{ $booking->check_out->format('d/m/Y') }}</td>
                             <td>{{ number_format($booking->total_amount, 0, ',', '.') }}đ</td>
-                            <td><span class="badge badge-blue">{{ $booking->status->label() }}</span></td>
+                            <td><span class="badge {{ $booking->status->badgeClass() }}">{{ $booking->status->label() }}</span></td>
                             <td>
                                 @if ($booking->payment)
-                                    <span class="badge {{ $booking->payment->isPaid() ? 'badge-green' : 'badge-orange' }}">
+                                    <span class="badge {{ $booking->payment->status->badgeClass() }}">
                                         {{ $booking->payment->status->label() }}
                                     </span>
                                 @endif

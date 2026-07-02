@@ -33,6 +33,11 @@ class Payment extends Model
         return $this->belongsTo(Booking::class);
     }
 
+    public function statusLogs()
+    {
+        return $this->hasMany(PaymentStatusLog::class)->orderBy('created_at');
+    }
+
     public function isPaid(): bool
     {
         return $this->status->isPaid();

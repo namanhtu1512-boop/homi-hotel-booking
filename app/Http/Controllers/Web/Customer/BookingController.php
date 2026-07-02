@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Web\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
+use App\Services\AvailabilityService;
 use App\Services\BookingService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class BookingController extends Controller
@@ -15,6 +17,7 @@ class BookingController extends Controller
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly RoomTypeService $roomTypeService,
+        private readonly AvailabilityService $availabilityService,
     ) {}
 
     public function create(Request $request): View
@@ -22,12 +25,32 @@ class BookingController extends Controller
         $roomTypeId = $request->query('room_type_id');
         $roomType = $roomTypeId ? $this->roomTypeService->findActive((int) $roomTypeId) : null;
 
+        $checkIn  = $request->query('check_in');
+        $checkOut = $request->query('check_out');
+        $quantity = max(1, (int) $request->query('quantity', 1));
+
+        // Tuần 9 (Sprint 5) — nút "Kiểm tra phòng trống" trên form đặt phòng:
+        // resubmit GET tới chính route này kèm ngày/số lượng để hiển thị
+        // available_quantity/can_book trước khi khách bấm đặt phòng thật.
+        $availability = null;
+        $availabilityError = null;
+
+        if ($roomType && $checkIn && $checkOut) {
+            try {
+                $availability = $this->availabilityService->check($roomType->id, $checkIn, $checkOut, $quantity);
+            } catch (ValidationException $e) {
+                $availabilityError = collect($e->errors())->flatten()->first();
+            }
+        }
+
         return view('customer.booking.create', [
-            'roomType'  => $roomType,
-            'roomTypes' => $roomType ? collect() : $this->roomTypeService->list(),
-            'checkIn'   => $request->query('check_in'),
-            'checkOut'  => $request->query('check_out'),
-            'quantity'  => max(1, (int) $request->query('quantity', 1)),
+            'roomType'          => $roomType,
+            'roomTypes'         => $roomType ? collect() : $this->roomTypeService->list(),
+            'checkIn'           => $checkIn,
+            'checkOut'          => $checkOut,
+            'quantity'          => $quantity,
+            'availability'      => $availability,
+            'availabilityError' => $availabilityError,
         ]);
     }
 

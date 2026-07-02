@@ -8,6 +8,7 @@ use App\Services\AuditLogService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class RoomTypeController extends Controller
@@ -20,6 +21,20 @@ class RoomTypeController extends Controller
     public function index(): View
     {
         $roomTypes = $this->roomTypeService->list(adminView: true);
+
+        $today = now()->toDateString();
+
+        $bookedCounts = DB::table('booking_items')
+            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+            ->whereIn('bookings.status', ['pending', 'confirmed'])
+            ->where('bookings.check_in', '<=', $today)
+            ->where('bookings.check_out', '>', $today)
+            ->groupBy('booking_items.room_type_id')
+            ->pluck(DB::raw('SUM(booking_items.quantity)'), 'booking_items.room_type_id');
+
+        $roomTypes->each(function (RoomType $room) use ($bookedCounts) {
+            $room->available_today = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
+        });
 
         return view('admin.room-types.index', ['roomTypes' => $roomTypes]);
     }

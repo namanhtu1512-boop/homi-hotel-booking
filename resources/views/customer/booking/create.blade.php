@@ -69,6 +69,23 @@
                            value="{{ old('quantity', $quantity) }}" required>
                 </div>
 
+                {{-- Kiểm tra phòng trống (Tuần 9 - Sprint 5): resubmit GET tới chính
+                     trang này kèm ngày/số lượng, không gửi đơn thật --}}
+                <button type="submit" formmethod="GET" formaction="{{ route('customer.bookings.create') }}"
+                        class="btn btn-outline btn-block">🔍 Kiểm tra phòng trống</button>
+
+                @if ($availabilityError)
+                    <div class="alert alert-danger">{{ $availabilityError }}</div>
+                @elseif ($availability)
+                    <div class="alert {{ $availability['can_book'] ? 'alert-success' : 'alert-danger' }}">
+                        @if ($availability['can_book'])
+                            ✅ Còn {{ $availability['available_quantity'] }} phòng trống cho {{ $availability['nights'] }} đêm bạn chọn.
+                        @else
+                            ❌ Chỉ còn {{ $availability['available_quantity'] }} phòng trống, không đủ cho {{ $availability['requested_quantity'] }} phòng yêu cầu.
+                        @endif
+                    </div>
+                @endif
+
                 {{-- Ước tính giá --}}
                 <div id="price-estimate" style="display:none; background: var(--primary-soft); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
                     <div style="color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: 6px;">GIÁ TẠM TÍNH</div>

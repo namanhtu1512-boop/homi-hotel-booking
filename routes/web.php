@@ -9,6 +9,7 @@ use App\Http\Controllers\Web\Admin\DatabaseController;
 use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
 
@@ -83,5 +84,13 @@ Route::middleware(['role:admin,staff'])->prefix('admin')->name('admin.')->group(
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/',                     [UserController::class, 'index'])->name('index');
         Route::patch('/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    Route::prefix('bookings')->name('bookings.')->group(function () {
+        Route::get('/',                [AdminBookingController::class, 'index'])->name('index');
+        Route::get('/{id}',            [AdminBookingController::class, 'show'])->name('show');
+        Route::post('/{id}/confirm',   [AdminBookingController::class, 'confirm'])->name('confirm');
+        Route::post('/{id}/cancel',    [AdminBookingController::class, 'cancel'])->name('cancel');
+        Route::patch('/{id}/payment',  [AdminBookingController::class, 'updatePayment'])->name('update-payment');
     });
 });

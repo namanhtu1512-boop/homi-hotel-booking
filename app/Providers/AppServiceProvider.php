@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Booking;
 use App\Models\HotelInfo;
 use App\Models\RoomType;
 use App\Models\User;
@@ -36,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
             'users'      => User::class,
             'hotel_info' => HotelInfo::class,
             'room_types' => RoomType::class,
+            'bookings'   => Booking::class,
         ]);
     }
 }

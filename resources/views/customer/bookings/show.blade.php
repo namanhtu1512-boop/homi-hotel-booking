@@ -3,12 +3,12 @@
 @section('title', 'Đơn ' . $booking->booking_code . ' · Homi')
 @section('banner_tag', 'Chi tiết đơn')
 @section('banner_title', 'Đơn ' . $booking->booking_code)
-@section('banner_subtitle', 'Trạng thái: ' . $booking->status->label())
+@section('banner_subtitle', 'Nhận phòng ' . $booking->check_in->format('d/m/Y') . ' · Trả phòng ' . $booking->check_out->format('d/m/Y'))
+@section('banner_badge', $booking->status->label())
+@section('banner_badge_class', $booking->status->badgeClass())
 
 @section('content')
-<div class="dashboard-grid">
-    <div>
-        <div class="card">
+<div class="card">
             @if (session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
@@ -72,27 +72,21 @@
                 @endif
             </div>
         </div>
-    </div>
 
-    <div>
         <div class="card">
-            <div class="section-kicker">Trạng thái</div>
-            <div class="info-list" style="margin-top: 10px;">
-                <div class="info-item">
-                    <span class="label">Đơn hàng</span>
-                    <span class="value"><span class="badge badge-blue">{{ $booking->status->label() }}</span></span>
-                </div>
-                @if ($booking->payment)
+            @if ($booking->payment)
+                <div class="section-kicker">Trạng thái</div>
+                <div class="info-list" style="margin-top: 10px;">
                     <div class="info-item">
                         <span class="label">Thanh toán</span>
                         <span class="value">
-                            <span class="badge {{ $booking->payment->isPaid() ? 'badge-green' : 'badge-orange' }}">
+                            <span class="badge {{ $booking->payment->status->badgeClass() }}">
                                 {{ $booking->payment->status->label() }}
                             </span>
                         </span>
                     </div>
-                @endif
-            </div>
+                </div>
+            @endif
 
             <div class="section-kicker" style="margin-top: 22px;">Thông tin liên hệ</div>
             <div class="info-list" style="margin-top: 10px;">
@@ -112,18 +106,16 @@
                 @endif
             </div>
 
-            <div class="quick-actions">
-                <a href="{{ route('customer.bookings.index') }}" class="btn btn-outline btn-block">Quay lại danh sách</a>
+            <div class="quick-actions-row">
+                <a href="{{ route('customer.bookings.index') }}" class="btn btn-outline">Quay lại danh sách</a>
 
                 @if ($booking->canCancelByCustomer())
                     <form method="POST" action="{{ route('customer.bookings.cancel', $booking->id) }}"
                         onsubmit="return confirm('Bạn chắc chắn muốn hủy đơn {{ $booking->booking_code }}?');">
                         @csrf
-                        <button type="submit" class="btn btn-danger btn-block">Hủy đơn</button>
+                        <button type="submit" class="btn btn-danger">Hủy đơn</button>
                     </form>
                 @endif
             </div>
         </div>
-    </div>
-</div>
 @endsection

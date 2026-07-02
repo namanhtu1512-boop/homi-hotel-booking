@@ -26,6 +26,7 @@
                         <th>Sức chứa</th>
                         <th>Giá / đêm</th>
                         <th>Tổng số phòng</th>
+                        <th>Còn trống hôm nay</th>
                         <th>Trạng thái</th>
                         <th>Thao tác</th>
                     </tr>
@@ -37,6 +38,15 @@
                             <td>{{ $room->capacity }} khách</td>
                             <td>{{ number_format($room->price_per_night, 0, ',', '.') }}đ</td>
                             <td>{{ $room->total_rooms }}</td>
+                            <td>
+                                @if ($room->status !== 'active')
+                                    <span style="color: var(--muted);">—</span>
+                                @elseif ($room->available_today > 0)
+                                    <span class="badge badge-green">{{ $room->available_today }}</span>
+                                @else
+                                    <span class="badge badge-red">Hết phòng</span>
+                                @endif
+                            </td>
                             <td>
                                 @if ($room->status === 'active')
                                     <span class="badge badge-green">Đang hoạt động</span>

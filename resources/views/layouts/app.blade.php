@@ -53,7 +53,7 @@
             overflow: hidden;
             background: linear-gradient(135deg, #0b46c4 0%, #1e5eff 48%, #6aa7ff 100%);
             color: var(--white);
-            padding: 26px 0 88px;
+            padding: 22px 0 60px;
         }
 
         .top-banner::before,
@@ -86,7 +86,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 16px;
-            margin-bottom: 34px;
+            margin-bottom: 26px;
         }
 
         .brand {
@@ -148,10 +148,17 @@
             color: rgba(255, 255, 255, 0.92);
         }
 
+        .banner-subtitle-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 14px;
+        }
+
         .page-shell {
             position: relative;
             z-index: 1;
-            margin-top: -50px;
+            margin-top: -34px;
             padding-bottom: 36px;
         }
 
@@ -217,11 +224,12 @@
         .btn-outline {
             background: var(--white);
             color: var(--primary);
-            border: 1px solid var(--border);
+            border: 1.5px solid var(--primary-soft-2);
         }
 
         .btn-outline:hover {
             background: var(--primary-soft);
+            border-color: var(--primary);
         }
 
         .btn-light {
@@ -347,11 +355,12 @@
         .btn-danger {
             background: #fdeceb;
             color: var(--danger);
-            border: 1px solid #f6c8c3;
+            border: 1.5px solid #f2a89f;
         }
 
         .btn-danger:hover {
             background: #fbdedb;
+            border-color: var(--danger);
         }
 
         .filter-bar {
@@ -584,23 +593,24 @@
 
         .info-list {
             display: grid;
-            gap: 16px;
             margin-top: 16px;
+            border-top: 1px solid var(--border);
         }
 
         .info-item {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
-            gap: 14px;
-            padding: 14px 16px;
-            border-radius: 14px;
-            background: #f9fbff;
-            border: 1px solid var(--border);
+            align-items: center;
+            gap: 8px 14px;
+            padding: 13px 2px;
+            border-bottom: 1px solid var(--border);
         }
 
         .info-item .label {
             color: var(--muted);
             font-weight: 600;
+            flex-shrink: 0;
         }
 
         .info-item .value {
@@ -608,6 +618,8 @@
             font-weight: 700;
             text-align: right;
             word-break: break-word;
+            min-width: 0;
+            margin-left: auto;
         }
 
         .badge {
@@ -618,6 +630,7 @@
             padding: 7px 12px;
             font-size: 12px;
             font-weight: 700;
+            white-space: nowrap;
         }
 
         .badge-blue {
@@ -634,6 +647,22 @@
             margin-top: 16px;
             display: grid;
             gap: 12px;
+        }
+
+        .quick-actions-row {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .quick-actions-row > * {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .quick-actions-row .btn {
+            width: 100%;
         }
 
         .table-section-head {
@@ -763,7 +792,7 @@
             }
 
             .top-banner {
-                padding: 18px 0 76px;
+                padding: 16px 0 52px;
             }
 
             .navbar {
@@ -834,7 +863,12 @@
             <div class="banner-content">
                 <div class="banner-tag">@yield('banner_tag', 'Homi Hotel Booking')</div>
                 <h1>@yield('banner_title', 'Hệ thống quản lý đặt phòng Homi')</h1>
-                <p>@yield('banner_subtitle', 'Giao diện hiện đại, rõ ràng, dễ thao tác để quản lý tài khoản, khách sạn, loại phòng và dữ liệu đặt phòng.') </p>
+                <div class="banner-subtitle-row">
+                    <p>@yield('banner_subtitle', 'Giao diện hiện đại, rõ ràng, dễ thao tác để quản lý tài khoản, khách sạn, loại phòng và dữ liệu đặt phòng.') </p>
+                    @hasSection('banner_badge')
+                        <span class="badge @yield('banner_badge_class', 'badge-blue')">@yield('banner_badge')</span>
+                    @endif
+                </div>
             </div>
         </div>
     </header>

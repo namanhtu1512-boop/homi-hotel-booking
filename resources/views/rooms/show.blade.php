@@ -6,69 +6,123 @@
 @section('banner_subtitle', 'Sức chứa ' . $roomType->capacity . ' khách · ' . number_format($roomType->price_per_night, 0, ',', '.') . 'đ / đêm')
 
 @section('content')
+
+{{-- Breadcrumb --}}
+<nav style="margin-bottom: 20px; font-size: 14px; color: var(--muted);">
+    <a href="{{ route('home') }}" style="color: var(--primary); text-decoration: none;">Trang chủ</a>
+    <span style="margin: 0 8px;">›</span>
+    <a href="{{ route('rooms.index') }}" style="color: var(--primary); text-decoration: none;">Danh sách phòng</a>
+    <span style="margin: 0 8px;">›</span>
+    <span>{{ $roomType->name }}</span>
+</nav>
+
 <div class="dashboard-grid">
 
-    {{-- Cột trái: thông tin chi tiết phòng --}}
-    <div>
-        <div class="card">
-            {{-- Gallery ảnh phòng --}}
+    {{-- ===== CỘT TRÁI ===== --}}
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        {{-- Gallery ảnh --}}
+        <div class="card" style="padding: 0; overflow: hidden;">
             @include('partials._room-gallery', ['images' => $roomType->images, 'alt' => $roomType->name])
-
-            {{-- Mô tả --}}
-            <div class="section-kicker" style="margin-top: 22px;">Mô tả</div>
-            <h2 class="section-title" style="margin-bottom: 6px;">{{ $roomType->name }}</h2>
-            <p class="section-desc">{{ $roomType->description ?: 'Chưa có mô tả chi tiết.' }}</p>
-
-            {{-- Thông số phòng --}}
-            <div class="room-card-meta" style="margin-top: 16px;">
-                <span class="badge badge-blue">{{ $roomType->capacity }} khách</span>
-                @if ($roomType->bed_type)
-                    <span class="badge badge-blue">{{ $roomType->bed_type }}</span>
-                @endif
-                @if ($roomType->area)
-                    <span class="badge badge-blue">{{ $roomType->area }} m²</span>
-                @endif
-                <span class="badge badge-green">Tổng {{ $roomType->total_rooms }} phòng</span>
-            </div>
-
-            {{-- Tiện nghi khách sạn --}}
-            @include('partials._amenities-list', ['amenities' => $hotel->amenities, 'title' => 'Tiện nghi khách sạn'])
         </div>
 
-        {{-- Chính sách khách sạn --}}
-        @if ($hotel->check_in_time || $hotel->check_out_time || $hotel->policies)
-            <div class="card">
-                <div class="section-kicker">Chính sách &amp; Giờ nhận/trả phòng</div>
+        {{-- Tổng quan phòng --}}
+        <div class="card">
+            <div class="section-kicker">Tổng quan</div>
+            <h2 class="section-title" style="margin-bottom: 16px;">{{ $roomType->name }}</h2>
 
-                <div class="info-list" style="margin-top: 12px;">
-                    @if ($hotel->check_in_time)
-                        <div class="info-item">
-                            <span class="label">Nhận phòng từ</span>
-                            <span class="value">{{ $hotel->check_in_time }}</span>
-                        </div>
-                    @endif
-                    @if ($hotel->check_out_time)
-                        <div class="info-item">
-                            <span class="label">Trả phòng trước</span>
-                            <span class="value">{{ $hotel->check_out_time }}</span>
-                        </div>
-                    @endif
+            {{-- Thông số dạng grid --}}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <div style="background: var(--primary-soft); border-radius: 12px; padding: 14px 16px; text-align: center;">
+                    <div style="font-size: 22px; margin-bottom: 4px;">👥</div>
+                    <div style="font-size: 18px; font-weight: 700; color: var(--primary);">{{ $roomType->capacity }}</div>
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Khách tối đa</div>
                 </div>
 
-                @if ($hotel->policies)
-                    <div style="margin-top: 14px; color: var(--muted); font-size: 14px; line-height: 1.8; white-space: pre-line;">{{ $hotel->policies }}</div>
+                @if ($roomType->bed_type)
+                <div style="background: var(--primary-soft); border-radius: 12px; padding: 14px 16px; text-align: center;">
+                    <div style="font-size: 22px; margin-bottom: 4px;">🛏️</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--primary); line-height: 1.3;">{{ $roomType->bed_type }}</div>
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Loại giường</div>
+                </div>
+                @endif
+
+                @if ($roomType->area)
+                <div style="background: var(--primary-soft); border-radius: 12px; padding: 14px 16px; text-align: center;">
+                    <div style="font-size: 22px; margin-bottom: 4px;">📐</div>
+                    <div style="font-size: 18px; font-weight: 700; color: var(--primary);">{{ $roomType->area }} m²</div>
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Diện tích</div>
+                </div>
+                @endif
+
+                <div style="background: var(--primary-soft); border-radius: 12px; padding: 14px 16px; text-align: center;">
+                    <div style="font-size: 22px; margin-bottom: 4px;">🏨</div>
+                    <div style="font-size: 18px; font-weight: 700; color: var(--primary);">{{ $roomType->total_rooms }}</div>
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">Tổng số phòng</div>
+                </div>
+            </div>
+
+            {{-- Mô tả --}}
+            <p style="color: var(--muted); font-size: 15px; line-height: 1.8; margin: 0;">
+                {{ $roomType->description ?: 'Chưa có mô tả chi tiết.' }}
+            </p>
+        </div>
+
+        {{-- Tiện nghi khách sạn --}}
+        @if ($hotel->amenities->isNotEmpty())
+        <div class="card">
+            <div class="section-kicker">Tiện nghi khách sạn</div>
+            <h3 class="section-title" style="font-size: 18px; margin-bottom: 14px;">Những gì bạn sẽ có</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;">
+                @foreach ($hotel->amenities as $amenity)
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; font-size: 14px;">
+                        <span style="color: var(--primary); font-size: 16px;">✓</span>
+                        <span>{{ $amenity->name }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Chính sách --}}
+        @if ($hotel->check_in_time || $hotel->check_out_time || $hotel->policies)
+        <div class="card">
+            <div class="section-kicker">Chính sách</div>
+            <h3 class="section-title" style="font-size: 18px; margin-bottom: 14px;">Giờ nhận &amp; trả phòng</h3>
+
+            <div class="info-list">
+                @if ($hotel->check_in_time)
+                    <div class="info-item">
+                        <span class="label">🕐 Nhận phòng từ</span>
+                        <span class="value" style="font-weight: 600;">{{ $hotel->check_in_time }}</span>
+                    </div>
+                @endif
+                @if ($hotel->check_out_time)
+                    <div class="info-item">
+                        <span class="label">🕛 Trả phòng trước</span>
+                        <span class="value" style="font-weight: 600;">{{ $hotel->check_out_time }}</span>
+                    </div>
                 @endif
             </div>
+
+            @if ($hotel->policies)
+                <div style="margin-top: 16px; padding: 14px 16px; background: var(--bg); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; font-size: 14px; color: var(--muted); line-height: 1.9; white-space: pre-line;">{{ $hotel->policies }}</div>
+            @endif
+        </div>
         @endif
+
     </div>
 
-    {{-- Cột phải: kiểm tra phòng trống + đặt phòng --}}
-    <div>
-        <div class="card">
-            <div class="section-kicker">Đặt phòng</div>
-            <h2 class="section-title" style="margin-bottom: 14px;">
-                {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ / đêm
-            </h2>
+    {{-- ===== CỘT PHẢI ===== --}}
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        {{-- Widget đặt phòng --}}
+        <div class="card" style="position: sticky; top: 20px;">
+            <div class="section-kicker">Giá phòng</div>
+            <div style="font-size: 28px; font-weight: 800; color: var(--primary); margin-bottom: 4px;">
+                {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ
+            </div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">/ đêm / phòng</div>
 
             <form method="GET" action="{{ route('rooms.show', $roomType->id) }}" class="form-grid">
                 <div class="form-group">
@@ -92,24 +146,25 @@
                            value="{{ $quantity }}">
                 </div>
 
-                {{-- Ước tính giá tạm tính --}}
-                <div id="price-estimate" style="display:none; background: var(--primary-soft); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; color: var(--text);">
-                    <span class="label" style="color: var(--muted);">Ước tính tạm tính:</span>
-                    <strong id="price-total" style="color: var(--primary); font-size: 16px; display: block; margin-top: 4px;"></strong>
-                    <span id="price-detail" style="color: var(--muted); font-size: 13px;"></span>
+                {{-- Ước tính giá --}}
+                <div id="price-estimate" style="display:none; background: var(--primary-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
+                    <div style="font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .05em; margin-bottom: 6px;">GIÁ TẠM TÍNH</div>
+                    <div id="price-total" style="font-size: 20px; font-weight: 800; color: var(--primary);"></div>
+                    <div id="price-detail" style="font-size: 12px; color: var(--muted); margin-top: 4px;"></div>
                 </div>
 
-                <button type="submit" class="btn btn-outline btn-block">Kiểm tra phòng trống</button>
+                <button type="submit" class="btn btn-outline btn-block">🔍 Kiểm tra phòng trống</button>
             </form>
 
+            {{-- Kết quả availability --}}
             @if ($availabilityError)
-                <div class="alert alert-danger" style="margin-top: 16px;">{{ $availabilityError }}</div>
+                <div class="alert alert-danger" style="margin-top: 12px;">{{ $availabilityError }}</div>
             @elseif ($availability)
-                <div class="alert {{ $availability['can_book'] ? 'alert-success' : 'alert-danger' }}" style="margin-top: 16px;">
+                <div class="alert {{ $availability['can_book'] ? 'alert-success' : 'alert-danger' }}" style="margin-top: 12px;">
                     @if ($availability['can_book'])
-                        Còn {{ $availability['available_quantity'] }} phòng trống cho {{ $availability['nights'] }} đêm bạn chọn.
+                        ✅ Còn {{ $availability['available_quantity'] }} phòng trống cho {{ $availability['nights'] }} đêm bạn chọn.
                     @else
-                        Chỉ còn {{ $availability['available_quantity'] }} phòng trống, không đủ cho {{ $quantity }} phòng bạn yêu cầu.
+                        ❌ Chỉ còn {{ $availability['available_quantity'] }} phòng trống, không đủ cho {{ $quantity }} phòng yêu cầu.
                     @endif
                 </div>
 
@@ -121,27 +176,59 @@
                             'quantity'     => $quantity,
                         ]) }}"
                        class="btn btn-primary btn-block" style="margin-top: 10px;">
-                        Đặt phòng ngay
+                        Đặt phòng ngay →
                     </a>
                 @endif
             @endif
+
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); line-height: 1.7;">
+                <div>✔ Thanh toán tại khách sạn</div>
+                <div>✔ Hủy miễn phí trước ngày nhận phòng</div>
+                <div>✔ Xác nhận đặt phòng tức thì</div>
+            </div>
         </div>
 
-        {{-- Thông tin khách sạn tóm tắt --}}
+        {{-- Thông tin khách sạn --}}
         <div class="card">
             <div class="section-kicker">Về khách sạn</div>
-            <h3 class="section-title" style="font-size: 20px; margin-bottom: 6px;">{{ $hotel->name }}</h3>
-            @if ($hotel->address)
-                <p class="section-desc" style="margin-bottom: 12px;">{{ $hotel->address }}</p>
-            @endif
+            <h3 class="section-title" style="font-size: 18px; margin-bottom: 8px;">{{ $hotel->name }}</h3>
+
             @if ($hotel->star_rating)
-                <div>
+                <div style="margin-bottom: 10px;">
                     @for ($i = 1; $i <= 5; $i++)
-                        <span style="color: {{ $i <= $hotel->star_rating ? '#f5a623' : '#ddd' }}; font-size: 18px;">★</span>
+                        <span style="color: {{ $i <= $hotel->star_rating ? '#f5a623' : '#ddd' }}; font-size: 16px;">★</span>
                     @endfor
+                    <span style="font-size: 13px; color: var(--muted); margin-left: 4px;">{{ $hotel->star_rating }} sao</span>
                 </div>
             @endif
+
+            <div class="info-list">
+                @if ($hotel->address)
+                    <div class="info-item">
+                        <span class="label">📍 Địa chỉ</span>
+                        <span class="value">{{ $hotel->address }}</span>
+                    </div>
+                @endif
+                @if ($hotel->hotline)
+                    <div class="info-item">
+                        <span class="label">📞 Hotline</span>
+                        <span class="value">{{ $hotel->hotline }}</span>
+                    </div>
+                @endif
+                @if ($hotel->email)
+                    <div class="info-item">
+                        <span class="label">✉ Email</span>
+                        <span class="value">{{ $hotel->email }}</span>
+                    </div>
+                @endif
+            </div>
         </div>
+
+        {{-- Quay lại danh sách --}}
+        <a href="{{ route('rooms.index') }}" class="btn btn-outline btn-block">
+            ← Xem tất cả loại phòng
+        </a>
+
     </div>
 </div>
 
@@ -155,25 +242,19 @@
     const totalEl       = document.getElementById('price-total');
     const detailEl      = document.getElementById('price-detail');
 
-    function formatVnd(n) {
-        return n.toLocaleString('vi-VN') + 'đ';
-    }
+    function formatVnd(n) { return n.toLocaleString('vi-VN') + 'đ'; }
 
     function updateEstimate() {
-        const ci = checkInInput.value;
-        const co = checkOutInput.value;
+        const ci  = checkInInput.value;
+        const co  = checkOutInput.value;
         const qty = parseInt(quantityInput.value) || 1;
 
         if (!ci || !co) { estimateBox.style.display = 'none'; return; }
 
-        const inDate  = new Date(ci);
-        const outDate = new Date(co);
-        const nights  = Math.round((outDate - inDate) / 86400000);
-
+        const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
         if (nights <= 0) { estimateBox.style.display = 'none'; return; }
 
-        const total = pricePerNight * nights * qty;
-        totalEl.textContent  = formatVnd(total);
+        totalEl.textContent  = formatVnd(pricePerNight * nights * qty);
         detailEl.textContent = formatVnd(pricePerNight) + ' × ' + nights + ' đêm × ' + qty + ' phòng';
         estimateBox.style.display = 'block';
     }

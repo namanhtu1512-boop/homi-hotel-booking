@@ -214,6 +214,7 @@
             padding: 5px 10px;
             font-size: 12px;
             font-weight: 700;
+            white-space: nowrap;
         }
         .badge-blue { background: #e8f0ff; color: #1850d8; }
         .badge-green { background: #e8f8ef; color: #1a8d55; }
@@ -283,6 +284,7 @@
             <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Tổng quan</a>
             <a href="{{ route('admin.hotel-info.show') }}" class="{{ request()->routeIs('admin.hotel-info.*') ? 'active' : '' }}">Thông tin khách sạn</a>
             <a href="{{ route('admin.room-types.index') }}" class="{{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">Loại phòng</a>
+            <a href="{{ route('admin.bookings.index') }}" class="{{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">Đơn đặt phòng</a>
             <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">Người dùng</a>
             <a href="{{ route('admin.database') }}" class="{{ request()->routeIs('admin.database') ? 'active' : '' }}">Database</a>
 
