@@ -169,15 +169,36 @@
                 </div>
 
                 @if ($availability['can_book'])
-                    <a href="{{ route('customer.bookings.create', [
-                            'room_type_id' => $roomType->id,
-                            'check_in'     => $checkIn,
-                            'check_out'    => $checkOut,
-                            'quantity'     => $quantity,
-                        ]) }}"
-                       class="btn btn-primary btn-block" style="margin-top: 10px;">
-                        Đặt phòng ngay →
-                    </a>
+                    @auth
+                        @if (in_array(auth()->user()->role, ['admin', 'staff']))
+                            {{-- Admin/staff không được đặt phòng qua khu vực khách hàng --}}
+                            <div class="alert alert-danger" style="margin-top: 10px; font-size: 13px;">
+                                ⚠️ Bạn đang đăng nhập với tài khoản <strong>{{ auth()->user()->role }}</strong>.
+                                Vui lòng đăng xuất và đăng nhập bằng tài khoản <strong>khách hàng</strong> để đặt phòng.
+                            </div>
+                        @else
+                            <a href="{{ route('customer.bookings.create', [
+                                    'room_type_id' => $roomType->id,
+                                    'check_in'     => $checkIn,
+                                    'check_out'    => $checkOut,
+                                    'quantity'     => $quantity,
+                                ]) }}"
+                               class="btn btn-primary btn-block" style="margin-top: 10px;">
+                                Đặt phòng ngay →
+                            </a>
+                        @endif
+                    @else
+                        {{-- Chưa đăng nhập → chuyển về login, sau login quay lại đây --}}
+                        <a href="{{ route('customer.bookings.create', [
+                                'room_type_id' => $roomType->id,
+                                'check_in'     => $checkIn,
+                                'check_out'    => $checkOut,
+                                'quantity'     => $quantity,
+                            ]) }}"
+                           class="btn btn-primary btn-block" style="margin-top: 10px;">
+                            Đặt phòng ngay →
+                        </a>
+                    @endauth
                 @endif
             @endif
 

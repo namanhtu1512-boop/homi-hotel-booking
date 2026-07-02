@@ -12,13 +12,19 @@ use App\Http\Controllers\Web\Admin\UserController;
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
+use App\Http\Controllers\Web\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Web\AboutController;
 
 // ---------------------------------------------------------------
 // Public
 // ---------------------------------------------------------------
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/about', [AboutController::class, 'index'])->name('about');
 Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
 Route::get('/rooms/{id}', [RoomController::class, 'show'])->name('rooms.show');
+
+// Health-check (Week 1 BE1)
+Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
 
 // ---------------------------------------------------------------
 // Auth — guest only
@@ -48,6 +54,10 @@ Route::post('/admin/logout', [AuthWebController::class, 'adminLogout'])
 // ---------------------------------------------------------------
 Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer.')->group(function () {
     Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
+
+    // Profile (Week 3 BE1)
+    Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
+    Route::post('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',          [CustomerBookingController::class, 'index'])->name('index');

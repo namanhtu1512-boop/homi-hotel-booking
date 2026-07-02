@@ -39,6 +39,7 @@
         <div class="quick-actions">
             <a href="{{ route('rooms.index') }}" class="btn btn-primary btn-block">Tìm phòng & đặt phòng</a>
             <a href="{{ route('customer.bookings.index') }}" class="btn btn-outline btn-block">Xem đơn đặt phòng của tôi</a>
+            <a href="{{ route('customer.profile.show') }}" class="btn btn-outline btn-block">Cập nhật thông tin cá nhân</a>
 
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
