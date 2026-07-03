@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
+use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
 use Illuminate\Http\RedirectResponse;
@@ -19,13 +20,23 @@ class BookingController extends Controller
 
     public function index(Request $request): View
     {
-        $filters = $request->only(['status', 'booking_code', 'created_from', 'created_to']);
+        $filters = $request->only([
+            'status',
+            'booking_code',
+            'customer_name',
+            'created_from',
+            'created_to',
+            'check_in_from',
+            'check_in_to',
+            'room_type_id',
+        ]);
 
         $bookings = $this->bookingService->adminList($filters, 20)->appends($filters);
 
         return view('admin.bookings.index', [
-            'bookings' => $bookings,
-            'filters'  => $filters,
+            'bookings'  => $bookings,
+            'filters'   => $filters,
+            'roomTypes' => RoomType::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -58,6 +69,18 @@ class BookingController extends Controller
         return redirect()
             ->route('admin.bookings.show', $id)
             ->with('success', "Đã hủy đơn {$booking->booking_code}.");
+    }
+
+    public function complete(int $id): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+        $this->bookingService->complete($booking);
+
+        $this->auditLog->log('booking.completed', $booking, "Đánh dấu hoàn thành đơn \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('admin.bookings.show', $id)
+            ->with('success', "Đã đánh dấu hoàn thành đơn {$booking->booking_code}.");
     }
 
     public function updatePayment(int $id, UpdatePaymentStatusRequest $request): RedirectResponse

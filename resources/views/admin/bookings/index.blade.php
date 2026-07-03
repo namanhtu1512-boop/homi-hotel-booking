@@ -16,6 +16,8 @@
     <form method="GET" action="{{ route('admin.bookings.index') }}" class="filter-bar">
         <input type="text" name="booking_code" value="{{ $filters['booking_code'] ?? '' }}" placeholder="Tìm theo mã đơn...">
 
+        <input type="text" name="customer_name" value="{{ $filters['customer_name'] ?? '' }}" placeholder="Tìm theo tên khách hàng...">
+
         <select name="status">
             <option value="" @selected(($filters['status'] ?? '') === '')>Tất cả trạng thái</option>
             @foreach (\App\Enums\BookingStatus::cases() as $status)
@@ -23,8 +25,18 @@
             @endforeach
         </select>
 
+        <select name="room_type_id">
+            <option value="" @selected(($filters['room_type_id'] ?? '') === '')>Tất cả loại phòng</option>
+            @foreach ($roomTypes as $roomType)
+                <option value="{{ $roomType->id }}" @selected((string) ($filters['room_type_id'] ?? '') === (string) $roomType->id)>{{ $roomType->name }}</option>
+            @endforeach
+        </select>
+
         <input type="date" name="created_from" value="{{ $filters['created_from'] ?? '' }}" title="Ngày đặt từ">
         <input type="date" name="created_to" value="{{ $filters['created_to'] ?? '' }}" title="Ngày đặt đến">
+
+        <input type="date" name="check_in_from" value="{{ $filters['check_in_from'] ?? '' }}" title="Ngày check-in từ">
+        <input type="date" name="check_in_to" value="{{ $filters['check_in_to'] ?? '' }}" title="Ngày check-in đến">
 
         <button type="submit" class="btn btn-outline">Lọc</button>
 
@@ -42,6 +54,8 @@
                     <tr>
                         <th>Mã đơn</th>
                         <th>Khách hàng</th>
+                        <th>Loại phòng</th>
+                        <th>Ngày đặt</th>
                         <th>Nhận phòng</th>
                         <th>Trả phòng</th>
                         <th>Tổng tiền</th>
@@ -55,6 +69,8 @@
                         <tr>
                             <td><a href="{{ route('admin.bookings.show', $booking->id) }}">{{ $booking->booking_code }}</a></td>
                             <td>{{ $booking->customer_name }}</td>
+                            <td>{{ $booking->bookingItems->pluck('roomType.name')->filter()->implode(', ') ?: '—' }}</td>
+                            <td>{{ $booking->created_at->format('d/m/Y') }}</td>
                             <td>{{ $booking->check_in->format('d/m/Y') }}</td>
                             <td>{{ $booking->check_out->format('d/m/Y') }}</td>
                             <td>{{ number_format($booking->total_amount, 0, ',', '.') }}đ</td>

@@ -73,4 +73,13 @@ enum BookingStatus: string
     {
         return $this === self::CHECKED_IN;
     }
+
+    /**
+     * Admin đánh dấu đơn đã hoàn thành — chỉ hợp lệ từ confirmed
+     * (theo yêu cầu nghiệp vụ: pending->confirmed->completed).
+     */
+    public function canComplete(): bool
+    {
+        return $this === self::CONFIRMED;
+    }
 }

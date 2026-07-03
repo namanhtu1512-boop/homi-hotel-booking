@@ -152,12 +152,30 @@ class BookingService
             $query->where('booking_code', $filters['booking_code']);
         }
 
+        if (! empty($filters['customer_name'])) {
+            $query->where('customer_name', 'like', '%' . $filters['customer_name'] . '%');
+        }
+
         if (! empty($filters['created_from'])) {
             $query->whereDate('created_at', '>=', $filters['created_from']);
         }
 
         if (! empty($filters['created_to'])) {
             $query->whereDate('created_at', '<=', $filters['created_to']);
+        }
+
+        if (! empty($filters['check_in_from'])) {
+            $query->whereDate('check_in', '>=', $filters['check_in_from']);
+        }
+
+        if (! empty($filters['check_in_to'])) {
+            $query->whereDate('check_in', '<=', $filters['check_in_to']);
+        }
+
+        if (! empty($filters['room_type_id'])) {
+            $query->whereHas('bookingItems', function ($q) use ($filters) {
+                $q->where('room_type_id', $filters['room_type_id']);
+            });
         }
 
         return $query->paginate($perPage);
@@ -167,6 +185,35 @@ class BookingService
     {
         return Booking::with(['user', 'bookingItems.roomType', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
             ->findOrFail($bookingId);
+    }
+
+    public function adminPaymentsList(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    {
+        $query = Payment::with('booking')
+            ->orderBy('created_at', 'desc');
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['booking_code'])) {
+            $query->whereHas('booking', function ($q) use ($filters) {
+                $q->where('booking_code', $filters['booking_code']);
+            });
+        }
+
+        if (! empty($filters['customer_name'])) {
+            $query->whereHas('booking', function ($q) use ($filters) {
+                $q->where('customer_name', 'like', '%' . $filters['customer_name'] . '%');
+            });
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    public function findPaymentForAdmin(int $paymentId): Payment
+    {
+        return Payment::with(['booking', 'statusLogs.changedBy'])->findOrFail($paymentId);
     }
 
     public function updatePaymentStatus(Booking $booking, string $status): Booking
@@ -183,6 +230,12 @@ class BookingService
         if (! $oldStatus->canTransitionTo($newStatus)) {
             throw ValidationException::withMessages([
                 'status' => ["Không thể chuyển thanh toán từ \"{$oldStatus->label()}\" sang \"{$newStatus->label()}\"."],
+            ]);
+        }
+
+        if ($newStatus === PaymentStatus::PAID && $booking->status !== BookingStatus::CONFIRMED) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể đánh dấu đã thanh toán khi đơn ở trạng thái đã xác nhận.'],
             ]);
         }
 
@@ -205,7 +258,22 @@ class BookingService
 
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CONFIRMED]);
-        $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, note: 'Admin/staff xác nhận đơn.');
+        $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, Auth::id(), 'Admin/staff xác nhận đơn.');
+
+        return $booking->fresh();
+    }
+
+    public function complete(Booking $booking): Booking
+    {
+        if (! $booking->canComplete()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể đánh dấu hoàn thành đơn ở trạng thái đã xác nhận.'],
+            ]);
+        }
+
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::COMPLETED]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::COMPLETED, Auth::id(), 'Admin/staff đánh dấu đơn hoàn thành.');
 
         return $booking->fresh();
     }
@@ -220,7 +288,7 @@ class BookingService
 
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CANCELLED]);
-        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, note: 'Admin/staff hủy đơn.');
+        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, Auth::id(), 'Admin/staff hủy đơn.');
 
         if ($booking->payment && $booking->payment->canRefund()) {
             $oldPaymentStatus = $booking->payment->status;

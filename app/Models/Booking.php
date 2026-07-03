@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -64,5 +65,21 @@ class Booking extends Model
     public function canConfirm(): bool
     {
         return $this->status->canConfirm();
+    }
+
+    public function canComplete(): bool
+    {
+        return $this->status->canComplete();
+    }
+
+    /**
+     * Chỉ được đánh dấu "đã thanh toán" khi đơn đã được admin/staff xác nhận
+     * (confirmed) — tránh thu tiền cho đơn còn đang chờ duyệt.
+     */
+    public function canMarkPaymentAsPaid(): bool
+    {
+        return $this->status === BookingStatus::CONFIRMED
+            && $this->payment
+            && $this->payment->status->canTransitionTo(PaymentStatus::PAID);
     }
 }
