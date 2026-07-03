@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -93,7 +94,7 @@ class BookingService
     public function myBookings(User $customer, array $filters = [], int $perPage = 10): LengthAwarePaginator
     {
         $query = Booking::where('user_id', $customer->id)
-            ->with(['bookingItems.roomType', 'payment'])
+            ->with(['bookingItems.roomType.images', 'payment'])
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['status'])) {
@@ -105,12 +106,10 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType', 'payment'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'payment'])
             ->findOrFail($bookingId);
 
-        if ($booking->user_id !== $customer->id) {
-            abort(403);
-        }
+        Gate::forUser($customer)->authorize('view', $booking);
 
         return $booking;
     }
@@ -121,7 +120,7 @@ class BookingService
 
         if (! $booking->canCancelByCustomer()) {
             throw ValidationException::withMessages([
-                'status' => ['Không thể hủy đơn ở trạng thái hiện tại.'],
+                'status' => ['Không thể hủy đơn ở trạng thái hiện tại hoặc đã quá hạn hủy (chỉ hủy được trước ngày nhận phòng).'],
             ]);
         }
 

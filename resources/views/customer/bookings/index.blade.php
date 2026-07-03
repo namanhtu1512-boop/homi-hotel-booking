@@ -30,6 +30,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th>Ảnh</th>
                         <th>Mã đơn</th>
                         <th>Phòng</th>
                         <th>Nhận / Trả phòng</th>
@@ -41,7 +42,17 @@
                 </thead>
                 <tbody>
                     @foreach ($bookings as $booking)
+                        @php
+                            $cover = $booking->bookingItems->first()?->roomType?->images->first();
+                        @endphp
                         <tr>
+                            <td>
+                                @if ($cover)
+                                    <img src="{{ $cover->image_url }}" alt="" style="width: 56px; height: 40px; object-fit: cover; border-radius: 6px;">
+                                @else
+                                    <span class="badge">Chưa có ảnh</span>
+                                @endif
+                            </td>
                             <td>{{ $booking->booking_code }}</td>
                             <td>{{ $booking->bookingItems->pluck('roomType.name')->filter()->implode(', ') }}</td>
                             <td>{{ $booking->check_in->format('d/m/Y') }} – {{ $booking->check_out->format('d/m/Y') }}</td>
