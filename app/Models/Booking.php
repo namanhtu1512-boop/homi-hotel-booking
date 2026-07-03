@@ -53,7 +53,7 @@ class Booking extends Model
 
     public function canCancelByCustomer(): bool
     {
-        return $this->status->canCancelByCustomer();
+        return $this->status->canCancelByCustomer() && $this->check_in->isAfter(today());
     }
 
     public function canCancelByAdmin(): bool

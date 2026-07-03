@@ -26,6 +26,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th>Ảnh</th>
                             <th>Loại phòng</th>
                             <th>Số lượng</th>
                             <th>Giá/đêm</th>
@@ -35,7 +36,17 @@
                     </thead>
                     <tbody>
                         @foreach ($booking->bookingItems as $item)
+                            @php
+                                $cover = $item->roomType?->images->first();
+                            @endphp
                             <tr>
+                                <td>
+                                    @if ($cover)
+                                        <img src="{{ $cover->image_url }}" alt="" style="width: 72px; height: 52px; object-fit: cover; border-radius: 6px;">
+                                    @else
+                                        <span class="badge">Chưa có ảnh</span>
+                                    @endif
+                                </td>
                                 <td>{{ $item->roomType->name ?? '—' }}</td>
                                 <td>{{ $item->quantity }}</td>
                                 <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>

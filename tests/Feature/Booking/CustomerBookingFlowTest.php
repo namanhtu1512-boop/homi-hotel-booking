@@ -130,4 +130,67 @@ class CustomerBookingFlowTest extends TestCase
         $response->assertRedirect(route('customer.bookings.show', $booking->id));
         $this->assertEquals('cancelled', $booking->fresh()->status->value);
     }
+
+    public function test_customer_cannot_cancel_booking_on_or_after_check_in_date(): void
+    {
+        $customer = User::factory()->customer()->create();
+        $roomType = RoomType::factory()->create();
+
+        $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($roomType));
+        $booking = $customer->bookings()->first();
+
+        // Ngày nhận phòng đã tới/qua — không còn hủy trước check-in được nữa.
+        $booking->update(['check_in' => today()]);
+
+        $response = $this->actingAs($customer)->post("/customer/bookings/{$booking->id}/cancel");
+
+        $response->assertSessionHasErrors('status');
+        $this->assertEquals('pending', $booking->fresh()->status->value);
+    }
+
+    public function test_availability_is_restored_after_customer_cancels_booking(): void
+    {
+        $owner = User::factory()->customer()->create();
+        $otherCustomer = User::factory()->customer()->create();
+        $roomType = RoomType::factory()->create(['total_rooms' => 1]);
+
+        $payload = $this->validBookingPayload($roomType, ['quantity' => 1]);
+
+        $this->actingAs($owner)->post('/customer/bookings', $payload);
+        $booking = $owner->bookings()->first();
+
+        // Phòng duy nhất đã bị giữ — khách khác không đặt được nữa.
+        $blockedResponse = $this->actingAs($otherCustomer)->post('/customer/bookings', $payload);
+        $blockedResponse->assertSessionHasErrors('room_type_id');
+        $this->assertCount(0, $otherCustomer->bookings);
+
+        $this->actingAs($owner)->post("/customer/bookings/{$booking->id}/cancel");
+        $this->assertEquals('cancelled', $booking->fresh()->status->value);
+
+        // Sau khi hủy, availability được tính lại đúng — khách khác đặt được.
+        $response = $this->actingAs($otherCustomer)->post('/customer/bookings', $payload);
+        $response->assertSessionDoesntHaveErrors();
+        $this->assertCount(1, $otherCustomer->fresh()->bookings);
+    }
+
+    public function test_staff_and_admin_cannot_use_customer_booking_routes(): void
+    {
+        $customer = User::factory()->customer()->create();
+        $roomType = RoomType::factory()->create();
+        $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($roomType));
+        $booking = $customer->bookings()->first();
+
+        $staff = User::factory()->staff()->create();
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($staff)
+            ->get('/customer/bookings')
+            ->assertRedirect(route('admin.dashboard'));
+
+        $this->actingAs($admin)
+            ->get("/customer/bookings/{$booking->id}")
+            ->assertRedirect(route('admin.dashboard'));
+
+        $this->assertEquals('pending', $booking->fresh()->status->value);
+    }
 }
