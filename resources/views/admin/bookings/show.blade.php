@@ -23,6 +23,14 @@
                 </form>
             @endif
 
+            @if ($booking->canComplete())
+                <form method="POST" action="{{ route('admin.bookings.complete', $booking->id) }}"
+                    onsubmit="return confirm('Đánh dấu hoàn thành đơn {{ $booking->booking_code }}?');">
+                    @csrf
+                    <button type="submit" class="btn btn-primary">Đánh dấu hoàn thành</button>
+                </form>
+            @endif
+
             @if ($booking->canCancelByAdmin())
                 <form method="POST" action="{{ route('admin.bookings.cancel', $booking->id) }}"
                     onsubmit="return confirm('Hủy đơn {{ $booking->booking_code }}?');">
@@ -114,7 +122,7 @@
                 </div>
 
                 <div class="action-row" style="margin-top: 16px;">
-                    @if ($booking->payment->status->canTransitionTo(\App\Enums\PaymentStatus::PAID))
+                    @if ($booking->canMarkPaymentAsPaid())
                         <form method="POST" action="{{ route('admin.bookings.update-payment', $booking->id) }}">
                             @csrf
                             @method('PATCH')
