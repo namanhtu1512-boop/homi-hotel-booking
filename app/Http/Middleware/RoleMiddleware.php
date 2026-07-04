@@ -45,7 +45,11 @@ class RoleMiddleware
                 ], 403);
             }
 
-            $redirectRoute = in_array($user->role, ['admin', 'staff']) ? 'admin.dashboard' : 'customer.dashboard';
+            $redirectRoute = match ($user->role) {
+                'admin' => 'admin.dashboard',
+                'staff' => 'staff.dashboard',
+                default => 'customer.dashboard',
+            };
 
             return redirect()->route($redirectRoute);
         }

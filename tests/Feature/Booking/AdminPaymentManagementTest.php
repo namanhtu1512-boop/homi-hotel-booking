@@ -85,8 +85,9 @@ class AdminPaymentManagementTest extends TestCase
 
     public function test_staff_can_view_payments_list(): void
     {
+        // Staff dùng khu vực /staff/* riêng, không còn /admin/payments.
         $this->actingAsAdmin($this->makeUser('staff'))
-            ->get('/admin/payments')
+            ->get('/staff/payments')
             ->assertOk();
     }
 

@@ -18,10 +18,9 @@ class CustomerBookingFlowTest extends TestCase
     private function validBookingPayload(RoomType $roomType, array $override = []): array
     {
         return array_merge([
-            'room_type_id'   => $roomType->id,
+            'items'          => [['room_type_id' => $roomType->id, 'quantity' => 1, 'adults' => 1, 'children' => 0]],
             'check_in'       => now()->addDays(5)->format('Y-m-d'),
             'check_out'      => now()->addDays(7)->format('Y-m-d'),
-            'quantity'       => 1,
             'customer_name'  => 'Nguyễn Văn A',
             'customer_phone' => '0901234567',
             'customer_email' => 'a@example.com',
@@ -68,6 +67,71 @@ class CustomerBookingFlowTest extends TestCase
         $this->assertEquals('unpaid', $booking->payment->status->value);
     }
 
+    public function test_customer_can_book_multiple_room_types_in_one_booking(): void
+    {
+        $customer = User::factory()->customer()->create();
+        $deluxe = RoomType::factory()->create(['total_rooms' => 3, 'price_per_night' => 1000000, 'capacity' => 2]);
+        $suite  = RoomType::factory()->create(['total_rooms' => 3, 'price_per_night' => 2000000, 'capacity' => 4]);
+
+        // Số khách khai báo riêng cho từng loại phòng: deluxe 2 người lớn
+        // (đủ capacity 2×1), suite 1 người lớn + 1 trẻ em (đủ capacity 4×2).
+        $response = $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($deluxe, [
+            'items' => [
+                ['room_type_id' => $deluxe->id, 'quantity' => 1, 'adults' => 2, 'children' => 0],
+                ['room_type_id' => $suite->id, 'quantity' => 2, 'adults' => 1, 'children' => 1],
+            ],
+        ]));
+
+        $booking = $customer->bookings()->first();
+
+        $response->assertRedirect(route('customer.bookings.show', $booking->id));
+        $this->assertCount(2, $booking->bookingItems);
+        // 2 đêm: deluxe 1×1tr×2 + suite 2×2tr×2 = 2tr + 8tr = 10tr
+        $this->assertEquals(10000000, $booking->total_amount);
+        // Tổng số khách trên booking = tổng các dòng: (2+0) + (1+1) = 4.
+        $this->assertEquals(3, $booking->adults);
+        $this->assertEquals(1, $booking->children);
+
+        $deluxeItem = $booking->bookingItems->firstWhere('room_type_id', $deluxe->id);
+        $suiteItem  = $booking->bookingItems->firstWhere('room_type_id', $suite->id);
+        $this->assertEquals(2, $deluxeItem->adults);
+        $this->assertEquals(0, $deluxeItem->children);
+        $this->assertEquals(1, $suiteItem->adults);
+        $this->assertEquals(1, $suiteItem->children);
+    }
+
+    public function test_booking_fails_when_guests_exceed_capacity_of_a_room_type(): void
+    {
+        $customer = User::factory()->customer()->create();
+        $roomType = RoomType::factory()->create(['total_rooms' => 5, 'capacity' => 2]);
+
+        // 1 phòng sức chứa 2, nhưng khai báo 3 người lớn cho chính dòng đó → vượt sức chứa.
+        $response = $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($roomType, [
+            'items' => [['room_type_id' => $roomType->id, 'quantity' => 1, 'adults' => 3, 'children' => 0]],
+        ]));
+
+        $response->assertSessionHasErrors('items.0.adults');
+        $this->assertCount(0, $customer->bookings);
+    }
+
+    public function test_booking_fails_when_one_room_type_exceeds_capacity_even_if_other_has_spare_capacity(): void
+    {
+        $customer = User::factory()->customer()->create();
+        // Deluxe thừa sức chứa (2×5=10) nhưng standard bị vượt (1×1=1 < 2 khách yêu cầu).
+        $deluxe   = RoomType::factory()->create(['total_rooms' => 5, 'capacity' => 5]);
+        $standard = RoomType::factory()->create(['total_rooms' => 5, 'capacity' => 1]);
+
+        $response = $this->actingAs($customer)->post('/customer/bookings', $this->validBookingPayload($deluxe, [
+            'items' => [
+                ['room_type_id' => $deluxe->id, 'quantity' => 1, 'adults' => 1, 'children' => 0],
+                ['room_type_id' => $standard->id, 'quantity' => 1, 'adults' => 2, 'children' => 0],
+            ],
+        ]));
+
+        $response->assertSessionHasErrors('items.1.adults');
+        $this->assertCount(0, $customer->bookings);
+    }
+
     public function test_booking_fails_when_not_enough_rooms_available(): void
     {
         $customer = User::factory()->customer()->create();
@@ -80,7 +144,7 @@ class CustomerBookingFlowTest extends TestCase
 
         $response = $this->actingAs($customer)->post('/customer/bookings', $payload);
 
-        $response->assertSessionHasErrors('room_type_id');
+        $response->assertSessionHasErrors('items');
         $this->assertCount(0, $customer->bookings);
     }
 
@@ -161,7 +225,7 @@ class CustomerBookingFlowTest extends TestCase
 
         // Phòng duy nhất đã bị giữ — khách khác không đặt được nữa.
         $blockedResponse = $this->actingAs($otherCustomer)->post('/customer/bookings', $payload);
-        $blockedResponse->assertSessionHasErrors('room_type_id');
+        $blockedResponse->assertSessionHasErrors('items');
         $this->assertCount(0, $otherCustomer->bookings);
 
         $this->actingAs($owner)->post("/customer/bookings/{$booking->id}/cancel");
@@ -185,7 +249,7 @@ class CustomerBookingFlowTest extends TestCase
 
         $this->actingAs($staff)
             ->get('/customer/bookings')
-            ->assertRedirect(route('admin.dashboard'));
+            ->assertRedirect(route('staff.dashboard'));
 
         $this->actingAs($admin)
             ->get("/customer/bookings/{$booking->id}")

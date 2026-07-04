@@ -14,6 +14,12 @@ use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Web\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Web\Customer\WishlistController as CustomerWishlistController;
+use App\Http\Controllers\Web\Staff\DashboardController as StaffDashboardController;
+use App\Http\Controllers\Web\Staff\HotelInfoController as StaffHotelInfoController;
+use App\Http\Controllers\Web\Staff\RoomTypeController as StaffRoomTypeController;
+use App\Http\Controllers\Web\Staff\BookingController as StaffBookingController;
+use App\Http\Controllers\Web\Staff\PaymentController as StaffPaymentController;
 use App\Http\Controllers\Web\AboutController;
 
 // ---------------------------------------------------------------
@@ -66,13 +72,26 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::post('/',         [CustomerBookingController::class, 'store'])->name('store');
         Route::get('/{id}',      [CustomerBookingController::class, 'show'])->name('show');
         Route::post('/{id}/cancel', [CustomerBookingController::class, 'cancel'])->name('cancel');
+
+        // Thanh toán tự phục vụ — chỉ khả dụng khi đơn đã được admin xác nhận
+        // (xem Booking::canMarkPaymentAsPaid()).
+        Route::post('/{id}/pay/online',        [CustomerBookingController::class, 'payOnline'])->name('pay-online');
+        Route::post('/{id}/pay/bank-transfer', [CustomerBookingController::class, 'payBankTransfer'])->name('pay-bank-transfer');
+        Route::post('/{id}/pay/deposit',       [CustomerBookingController::class, 'payDeposit'])->name('pay-deposit');
+    });
+
+    Route::prefix('wishlist')->name('wishlist.')->group(function () {
+        Route::get('/',            [CustomerWishlistController::class, 'index'])->name('index');
+        Route::post('/{roomType}', [CustomerWishlistController::class, 'store'])->name('store');
+        Route::patch('/{item}',    [CustomerWishlistController::class, 'update'])->name('update');
+        Route::delete('/{item}',   [CustomerWishlistController::class, 'destroy'])->name('destroy');
     });
 });
 
 // ---------------------------------------------------------------
-// ADMIN — admin/staff only
+// ADMIN — chỉ admin (staff dùng khu vực riêng /staff/* bên dưới)
 // ---------------------------------------------------------------
-Route::middleware(['role:admin,staff'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/database',  [DatabaseController::class, 'index'])->name('database');
 
@@ -109,5 +128,39 @@ Route::middleware(['role:admin,staff'])->prefix('admin')->name('admin.')->group(
     Route::prefix('payments')->name('payments.')->group(function () {
         Route::get('/',               [AdminPaymentController::class, 'index'])->name('index');
         Route::patch('/{id}/status',  [AdminPaymentController::class, 'updateStatus'])->name('update-status');
+    });
+});
+
+// ---------------------------------------------------------------
+// STAFF — khu vực riêng, tách biệt hoàn toàn với admin (route/controller/
+// view/layout riêng). Không có quản lý người dùng, xóa loại phòng, sửa
+// thông tin khách sạn, hay xem database thô — những việc đó chỉ admin làm.
+// ---------------------------------------------------------------
+Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(function () {
+    Route::get('/dashboard', [StaffDashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/hotel-info', [StaffHotelInfoController::class, 'show'])->name('hotel-info.show');
+
+    Route::prefix('room-types')->name('room-types.')->group(function () {
+        Route::get('/',          [StaffRoomTypeController::class, 'index'])->name('index');
+        Route::get('/create',    [StaffRoomTypeController::class, 'create'])->name('create');
+        Route::post('/',         [StaffRoomTypeController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [StaffRoomTypeController::class, 'edit'])->name('edit');
+        Route::get('/{id}',      [StaffRoomTypeController::class, 'show'])->name('show');
+        Route::put('/{id}',      [StaffRoomTypeController::class, 'update'])->name('update');
+    });
+
+    Route::prefix('bookings')->name('bookings.')->group(function () {
+        Route::get('/',                [StaffBookingController::class, 'index'])->name('index');
+        Route::get('/{id}',            [StaffBookingController::class, 'show'])->name('show');
+        Route::post('/{id}/confirm',   [StaffBookingController::class, 'confirm'])->name('confirm');
+        Route::post('/{id}/cancel',    [StaffBookingController::class, 'cancel'])->name('cancel');
+        Route::post('/{id}/complete',  [StaffBookingController::class, 'complete'])->name('complete');
+        Route::patch('/{id}/payment',  [StaffBookingController::class, 'updatePayment'])->name('update-payment');
+    });
+
+    Route::prefix('payments')->name('payments.')->group(function () {
+        Route::get('/',              [StaffPaymentController::class, 'index'])->name('index');
+        Route::patch('/{id}/status', [StaffPaymentController::class, 'updateStatus'])->name('update-status');
     });
 });

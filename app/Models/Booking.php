@@ -17,6 +17,8 @@ class Booking extends Model
         'check_in',
         'check_out',
         'nights',
+        'adults',
+        'children',
         'customer_name',
         'customer_email',
         'customer_phone',
@@ -28,6 +30,8 @@ class Booking extends Model
     protected $casts = [
         'check_in'     => 'date',
         'check_out'    => 'date',
+        'adults'       => 'integer',
+        'children'     => 'integer',
         'total_amount' => 'decimal:2',
         'status'       => BookingStatus::class,
     ];
@@ -81,5 +85,32 @@ class Booking extends Model
         return $this->status === BookingStatus::CONFIRMED
             && $this->payment
             && $this->payment->status->canTransitionTo(PaymentStatus::PAID);
+    }
+
+    /**
+     * Đặt cọc 30% chỉ áp dụng khi đơn đã xác nhận và CHƯA thanh toán/báo
+     * chuyển khoản gì cả (chỉ hợp lệ từ UNPAID — xem PaymentStatus::canTransitionTo()).
+     */
+    public function canPayDeposit(): bool
+    {
+        return $this->status === BookingStatus::CONFIRMED
+            && $this->payment
+            && $this->payment->status->canTransitionTo(PaymentStatus::DEPOSIT_PAID);
+    }
+
+    /**
+     * Số tiền cọc (30% tổng đơn), làm tròn tới đồng.
+     */
+    public function depositAmount(): float
+    {
+        return round((float) $this->total_amount * 0.3);
+    }
+
+    /**
+     * Phần còn lại khách trả bằng tiền mặt khi nhận phòng sau khi đã cọc.
+     */
+    public function remainingAfterDeposit(): float
+    {
+        return round((float) $this->total_amount - $this->depositAmount());
     }
 }

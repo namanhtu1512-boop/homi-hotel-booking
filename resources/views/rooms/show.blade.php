@@ -156,6 +156,16 @@
                 <button type="submit" class="btn btn-outline btn-block">🔍 Kiểm tra phòng trống</button>
             </form>
 
+            @auth
+                @if (auth()->user()->role === 'customer')
+                    <form method="POST" action="{{ route('customer.wishlist.store', $roomType->id) }}" style="margin-top: 8px;">
+                        @csrf
+                        <input type="hidden" name="quantity" value="{{ $quantity }}">
+                        <button type="submit" class="btn btn-outline btn-block">☆ Thêm vào danh sách chờ</button>
+                    </form>
+                @endif
+            @endauth
+
             {{-- Kết quả availability --}}
             @if ($availabilityError)
                 <div class="alert alert-danger" style="margin-top: 12px;">{{ $availabilityError }}</div>

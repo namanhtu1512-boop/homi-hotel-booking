@@ -1,0 +1,71 @@
+@extends('layouts.staff')
+
+@section('title', 'Loại phòng · Homi Nhân viên')
+@section('page_title', 'Quản lý loại phòng')
+@section('page_subtitle', 'Thêm, sửa và theo dõi tồn phòng.')
+
+@section('content')
+<div class="card">
+    <div class="page-actions">
+        <div>
+            <div class="section-kicker">Danh sách</div>
+            <h2 class="section-title">{{ $roomTypes->count() }} loại phòng</h2>
+        </div>
+
+        <a href="{{ route('staff.room-types.create') }}" class="btn btn-primary">+ Thêm loại phòng</a>
+    </div>
+
+    @if ($roomTypes->isEmpty())
+        <div class="empty-box">Chưa có loại phòng nào.</div>
+    @else
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tên</th>
+                        <th>Sức chứa</th>
+                        <th>Giá / đêm</th>
+                        <th>Tổng số phòng</th>
+                        <th>Còn trống hôm nay</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($roomTypes as $room)
+                        <tr>
+                            <td><a href="{{ route('staff.room-types.show', $room->id) }}">{{ $room->name }}</a></td>
+                            <td>{{ $room->capacity }} khách</td>
+                            <td>{{ number_format($room->price_per_night, 0, ',', '.') }}đ</td>
+                            <td>{{ $room->total_rooms }}</td>
+                            <td>
+                                @if ($room->status !== 'active')
+                                    <span style="color: var(--muted);">—</span>
+                                @elseif ($room->available_today > 0)
+                                    <span class="badge badge-green">{{ $room->available_today }}</span>
+                                @else
+                                    <span class="badge badge-red">Hết phòng</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($room->status === 'active')
+                                    <span class="badge badge-green">Đang hoạt động</span>
+                                @elseif ($room->status === 'hidden')
+                                    <span class="badge badge-orange">Đang ẩn</span>
+                                @else
+                                    <span class="badge badge-red">Bảo trì</span>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="action-row">
+                                    <a href="{{ route('staff.room-types.edit', $room->id) }}" class="btn btn-outline btn-sm">Sửa</a>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
+@endsection

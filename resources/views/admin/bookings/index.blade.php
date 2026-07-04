@@ -25,6 +25,13 @@
             @endforeach
         </select>
 
+        <select name="payment_status">
+            <option value="" @selected(($filters['payment_status'] ?? '') === '')>Tất cả thanh toán</option>
+            @foreach (\App\Enums\PaymentStatus::cases() as $paymentStatus)
+                <option value="{{ $paymentStatus->value }}" @selected(($filters['payment_status'] ?? '') === $paymentStatus->value)>{{ $paymentStatus->label() }}</option>
+            @endforeach
+        </select>
+
         <select name="room_type_id">
             <option value="" @selected(($filters['room_type_id'] ?? '') === '')>Tất cả loại phòng</option>
             @foreach ($roomTypes as $roomType)

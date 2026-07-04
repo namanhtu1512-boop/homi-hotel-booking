@@ -15,17 +15,22 @@ class Payment extends Model
         'booking_id',
         'method',
         'amount',
+        'deposit_amount',
         'status',
         'transaction_code',
+        'deposit_transaction_code',
         'paid_at',
+        'deposit_paid_at',
         'note',
     ];
 
     protected $casts = [
-        'amount'  => 'decimal:2',
-        'paid_at' => 'datetime',
-        'status'  => PaymentStatus::class,
-        'method'  => PaymentMethod::class,
+        'amount'          => 'decimal:2',
+        'deposit_amount'  => 'decimal:2',
+        'paid_at'         => 'datetime',
+        'deposit_paid_at' => 'datetime',
+        'status'          => PaymentStatus::class,
+        'method'          => PaymentMethod::class,
     ];
 
     public function booking()

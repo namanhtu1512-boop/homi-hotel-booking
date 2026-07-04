@@ -67,7 +67,17 @@
 
                         <div class="room-card-footer">
                             <span class="room-card-price">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ / đêm</span>
-                            <a href="{{ route('rooms.show', $roomType->id) }}" class="btn btn-outline btn-sm">Xem chi tiết</a>
+                            <div class="action-row">
+                                @auth
+                                    @if (auth()->user()->role === 'customer')
+                                        <form method="POST" action="{{ route('customer.wishlist.store', $roomType->id) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-outline btn-sm" title="Thêm vào danh sách chờ">☆ Thêm vào chờ</button>
+                                        </form>
+                                    @endif
+                                @endauth
+                                <a href="{{ route('rooms.show', $roomType->id) }}" class="btn btn-outline btn-sm">Xem chi tiết</a>
+                            </div>
                         </div>
                     </div>
                 </div>

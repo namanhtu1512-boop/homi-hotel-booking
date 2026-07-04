@@ -845,8 +845,15 @@
                     <a href="{{ route('rooms.index') }}" class="nav-link">Phòng</a>
 
                     @auth
-                        @if (session('login_context') === 'admin')
+                        @if (auth()->user()->isAdmin())
                             <a href="{{ route('admin.dashboard') }}" class="nav-link">Trang quản trị</a>
+                        @elseif (auth()->user()->isStaff())
+                            <a href="{{ route('staff.dashboard') }}" class="nav-link">Khu vực nhân viên</a>
+                        @else
+                            <a href="{{ route('customer.bookings.index') }}" class="nav-link">Đơn của tôi</a>
+                            <a href="{{ route('customer.wishlist.index') }}" class="nav-link">Danh sách chờ ({{ auth()->user()->wishlistItems()->count() }})</a>
+                            <a href="{{ route('customer.profile.show') }}" class="nav-link">Tài khoản</a>
+                            <a href="{{ route('customer.bookings.create') }}" class="btn btn-light">Đặt phòng</a>
                         @endif
 
                         <form method="POST" action="{{ route('logout') }}" class="logout-form">

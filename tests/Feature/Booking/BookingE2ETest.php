@@ -212,7 +212,7 @@ class BookingE2ETest extends TestCase
         // Customer 2 đặt cùng ngày → hết phòng
         $this->actingAs($customer2)
             ->post('/customer/bookings', $payload)
-            ->assertSessionHasErrors('room_type_id');
+            ->assertSessionHasErrors('items');
 
         $this->assertCount(0, $customer2->bookings);
     }

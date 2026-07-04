@@ -22,6 +22,7 @@ class BookingController extends Controller
     {
         $filters = $request->only([
             'status',
+            'payment_status',
             'booking_code',
             'customer_name',
             'created_from',

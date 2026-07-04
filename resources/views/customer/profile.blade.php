@@ -91,7 +91,7 @@
 
         <div class="card" style="margin-top: 22px;">
             <div class="quick-actions">
-                <a href="{{ route('customer.dashboard') }}" class="btn btn-outline btn-block">← Về Dashboard</a>
+                <a href="{{ route('home') }}" class="btn btn-outline btn-block">← Về trang chủ</a>
                 <a href="{{ route('customer.bookings.index') }}" class="btn btn-outline btn-block">Đơn đặt phòng của tôi</a>
             </div>
         </div>

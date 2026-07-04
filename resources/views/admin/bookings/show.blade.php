@@ -50,6 +50,7 @@
                 <tr>
                     <th>Loại phòng</th>
                     <th>Số lượng</th>
+                    <th>Số khách</th>
                     <th>Giá/đêm</th>
                     <th>Số đêm</th>
                     <th>Thành tiền</th>
@@ -60,6 +61,7 @@
                     <tr>
                         <td>{{ $item->roomType->name ?? '—' }}</td>
                         <td>{{ $item->quantity }}</td>
+                        <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}</td>
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                         <td>{{ $item->nights }}</td>
                         <td>{{ number_format($item->subtotal, 0, ',', '.') }}đ</td>
@@ -88,6 +90,10 @@
                     </div>
                 @endif
                 <div class="info-item">
+                    <span class="label">Tổng số khách</span>
+                    <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}</span>
+                </div>
+                <div class="info-item">
                     <span class="label">Tổng tiền</span>
                     <span class="value">{{ number_format($booking->total_amount, 0, ',', '.') }}đ</span>
                 </div>
@@ -113,6 +119,16 @@
                         <span class="label">Số tiền</span>
                         <span class="value">{{ number_format($booking->payment->amount, 0, ',', '.') }}đ</span>
                     </div>
+                    @if ($booking->payment->deposit_paid_at)
+                        <div class="info-item">
+                            <span class="label">Đã đặt cọc</span>
+                            <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->format('d/m/Y H:i') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Còn lại thu tiền mặt</span>
+                            <span class="value">{{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
                     @if ($booking->payment->paid_at)
                         <div class="info-item">
                             <span class="label">Đã thanh toán lúc</span>
@@ -127,7 +143,9 @@
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="paid">
-                            <button type="submit" class="btn btn-primary btn-sm">Đánh dấu đã thanh toán</button>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                {{ $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID ? 'Xác nhận đã thu đủ tiền mặt còn lại' : 'Đánh dấu đã thanh toán' }}
+                            </button>
                         </form>
                     @endif
 

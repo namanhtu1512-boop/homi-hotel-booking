@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -72,11 +73,16 @@ class AuthWebController extends Controller
         return redirect()->route('customer.dashboard');
     }
 
-    private function redirectByRole(User $user)
+    /**
+     * Đích chuyển hướng sau đăng nhập — admin và staff có khu vực làm việc
+     * riêng biệt (/admin/* và /staff/*), không dùng chung dashboard.
+     */
+    private function redirectByRole(User $user): RedirectResponse
     {
-        return match (true) {
-            in_array($user->role, ['admin', 'staff']) => redirect()->route('admin.dashboard'),
-            default                                   => redirect()->route('customer.dashboard'),
+        return match ($user->role) {
+            'admin' => redirect()->route('admin.dashboard'),
+            'staff' => redirect()->route('staff.dashboard'),
+            default => redirect()->route('customer.dashboard'),
         };
     }
 
@@ -93,7 +99,7 @@ class AuthWebController extends Controller
     public function showAdminLogin()
     {
         if (Auth::check() && in_array(Auth::user()->role, ['admin', 'staff']) && session('login_context') === 'admin') {
-            return redirect()->route('admin.dashboard');
+            return $this->redirectByRole(Auth::user());
         }
 
         return view('auth.admin-login');
@@ -133,7 +139,7 @@ class AuthWebController extends Controller
         $request->session()->regenerate();
         $request->session()->put('login_context', 'admin');
 
-        return redirect()->route('admin.dashboard');
+        return $this->redirectByRole($user);
     }
 
     public function adminLogout(Request $request)

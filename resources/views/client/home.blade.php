@@ -618,12 +618,16 @@
 
                 <div class="nav-actions">
                     @auth
-                        @php
-                            $dashboardRoute = in_array(auth()->user()->role, ['admin', 'staff'])
-                                ? route('admin.dashboard')
-                                : route('customer.dashboard');
-                        @endphp
-                        <a href="{{ $dashboardRoute }}" class="btn btn-outline">Dashboard</a>
+                        @if (auth()->user()->isAdmin())
+                            <a href="{{ route('admin.dashboard') }}" class="btn btn-outline">Dashboard</a>
+                        @elseif (auth()->user()->isStaff())
+                            <a href="{{ route('staff.dashboard') }}" class="btn btn-outline">Khu vực nhân viên</a>
+                        @else
+                            <a href="{{ route('customer.bookings.index') }}" class="btn btn-outline">Đơn của tôi</a>
+                            <a href="{{ route('customer.wishlist.index') }}" class="btn btn-outline">Danh sách chờ ({{ auth()->user()->wishlistItems()->count() }})</a>
+                            <a href="{{ route('customer.profile.show') }}" class="btn btn-outline">Tài khoản</a>
+                            <a href="{{ route('customer.bookings.create') }}" class="btn btn-primary">Đặt phòng</a>
+                        @endif
 
                         <form method="POST" action="{{ route('logout') }}" class="logout-form">
                             @csrf

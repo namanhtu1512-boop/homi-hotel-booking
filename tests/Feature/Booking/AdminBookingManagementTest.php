@@ -108,8 +108,9 @@ class AdminBookingManagementTest extends TestCase
 
     public function test_staff_can_view_bookings_list(): void
     {
+        // Staff dùng khu vực /staff/* riêng, không còn /admin/bookings.
         $this->actingAsAdmin($this->makeUser('staff'))
-            ->get('/admin/bookings')
+            ->get('/staff/bookings')
             ->assertOk();
     }
 

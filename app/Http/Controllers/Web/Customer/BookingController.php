@@ -22,36 +22,90 @@ class BookingController extends Controller
 
     public function create(Request $request): View
     {
-        $roomTypeId = $request->query('room_type_id');
-        $roomType = $roomTypeId ? $this->roomTypeService->findActive((int) $roomTypeId) : null;
+        // Vào từ trang chi tiết phòng (?room_type_id=...) — 404 nếu phòng không
+        // active để giữ hành vi cũ (không cho đặt phòng ẩn/bảo trì/đã xóa).
+        if ($request->filled('room_type_id')) {
+            $this->roomTypeService->findActive((int) $request->query('room_type_id'));
+        }
+
+        $roomTypes = $this->roomTypeService->list();
 
         $checkIn  = $request->query('check_in');
         $checkOut = $request->query('check_out');
-        $quantity = max(1, (int) $request->query('quantity', 1));
 
-        // Tuần 9 (Sprint 5) — nút "Kiểm tra phòng trống" trên form đặt phòng:
-        // resubmit GET tới chính route này kèm ngày/số lượng để hiển thị
-        // available_quantity/can_book trước khi khách bấm đặt phòng thật.
-        $availability = null;
-        $availabilityError = null;
+        // Danh sách dòng loại phòng khách đang chọn (để repopulate form):
+        // ưu tiên `items[]` từ lần "Kiểm tra phòng trống"; nếu vào từ trang chi
+        // tiết phòng thì tạo sẵn 1 dòng cho ?room_type_id. Mặc định 1 dòng trống.
+        $items = $this->normalizeItems($request);
 
-        if ($roomType && $checkIn && $checkOut) {
-            try {
-                $availability = $this->availabilityService->check($roomType->id, $checkIn, $checkOut, $quantity);
-            } catch (ValidationException $e) {
-                $availabilityError = collect($e->errors())->flatten()->first();
+        // Tuần 9 (Sprint 5) — nút "Kiểm tra phòng trống": resubmit GET kèm items
+        // + ngày để hiển thị available_quantity/can_book cho từng loại phòng
+        // trước khi khách đặt thật.
+        $availabilities = [];
+
+        if ($checkIn && $checkOut) {
+            foreach ($items as $item) {
+                if (empty($item['room_type_id'])) {
+                    continue;
+                }
+
+                $roomType = $roomTypes->firstWhere('id', (int) $item['room_type_id']);
+                $quantity = max(1, (int) ($item['quantity'] ?? 1));
+
+                try {
+                    $result = $this->availabilityService->check(
+                        (int) $item['room_type_id'], $checkIn, $checkOut, $quantity
+                    );
+                    $availabilities[] = [
+                        'name'   => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
+                        'result' => $result,
+                        'error'  => null,
+                    ];
+                } catch (ValidationException $e) {
+                    $availabilities[] = [
+                        'name'   => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
+                        'result' => null,
+                        'error'  => collect($e->errors())->flatten()->first(),
+                    ];
+                }
             }
         }
 
         return view('customer.booking.create', [
-            'roomType'          => $roomType,
-            'roomTypes'         => $roomType ? collect() : $this->roomTypeService->list(),
-            'checkIn'           => $checkIn,
-            'checkOut'          => $checkOut,
-            'quantity'          => $quantity,
-            'availability'      => $availability,
-            'availabilityError' => $availabilityError,
+            'roomTypes'      => $roomTypes,
+            'items'          => $items,
+            'checkIn'        => $checkIn,
+            'checkOut'       => $checkOut,
+            'availabilities' => $availabilities,
         ]);
+    }
+
+    /**
+     * Chuẩn hóa danh sách dòng loại phòng từ query cho form đặt phòng —
+     * mỗi dòng mang theo số khách riêng (adults/children) vì sức chứa được
+     * validate theo từng loại phòng, không gộp chung cho cả đơn.
+     *
+     * @return array<int, array{room_type_id: mixed, quantity: int, adults: int, children: int}>
+     */
+    private function normalizeItems(Request $request): array
+    {
+        $rawItems = $request->query('items');
+
+        if (is_array($rawItems) && $rawItems !== []) {
+            return array_values(array_map(fn ($item) => [
+                'room_type_id' => $item['room_type_id'] ?? null,
+                'quantity'     => max(1, (int) ($item['quantity'] ?? 1)),
+                'adults'       => max(1, (int) ($item['adults'] ?? 1)),
+                'children'     => max(0, (int) ($item['children'] ?? 0)),
+            ], $rawItems));
+        }
+
+        return [[
+            'room_type_id' => $request->query('room_type_id'),
+            'quantity'     => max(1, (int) $request->query('quantity', 1)),
+            'adults'       => max(1, (int) $request->query('adults', 1)),
+            'children'     => max(0, (int) $request->query('children', 0)),
+        ]];
     }
 
     public function store(StoreBookingRequest $request): RedirectResponse
@@ -87,5 +141,35 @@ class BookingController extends Controller
         return redirect()
             ->route('customer.bookings.show', $id)
             ->with('success', 'Đã hủy đơn đặt phòng.');
+    }
+
+    public function payOnline(int $id, Request $request): RedirectResponse
+    {
+        $booking = $this->bookingService->payOnlineDemo($id, $request->user());
+
+        return redirect()
+            ->route('customer.bookings.show', $booking->id)
+            ->with('success', 'Thanh toán online thành công (mô phỏng).');
+    }
+
+    public function payBankTransfer(int $id, Request $request): RedirectResponse
+    {
+        $booking = $this->bookingService->markBankTransferPending($id, $request->user());
+
+        return redirect()
+            ->route('customer.bookings.show', $booking->id)
+            ->with('success', 'Đã ghi nhận, chờ khách sạn xác nhận chuyển khoản.');
+    }
+
+    public function payDeposit(int $id, Request $request): RedirectResponse
+    {
+        $booking = $this->bookingService->payDepositDemo($id, $request->user());
+
+        $deposit   = number_format($booking->depositAmount(), 0, ',', '.');
+        $remaining = number_format($booking->remainingAfterDeposit(), 0, ',', '.');
+
+        return redirect()
+            ->route('customer.bookings.show', $booking->id)
+            ->with('success', "Đã đặt cọc {$deposit}đ. Vui lòng thanh toán {$remaining}đ còn lại bằng tiền mặt khi nhận phòng.");
     }
 }

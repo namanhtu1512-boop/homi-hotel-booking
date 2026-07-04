@@ -31,57 +31,105 @@ class BookingService
 
     public function create(User $customer, array $data): Booking
     {
-        $roomType = RoomType::where('status', 'active')
-            ->findOrFail($data['room_type_id']);
-
         // DateRangeService validate đã được gọi qua AvailabilityService
         $this->availabilityService->validateDates($data['check_in'], $data['check_out']);
 
-        return DB::transaction(function () use ($customer, $data, $roomType) {
-            if (! $this->availabilityService->canBook(
-                $roomType->id,
-                $data['check_in'],
-                $data['check_out'],
-                $data['quantity']
-            )) {
+        // Nạp trước các loại phòng active theo id trong items để tính sức chứa
+        // và giá — findOrFail giữ hành vi 404 khi có id không hợp lệ/không active.
+        $roomTypes = collect($data['items'])
+            ->mapWithKeys(fn (array $item) => [
+                (int) $item['room_type_id'] => RoomType::where('status', 'active')
+                    ->findOrFail($item['room_type_id']),
+            ]);
+
+        // Kiểm tra sức chứa theo TỪNG loại phòng — mỗi dòng có capacity riêng
+        // (roomType.capacity × quantity của chính dòng đó), không gộp chung
+        // với các dòng khác trong đơn.
+        foreach ($data['items'] as $index => $item) {
+            $roomType  = $roomTypes[(int) $item['room_type_id']];
+            $quantity  = (int) $item['quantity'];
+            $adults    = (int) $item['adults'];
+            $children  = (int) ($item['children'] ?? 0);
+            $capacity  = $roomType->capacity * $quantity;
+
+            if ($adults + $children > $capacity) {
                 throw ValidationException::withMessages([
-                    'room_type_id' => ['Phòng đã hết trong khoảng thời gian này.'],
+                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng bạn khai báo {$adults} người lớn + {$children} trẻ em."],
                 ]);
             }
+        }
 
-            $pricing = $this->pricingService->calculate(
-                $roomType,
-                $data['check_in'],
-                $data['check_out'],
-                $data['quantity']
-            );
+        return DB::transaction(function () use ($customer, $data, $roomTypes) {
+            $nights         = null;
+            $total          = 0;
+            $totalAdults    = 0;
+            $totalChildren  = 0;
+            $lines          = [];
+
+            foreach ($data['items'] as $item) {
+                $roomType = $roomTypes[(int) $item['room_type_id']];
+                $quantity = (int) $item['quantity'];
+                $adults   = (int) $item['adults'];
+                $children = (int) ($item['children'] ?? 0);
+
+                if (! $this->availabilityService->canBook(
+                    $roomType->id,
+                    $data['check_in'],
+                    $data['check_out'],
+                    $quantity
+                )) {
+                    throw ValidationException::withMessages([
+                        'items' => ["Phòng \"{$roomType->name}\" đã hết trong khoảng thời gian này."],
+                    ]);
+                }
+
+                $pricing = $this->pricingService->calculate(
+                    $roomType,
+                    $data['check_in'],
+                    $data['check_out'],
+                    $quantity
+                );
+
+                $nights        ??= $pricing['nights'];
+                $total          += $pricing['total_price'];
+                $totalAdults    += $adults;
+                $totalChildren  += $children;
+
+                $lines[] = [
+                    'room_type_id'    => $roomType->id,
+                    'quantity'        => $quantity,
+                    'adults'          => $adults,
+                    'children'        => $children,
+                    'price_per_night' => $pricing['unit_price'],
+                    'nights'          => $pricing['nights'],
+                    'subtotal'        => $pricing['total_price'],
+                ];
+            }
 
             $booking = Booking::create([
                 'user_id'        => $customer->id,
                 'booking_code'   => $this->generateCode(),
                 'check_in'       => $data['check_in'],
                 'check_out'      => $data['check_out'],
-                'nights'         => $pricing['nights'],
+                'nights'         => $nights,
+                'adults'         => $totalAdults,
+                'children'       => $totalChildren,
                 'customer_name'  => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
                 'customer_email' => $data['customer_email'] ?? $customer->email,
                 'note'           => $data['note'] ?? null,
-                'total_amount'   => $pricing['total_price'],
+                'total_amount'   => $total,
                 'status'         => BookingStatus::PENDING,
             ]);
 
             $this->logStatus($booking, null, BookingStatus::PENDING, $customer->id, 'Khách tạo đơn đặt phòng.');
 
-            $booking->bookingItems()->create([
-                'room_type_id'    => $roomType->id,
-                'quantity'        => $data['quantity'],
-                'price_per_night' => $pricing['unit_price'],
-                'nights'          => $pricing['nights'],
-                'subtotal'        => $pricing['total_price'],
-            ]);
+            foreach ($lines as $line) {
+                $booking->bookingItems()->create($line);
+            }
 
             $payment = $booking->payment()->create([
-                'amount' => $pricing['total_price'],
+                'amount' => $total,
                 'status' => PaymentStatus::UNPAID,
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
@@ -106,7 +154,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'payment'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'payment.statusLogs.changedBy'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -131,6 +179,90 @@ class BookingService
         return $booking->fresh(['payment']);
     }
 
+    /**
+     * Khách tự thanh toán online (mô phỏng — chưa nối gateway thật vì chưa
+     * có API key VNPay/Momo). Chỉ cho phép khi đơn đã được admin/staff xác
+     * nhận, đúng rule sẵn có ở Booking::canMarkPaymentAsPaid().
+     */
+    public function payOnlineDemo(int $bookingId, User $customer): Booking
+    {
+        $booking = $this->findForCustomer($bookingId, $customer);
+
+        if (! $booking->canMarkPaymentAsPaid()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể thanh toán khi đơn đã được xác nhận và chưa thanh toán.'],
+            ]);
+        }
+
+        $oldStatus = $booking->payment->status;
+        $booking->payment->update([
+            'method'           => PaymentMethod::ONLINE_DEMO,
+            'status'           => PaymentStatus::PAID,
+            'transaction_code' => 'DEMO-' . Str::upper(Str::random(10)),
+            'paid_at'          => now(),
+        ]);
+        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::PAID, $customer->id, 'Khách thanh toán online (mô phỏng).');
+
+        return $booking->fresh('payment');
+    }
+
+    /**
+     * Khách tự báo đã chuyển khoản — chuyển thanh toán sang "đang xử lý" chờ
+     * admin/staff đối soát và xác nhận thủ công (không tự động sang paid).
+     */
+    public function markBankTransferPending(int $bookingId, User $customer): Booking
+    {
+        $booking = $this->findForCustomer($bookingId, $customer);
+
+        $canReportTransfer = $booking->status === BookingStatus::CONFIRMED
+            && $booking->payment
+            && $booking->payment->status->canTransitionTo(PaymentStatus::PENDING);
+
+        if (! $canReportTransfer) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể báo chuyển khoản khi đơn đã được xác nhận và chưa thanh toán.'],
+            ]);
+        }
+
+        $oldStatus = $booking->payment->status;
+        $booking->payment->update([
+            'method' => PaymentMethod::BANK_TRANSFER,
+            'status' => PaymentStatus::PENDING,
+        ]);
+        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::PENDING, $customer->id, 'Khách báo đã chuyển khoản, chờ xác nhận.');
+
+        return $booking->fresh('payment');
+    }
+
+    /**
+     * Khách đặt cọc 30% qua kênh online (mô phỏng) — phần còn lại
+     * (Booking::remainingAfterDeposit()) trả bằng tiền mặt khi nhận phòng.
+     * Chỉ hợp lệ từ trạng thái UNPAID (xem Booking::canPayDeposit()); tiền
+     * cọc không tự động hoàn khi hủy đơn (PaymentStatus::canRefund()).
+     */
+    public function payDepositDemo(int $bookingId, User $customer): Booking
+    {
+        $booking = $this->findForCustomer($bookingId, $customer);
+
+        if (! $booking->canPayDeposit()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể đặt cọc khi đơn đã được xác nhận và chưa thanh toán.'],
+            ]);
+        }
+
+        $oldStatus = $booking->payment->status;
+        $booking->payment->update([
+            'method'                   => PaymentMethod::CASH_WITH_DEPOSIT,
+            'status'                   => PaymentStatus::DEPOSIT_PAID,
+            'deposit_amount'           => $booking->depositAmount(),
+            'deposit_transaction_code' => 'DEPOSIT-' . Str::upper(Str::random(10)),
+            'deposit_paid_at'          => now(),
+        ]);
+        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::DEPOSIT_PAID, $customer->id, 'Khách đặt cọc 30% (mô phỏng), phần còn lại trả tiền mặt khi nhận phòng.');
+
+        return $booking->fresh('payment');
+    }
+
     // ----------------------------------------------------------------
     // ADMIN / STAFF
     // ----------------------------------------------------------------
@@ -142,6 +274,10 @@ class BookingService
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['payment_status'])) {
+            $query->whereHas('payment', fn ($q) => $q->where('status', $filters['payment_status']));
         }
 
         if (! empty($filters['customer_id'])) {

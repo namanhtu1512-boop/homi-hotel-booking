@@ -6,6 +6,7 @@ use App\Models\HotelInfo;
 use App\Models\RoomType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -61,6 +62,36 @@ class RoomTypeService
     public function find(int $id): RoomType
     {
         return RoomType::with('images')->findOrFail($id);
+    }
+
+    /**
+     * Danh sách loại phòng cho trang quản lý (admin/staff) kèm
+     * `available_today` — số phòng còn trống hôm nay, dùng chung để không
+     * lặp lại đoạn tính booked_count ở nhiều controller.
+     */
+    public function adminIndexWithAvailability(): Collection
+    {
+        $roomTypes = $this->list(adminView: true);
+
+        $today = now()->toDateString();
+
+        // Alias tường minh cho cột SUM — pluck(DB::raw(...)) không alias sẽ
+        // đoán sai tên thuộc tính trên stdClass tùy driver (lỗi thật gặp
+        // trên MySQL: "Undefined property: stdClass::$quantity").
+        $bookedCounts = DB::table('booking_items')
+            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+            ->whereIn('bookings.status', ['pending', 'confirmed'])
+            ->where('bookings.check_in', '<=', $today)
+            ->where('bookings.check_out', '>', $today)
+            ->groupBy('booking_items.room_type_id')
+            ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
+            ->pluck('total_quantity', 'room_type_id');
+
+        $roomTypes->each(function (RoomType $room) use ($bookedCounts) {
+            $room->available_today = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
+        });
+
+        return $roomTypes;
     }
 
     /**

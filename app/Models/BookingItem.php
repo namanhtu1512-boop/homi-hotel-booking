@@ -13,12 +13,16 @@ class BookingItem extends Model
         'booking_id',
         'room_type_id',
         'quantity',
+        'adults',
+        'children',
         'price_per_night',
         'nights',
         'subtotal',
     ];
 
     protected $casts = [
+        'adults'          => 'integer',
+        'children'        => 'integer',
         'price_per_night' => 'decimal:2',
         'subtotal' => 'decimal:2',
     ];

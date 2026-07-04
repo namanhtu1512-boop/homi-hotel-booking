@@ -17,7 +17,7 @@ use Tests\TestCase;
  *
  * Test case ID | Nhóm        | Chức năng                                        | Kết quả mong đợi
  * TC-BPM-001   | Permission  | Admin xem /admin/bookings, /admin/payments       | 200
- * TC-BPM-002   | Permission  | Staff xem /admin/bookings, /admin/payments       | 200
+ * TC-BPM-002   | Permission  | Staff xem /staff/bookings, /staff/payments       | 200
  * TC-BPM-003   | Permission  | Customer bị chặn khỏi 2 trang trên               | redirect customer.dashboard
  * TC-BPM-004   | Permission  | Guest bị chặn khỏi 2 trang trên                  | redirect admin.login
  * TC-BPM-005   | Permission  | Customer không thực hiện được các action admin   | 403/redirect, không đổi trạng thái
@@ -113,10 +113,11 @@ class BookingPaymentManagementTest extends TestCase
 
     public function test_staff_can_access_bookings_and_payments_pages(): void
     {
+        // Staff dùng khu vực /staff/* riêng, không còn /admin/bookings,/payments.
         $staff = $this->makeUser('staff');
 
-        $this->actingAsAdmin($staff)->get('/admin/bookings')->assertOk();
-        $this->actingAsAdmin($staff)->get('/admin/payments')->assertOk();
+        $this->actingAsAdmin($staff)->get('/staff/bookings')->assertOk();
+        $this->actingAsAdmin($staff)->get('/staff/payments')->assertOk();
     }
 
     public function test_customer_is_blocked_from_bookings_and_payments_pages(): void
