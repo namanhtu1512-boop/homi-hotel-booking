@@ -21,9 +21,11 @@ class RoomTypeSeeder extends Seeder
                 'area'            => 28,
                 'total_rooms'     => 15,
                 'images'          => [
-                    'https://picsum.photos/seed/homi-std-1/900/600',
-                    'https://picsum.photos/seed/homi-std-2/900/600',
-                    'https://picsum.photos/seed/homi-std-3/900/600',
+                    'https://images.unsplash.com/photo-1746549855427-57e6da7040db?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1731336478850-6bce7235e320?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1578898886225-c7c894047899?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1605346434674-a440ca4dc4c0?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1647792855184-af42f1720b91?w=900&h=600&fit=crop&auto=format',
                 ],
             ],
             [
@@ -35,9 +37,11 @@ class RoomTypeSeeder extends Seeder
                 'area'            => 30,
                 'total_rooms'     => 12,
                 'images'          => [
-                    'https://picsum.photos/seed/homi-sup-1/900/600',
-                    'https://picsum.photos/seed/homi-sup-2/900/600',
-                    'https://picsum.photos/seed/homi-sup-3/900/600',
+                    'https://images.unsplash.com/photo-1737517302831-e7b8a8eaa97c?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1741506131058-533fcf894483?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1662990782404-a5d704ea323a?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1645131506334-bb66f3f02bcc?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=900&h=600&fit=crop&auto=format',
                 ],
             ],
             [
@@ -49,9 +53,11 @@ class RoomTypeSeeder extends Seeder
                 'area'            => 35,
                 'total_rooms'     => 10,
                 'images'          => [
-                    'https://picsum.photos/seed/homi-dlx-1/900/600',
-                    'https://picsum.photos/seed/homi-dlx-2/900/600',
-                    'https://picsum.photos/seed/homi-dlx-3/900/600',
+                    'https://images.unsplash.com/photo-1777016844282-46fa8713cdae?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1667125095636-dce94dcbdd96?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1662841540530-2f04bb3291e8?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1552858725-693709cc17c7?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1639678349557-ffe5bed73ce7?w=900&h=600&fit=crop&auto=format',
                 ],
             ],
             [
@@ -63,9 +69,11 @@ class RoomTypeSeeder extends Seeder
                 'area'            => 45,
                 'total_rooms'     => 6,
                 'images'          => [
-                    'https://picsum.photos/seed/homi-fam-1/900/600',
-                    'https://picsum.photos/seed/homi-fam-2/900/600',
-                    'https://picsum.photos/seed/homi-fam-3/900/600',
+                    'https://images.unsplash.com/photo-1771775529138-a7a20ba7e032?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1629140727571-9b5c6f6267b4?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1631049552057-403cdb8f0658?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1703783010857-9bd7a7b97c50?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1631049035257-02039c597992?w=900&h=600&fit=crop&auto=format',
                 ],
             ],
             [
@@ -77,9 +85,11 @@ class RoomTypeSeeder extends Seeder
                 'area'            => 65,
                 'total_rooms'     => 3,
                 'images'          => [
-                    'https://picsum.photos/seed/homi-suite-1/900/600',
-                    'https://picsum.photos/seed/homi-suite-2/900/600',
-                    'https://picsum.photos/seed/homi-suite-3/900/600',
+                    'https://images.unsplash.com/photo-1776763018972-588e27bf6511?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1631049307379-e96858bda538?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1631049422186-4b0569fed517?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1631049035634-c04c637651b1?w=900&h=600&fit=crop&auto=format',
+                    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=900&h=600&fit=crop&auto=format',
                 ],
             ],
         ];
