@@ -26,6 +26,7 @@
                         ['route' => 'admin.room-types.index', 'pattern' => 'admin.room-types.*', 'label' => 'Loại phòng'],
                         ['route' => 'admin.bookings.index', 'pattern' => 'admin.bookings.*', 'label' => 'Đơn đặt phòng'],
                         ['route' => 'admin.payments.index', 'pattern' => 'admin.payments.*', 'label' => 'Thanh toán'],
+                        ['route' => 'admin.customers.index', 'pattern' => 'admin.customers.*', 'label' => 'Khách hàng'],
                         ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Người dùng'],
                         ['route' => 'admin.promotions.index', 'pattern' => 'admin.promotions.*', 'label' => 'Khuyến mãi'],
                         ['route' => 'admin.news.index', 'pattern' => 'admin.news.*', 'label' => 'Tin tức'],

@@ -104,6 +104,22 @@ class AdminRoomTypeAccessTest extends TestCase
         $this->assertDatabaseHas('room_types', ['name' => 'Phòng Deluxe Mới']);
     }
 
+    /**
+     * Regression: capacity là unsignedTinyInteger (tối đa 255) — thiếu rule
+     * max sẽ để Eloquent ném lỗi DB (500) thay vì trả lỗi validation (422).
+     */
+    public function test_admin_cannot_create_room_type_with_capacity_over_255(): void
+    {
+        $payload = array_merge($this->roomTypePayload(), ['capacity' => 300]);
+
+        $this->actingAs($this->makeUser('admin'))
+            ->withSession(['login_context' => 'admin'])
+            ->post(route('admin.room-types.store'), $payload)
+            ->assertSessionHasErrors('capacity');
+
+        $this->assertDatabaseMissing('room_types', ['name' => 'Phòng Deluxe Mới']);
+    }
+
     public function test_staff_can_list_room_types(): void
     {
         $this->actingAs($this->makeUser('staff'))
@@ -382,5 +398,45 @@ class AdminRoomTypeAccessTest extends TestCase
             ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 10])
             ->assertStatus(403)
             ->assertJson(['success' => false]);
+    }
+
+    /**
+     * Regression: không cho giảm total_rooms xuống dưới số phòng đang bị giữ
+     * chỗ đồng thời trong tương lai (pending/confirmed/checked_in), tránh
+     * admin vô tình "bán vượt" phòng đã có khách đặt.
+     */
+    public function test_admin_cannot_reduce_inventory_below_future_concurrent_bookings(): void
+    {
+        $roomType = $this->makeRoomType(['total_rooms' => 5]);
+
+        // 3 đơn giao nhau hoàn toàn trong cùng khoảng ngày -> giữ 3 phòng cùng lúc.
+        foreach (range(1, 3) as $i) {
+            $booking = \App\Models\Booking::create([
+                'booking_code'   => "INV-TEST-{$i}",
+                'user_id'        => User::factory()->customer()->create()->id,
+                'check_in'       => now()->addDays(5)->format('Y-m-d'),
+                'check_out'      => now()->addDays(7)->format('Y-m-d'),
+                'nights'         => 2,
+                'customer_name'  => 'Khách Test',
+                'customer_phone' => '0900000000',
+                'total_amount'   => 2000000,
+                'status'         => 'confirmed',
+            ]);
+
+            \App\Models\BookingItem::create([
+                'booking_id'      => $booking->id,
+                'room_type_id'    => $roomType->id,
+                'quantity'        => 1,
+                'price_per_night' => $roomType->price_per_night,
+                'nights'          => 2,
+                'subtotal'        => 2000000,
+            ]);
+        }
+
+        $this->actingAs($this->makeUser('admin'))
+            ->patchJson("/api/v1/admin/room-types/{$roomType->id}/inventory", ['total_rooms' => 2])
+            ->assertStatus(422);
+
+        $this->assertSame(5, $roomType->fresh()->total_rooms);
     }
 }

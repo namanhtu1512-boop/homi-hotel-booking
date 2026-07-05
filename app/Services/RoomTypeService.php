@@ -141,7 +141,7 @@ class RoomTypeService
         // trên MySQL: "Undefined property: stdClass::$quantity").
         $bookedCounts = DB::table('booking_items')
             ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
-            ->whereIn('bookings.status', ['pending', 'confirmed'])
+            ->whereIn('bookings.status', BookingStatus::holdingStatuses())
             ->where('bookings.check_in', '<=', $today)
             ->where('bookings.check_out', '>', $today)
             ->groupBy('booking_items.room_type_id')
@@ -193,7 +193,7 @@ class RoomTypeService
     public function update(RoomType $roomType, array $data): RoomType
     {
         if (isset($data['total_rooms'])) {
-            $this->validateInventoryReduction($data['total_rooms']);
+            $this->validateInventoryReduction($data['total_rooms'], $roomType);
         }
 
         // array_intersect_key (không phải array_filter loại bỏ null) — để admin
@@ -224,7 +224,7 @@ class RoomTypeService
 
     public function updateInventory(RoomType $roomType, int $totalRooms): RoomType
     {
-        $this->validateInventoryReduction($totalRooms);
+        $this->validateInventoryReduction($totalRooms, $roomType);
         $roomType->update(['total_rooms' => $totalRooms]);
 
         return $roomType->fresh();
@@ -246,7 +246,7 @@ class RoomTypeService
     public function softDeleteOrDeactivate(RoomType $roomType): void
     {
         $hasActiveBookings = $roomType->bookingItems()
-            ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'confirmed']))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', BookingStatus::holdingStatuses()))
             ->exists();
 
         if ($hasActiveBookings) {
@@ -283,13 +283,66 @@ class RoomTypeService
         return $slug;
     }
 
-    private function validateInventoryReduction(int $newTotal): void
+    private function validateInventoryReduction(int $newTotal, ?RoomType $roomType = null): void
     {
         if ($newTotal < 1) {
             throw ValidationException::withMessages([
                 'total_rooms' => ['Số lượng phòng phải lớn hơn hoặc bằng 1.'],
             ]);
         }
+
+        if (! $roomType) {
+            return;
+        }
+
+        $maxBooked = $this->maxFutureBookedQuantity($roomType);
+
+        if ($newTotal < $maxBooked) {
+            throw ValidationException::withMessages([
+                'total_rooms' => ["Không thể giảm xuống {$newTotal} phòng vì đang có thời điểm giữ chỗ đồng thời {$maxBooked} phòng trong tương lai (đơn pending/confirmed/checked_in)."],
+            ]);
+        }
+    }
+
+    /**
+     * Số phòng tối đa bị giữ chỗ cùng lúc kể từ hôm nay trở đi, tính bằng
+     * sweep-line trên các mốc check_in/check_out của booking_items đang giữ
+     * phòng (pending/confirmed/checked_in) — không chỉ SUM tổng quantity, vì
+     * các đơn không nhất thiết giao nhau cùng lúc.
+     */
+    private function maxFutureBookedQuantity(RoomType $roomType): int
+    {
+        $today = now()->toDateString();
+
+        $items = $roomType->bookingItems()
+            ->whereHas('booking', fn ($q) => $q
+                ->whereIn('status', BookingStatus::holdingStatuses())
+                ->where('check_out', '>', $today))
+            ->with('booking:id,check_in,check_out')
+            ->get(['id', 'booking_id', 'quantity']);
+
+        if ($items->isEmpty()) {
+            return 0;
+        }
+
+        $events = [];
+        foreach ($items as $item) {
+            $checkIn  = max($item->booking->check_in->toDateString(), $today);
+            $checkOut = $item->booking->check_out->toDateString();
+            $events[] = [$checkIn, $item->quantity];
+            $events[] = [$checkOut, -$item->quantity];
+        }
+
+        usort($events, fn ($a, $b) => $a[0] <=> $b[0]);
+
+        $running = 0;
+        $max     = 0;
+        foreach ($events as [, $delta]) {
+            $running += $delta;
+            $max = max($max, $running);
+        }
+
+        return $max;
     }
 
     /**

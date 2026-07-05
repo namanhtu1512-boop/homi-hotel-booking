@@ -48,6 +48,11 @@
     </div>
 
     <div class="stat-card">
+        <div class="stat-label">Tỷ lệ hủy đơn</div>
+        <div class="stat-value">{{ $stats['cancellation_rate'] }}%</div>
+    </div>
+
+    <div class="stat-card">
         <div class="stat-label">Tỷ lệ lấp đầy hôm nay</div>
         <div class="stat-value">{{ $occupancy['rate'] }}%</div>
         <div class="stat-note">{{ $occupancy['occupied'] }}/{{ $occupancy['total'] }} phòng đang có khách</div>

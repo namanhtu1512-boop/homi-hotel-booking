@@ -98,7 +98,7 @@ class RoomTypeController extends Controller
             'name'            => ['required', 'string', 'max:255'],
             'description'     => ['nullable', 'string', 'max:5000'],
             'price_per_night' => ['required', 'numeric', 'min:0'],
-            'capacity'        => ['required', 'integer', 'min:1'],
+            'capacity'        => ['required', 'integer', 'min:1', 'max:255'],
             'bed_type'        => ['nullable', 'string', 'max:100'],
             'area'            => ['nullable', 'numeric', 'min:0'],
             'total_rooms'     => ['required', 'integer', 'min:1'],

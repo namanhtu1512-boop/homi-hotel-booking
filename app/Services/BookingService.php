@@ -61,6 +61,16 @@ class BookingService
         }
 
         return DB::transaction(function () use ($customer, $data, $roomTypes) {
+            // Khóa các loại phòng liên quan theo thứ tự id tăng dần (tránh
+            // deadlock khi 2 đơn cùng khóa nhiều loại phòng chung) TRƯỚC khi
+            // tính lại availability. SELECT ... FOR UPDATE luôn đọc dữ liệu
+            // mới nhất đã commit, nên nếu 2 khách đặt cùng lúc, người đến sau
+            // phải chờ người đến trước commit xong rồi mới thấy đúng số phòng
+            // còn lại — chống overbooking khi 2 request chạy song song.
+            RoomType::whereIn('id', $roomTypes->keys()->sort()->values())
+                ->lockForUpdate()
+                ->get();
+
             $nights         = null;
             $total          = 0;
             $totalAdults    = 0;

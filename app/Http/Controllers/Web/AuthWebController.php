@@ -69,6 +69,18 @@ class AuthWebController extends Controller
                 ->onlyInput('email');
         }
 
+        // Đối xứng với adminLogin() — chặn admin/staff đăng nhập nhầm qua form
+        // khách hàng ngay tại đây, thay vì để RoleMiddleware dội qua dội lại
+        // giữa customer.dashboard và admin.login (đăng nhập "thành công" nhưng
+        // không vào được đâu, không rõ lý do).
+        if (in_array($user->role, ['admin', 'staff'], true)) {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản quản trị/staff vui lòng đăng nhập tại khu vực quản trị.'])
+                ->onlyInput('email');
+        }
+
         $request->session()->regenerate();
         $request->session()->put('login_context', 'customer');
 

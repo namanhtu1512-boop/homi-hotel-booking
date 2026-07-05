@@ -85,4 +85,39 @@ class LoginTest extends TestCase
     {
         $this->post('/customer/login', [])->assertSessionHasErrors(['email', 'password']);
     }
+
+    /**
+     * Đối xứng với adminLogin() chặn customer đăng nhập nhầm qua form admin —
+     * admin/staff đăng nhập nhầm qua form khách hàng cũng phải bị chặn rõ
+     * ràng ngay tại đây, không để RoleMiddleware dội qua dội lại.
+     */
+    public function test_admin_cannot_login_through_customer_form(): void
+    {
+        User::factory()->admin()->create([
+            'email'    => 'admin@homi.vn',
+            'password' => '123456',
+        ]);
+
+        $this->post('/customer/login', [
+            'email'    => 'admin@homi.vn',
+            'password' => '123456',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
+    public function test_staff_cannot_login_through_customer_form(): void
+    {
+        User::factory()->staff()->create([
+            'email'    => 'staff@homi.vn',
+            'password' => '123456',
+        ]);
+
+        $this->post('/customer/login', [
+            'email'    => 'staff@homi.vn',
+            'password' => '123456',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
 }

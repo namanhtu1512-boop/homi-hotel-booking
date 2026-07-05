@@ -57,7 +57,9 @@ class Promotion extends Model
      */
     public function discountFor(float $totalAmount): float
     {
-        if ($this->discount_percent) {
+        // discount_percent cast là 'decimal:2' nên luôn trả về string (VD "0.00"),
+        // truthy trong PHP dù giá trị bằng 0 — phải so sánh số thực, không dùng if() trực tiếp.
+        if ((float) $this->discount_percent > 0) {
             return round($totalAmount * ((float) $this->discount_percent / 100));
         }
 

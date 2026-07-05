@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\HotelInfo;
 use App\Models\RoomType;
+use Illuminate\Support\Facades\Storage;
 
 class ImageService
 {
@@ -15,6 +16,7 @@ class ImageService
     public function syncHotelInfoImages(HotelInfo $hotel, array $paths, bool $replace = false): void
     {
         if ($replace) {
+            $this->deleteFiles($hotel->images()->pluck('path'));
             $hotel->images()->delete();
         }
 
@@ -36,6 +38,7 @@ class ImageService
     public function syncRoomTypeImages(RoomType $roomType, array $paths, bool $replace = false): void
     {
         if ($replace) {
+            $this->deleteFiles($roomType->images()->pluck('path'));
             $roomType->images()->delete();
         }
 
@@ -60,6 +63,7 @@ class ImageService
             return false;
         }
 
+        $this->deleteFiles([$image->path]);
         $image->delete();
         $this->reorderImages($hotel->images()->orderBy('sort_order')->get());
 
@@ -77,6 +81,7 @@ class ImageService
             return false;
         }
 
+        $this->deleteFiles([$image->path]);
         $image->delete();
         $this->reorderImages($roomType->images()->orderBy('sort_order')->get());
 
@@ -90,6 +95,24 @@ class ImageService
     {
         foreach ($images as $index => $image) {
             $image->update(['sort_order' => $index]);
+        }
+    }
+
+    /**
+     * Xóa file vật lý trên disk 'public' cho các path do chính hệ thống lưu
+     * (upload qua Storage::store, dạng "hotel/xxx.jpg"). Path dạng URL đầy đủ
+     * (admin dán link ảnh ngoài qua ô images_text) không khớp file cục bộ nào
+     * nên Storage::delete() chỉ trả về false, không ném lỗi — an toàn để gọi
+     * chung cho cả hai loại path.
+     *
+     * @param  iterable<string>  $paths
+     */
+    private function deleteFiles(iterable $paths): void
+    {
+        foreach ($paths as $path) {
+            if ($path && ! str_starts_with($path, 'http://') && ! str_starts_with($path, 'https://')) {
+                Storage::disk('public')->delete($path);
+            }
         }
     }
 }

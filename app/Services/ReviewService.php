@@ -7,7 +7,7 @@ use App\Models\Booking;
 use App\Models\Review;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ReviewService
@@ -81,15 +81,29 @@ class ReviewService
             ]);
         }
 
-        return Review::create([
-            'booking_id'   => $booking->id,
-            'room_type_id' => $data['room_type_id'],
-            'user_id'      => $user->id,
-            'rating'       => $data['rating'],
-            'comment'      => $data['comment'] ?? null,
-            'images'       => $data['images'] ?? null,
-            'status'       => 'visible',
-        ]);
+        // check-then-act: exists() ở trên không chống được 2 request submit
+        // cùng lúc cho cùng booking+room_type — unique constraint ở DB mới là
+        // chốt chặn thật, bắt QueryException để trả lỗi validation thân thiện
+        // thay vì để nó vỡ thành 500.
+        try {
+            return Review::create([
+                'booking_id'   => $booking->id,
+                'room_type_id' => $data['room_type_id'],
+                'user_id'      => $user->id,
+                'rating'       => $data['rating'],
+                'comment'      => $data['comment'] ?? null,
+                'images'       => $data['images'] ?? null,
+                'status'       => 'visible',
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ((int) $e->getCode() === 23000) {
+                throw ValidationException::withMessages([
+                    'room_type_id' => ['Bạn đã đánh giá loại phòng này cho đơn này rồi.'],
+                ]);
+            }
+
+            throw $e;
+        }
     }
 
     public function forRoomType(int $roomTypeId, int $limit = 20): Collection
@@ -177,6 +191,10 @@ class ReviewService
 
     public function delete(Review $review): void
     {
+        if ($review->images) {
+            Storage::disk('public')->delete($review->images);
+        }
+
         $review->delete();
     }
 }

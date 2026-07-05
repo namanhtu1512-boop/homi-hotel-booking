@@ -9,6 +9,7 @@ use App\Http\Controllers\Web\Admin\DatabaseController;
 use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
@@ -135,6 +136,11 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/',                     [UserController::class, 'index'])->name('index');
         Route::patch('/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/',     [AdminCustomerController::class, 'index'])->name('index');
+        Route::get('/{id}', [AdminCustomerController::class, 'show'])->name('show');
     });
 
     Route::prefix('bookings')->name('bookings.')->group(function () {

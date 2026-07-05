@@ -72,7 +72,7 @@ class BannerController extends Controller
             'title'      => ['required', 'string', 'max:255'],
             'subtitle'   => ['nullable', 'string', 'max:255'],
             'image_url'  => ['nullable', 'string', 'max:2000'],
-            'image_file' => [$requireImage ? 'required_without:image_url' : 'nullable', 'image', 'max:5120'],
+            'image_file' => [$requireImage ? 'required_without:image_url' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'link_url'   => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'status'     => ['required', 'in:active,hidden'],

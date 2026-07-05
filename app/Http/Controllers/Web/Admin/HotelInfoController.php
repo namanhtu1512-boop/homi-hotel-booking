@@ -67,7 +67,7 @@ class HotelInfoController extends Controller
             'amenity_ids.*'  => ['integer', 'exists:amenities,id'],
             'images_text'    => ['nullable', 'string'],
             'image_files'    => ['nullable', 'array'],
-            'image_files.*'  => ['image', 'max:5120'],
+            'image_files.*'  => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
             'name'           => 'tên khách sạn',
             'address'        => 'địa chỉ',

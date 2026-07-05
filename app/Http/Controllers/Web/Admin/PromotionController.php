@@ -65,7 +65,10 @@ class PromotionController extends Controller
 
         $this->promotionService->delete($promotion);
 
-        $this->auditLog->log('promotion.deleted', null, "Xóa khuyến mãi \"{$name}\".");
+        // Promotion dùng SoftDeletes — bản ghi vẫn còn (khác Banner/News/Review
+        // hard delete), nên vẫn truyền $promotion để audit log giữ được
+        // auditable_type/auditable_id, khôi phục lại được nếu cần tra cứu.
+        $this->auditLog->log('promotion.deleted', $promotion, "Xóa khuyến mãi \"{$name}\".");
 
         return redirect()
             ->route('admin.promotions.index')

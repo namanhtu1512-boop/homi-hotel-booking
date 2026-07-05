@@ -27,7 +27,7 @@ class ReviewController extends Controller
             'rating'       => ['required', 'integer', 'between:1,5'],
             'comment'      => ['nullable', 'string', 'max:2000'],
             'images'       => ['nullable', 'array', 'max:5'],
-            'images.*'     => ['image', 'max:5120'],
+            'images.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
             'booking_id'   => 'đơn đặt phòng',
             'room_type_id' => 'loại phòng',
