@@ -39,11 +39,23 @@
             @endforeach
         </select>
 
-        <input type="date" name="created_from" value="{{ $filters['created_from'] ?? '' }}" title="Ngày đặt từ">
-        <input type="date" name="created_to" value="{{ $filters['created_to'] ?? '' }}" title="Ngày đặt đến">
+        <div class="form-group">
+            <label for="created_from">Ngày đặt từ</label>
+            <input type="date" id="created_from" name="created_from" value="{{ $filters['created_from'] ?? '' }}">
+        </div>
+        <div class="form-group">
+            <label for="created_to">Ngày đặt đến</label>
+            <input type="date" id="created_to" name="created_to" value="{{ $filters['created_to'] ?? '' }}">
+        </div>
 
-        <input type="date" name="check_in_from" value="{{ $filters['check_in_from'] ?? '' }}" title="Ngày check-in từ">
-        <input type="date" name="check_in_to" value="{{ $filters['check_in_to'] ?? '' }}" title="Ngày check-in đến">
+        <div class="form-group">
+            <label for="check_in_from">Ngày check-in từ</label>
+            <input type="date" id="check_in_from" name="check_in_from" value="{{ $filters['check_in_from'] ?? '' }}">
+        </div>
+        <div class="form-group">
+            <label for="check_in_to">Ngày check-in đến</label>
+            <input type="date" id="check_in_to" name="check_in_to" value="{{ $filters['check_in_to'] ?? '' }}">
+        </div>
 
         <button type="submit" class="btn btn-outline">Lọc</button>
 
