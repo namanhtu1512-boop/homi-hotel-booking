@@ -11,6 +11,7 @@
             <div class="section-kicker">{{ $hotel->status === 'active' ? 'Đang hoạt động' : 'Đang bảo trì' }}</div>
             <h2 class="section-title">{{ $hotel->name }}</h2>
             <p class="section-desc">{{ $hotel->address }}</p>
+            <p class="section-desc">{{ $hotel->phone ?: 'Chưa có SĐT' }} · {{ $hotel->email ?: 'Chưa có email' }}</p>
         </div>
 
         <div class="action-row">

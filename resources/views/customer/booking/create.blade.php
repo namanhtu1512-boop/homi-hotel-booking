@@ -13,168 +13,150 @@
         ? array_values($rows)
         : [['room_type_id' => null, 'quantity' => 1, 'adults' => 1, 'children' => 0]];
 @endphp
-<div class="dashboard-grid">
 
-    {{-- Cột trái: form đặt phòng --}}
-    <div>
-        <div class="card">
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    @foreach ($errors->all() as $error)
-                        <div>{{ $error }}</div>
+<div class="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+
+    <div class="card">
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                @foreach ($errors->all() as $error)
+                    <div>{{ $error }}</div>
+                @endforeach
+            </div>
+        @endif
+
+        <form method="POST" action="{{ route('customer.bookings.store') }}" class="space-y-5" id="booking-form">
+            @csrf
+
+            <div>
+                <label class="form-label">Loại phòng &amp; số khách <span class="text-red-500">*</span></label>
+                <div id="items-container" class="space-y-3">
+                    @foreach ($rows as $i => $row)
+                        <div class="item-row rounded-xl border border-slate-200 p-3.5 dark:border-slate-800">
+                            <div class="flex items-start gap-2">
+                                <select name="items[{{ $i }}][room_type_id]" class="item-room-type input flex-1" required onchange="updateEstimate()">
+                                    <option value="">-- Chọn loại phòng --</option>
+                                    @foreach ($roomTypes as $type)
+                                        <option value="{{ $type->id }}"
+                                                data-price="{{ (float) $type->price_per_night }}"
+                                                data-capacity="{{ (int) $type->capacity }}"
+                                                @selected((string) ($row['room_type_id'] ?? '') === (string) $type->id)>
+                                            {{ $type->name }} — {{ number_format($type->price_per_night, 0, ',', '.') }}đ/đêm ({{ $type->capacity }} khách/phòng)
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <input type="number" name="items[{{ $i }}][quantity]" class="item-quantity input w-24"
+                                       min="1" max="10" value="{{ (int) ($row['quantity'] ?? 1) }}" required
+                                       onchange="updateEstimate()" title="Số phòng">
+                                <button type="button" class="btn-outline btn-sm btn-remove-row" onclick="removeItemRow(this)" title="Xóa dòng">✕</button>
+                            </div>
+
+                            <div class="mt-2.5 flex flex-wrap items-center gap-2.5">
+                                <label class="text-xs font-bold whitespace-nowrap">Người lớn</label>
+                                <input type="number" name="items[{{ $i }}][adults]" class="item-adults input w-20"
+                                       min="1" max="50" value="{{ (int) ($row['adults'] ?? 1) }}" required onchange="updateEstimate()">
+
+                                <label class="text-xs font-bold whitespace-nowrap">Trẻ em</label>
+                                <input type="number" name="items[{{ $i }}][children]" class="item-children input w-20"
+                                       min="0" max="50" value="{{ (int) ($row['children'] ?? 0) }}" onchange="updateEstimate()">
+
+                                <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
+                            </div>
+
+                            <div class="item-capacity-warning mt-1.5 hidden text-xs font-semibold text-red-500"></div>
+                        </div>
+                    @endforeach
+                </div>
+                <button type="button" class="btn-outline btn-sm mt-2" onclick="addItemRow()">➕ Thêm loại phòng</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="form-label" for="check_in">Ngày nhận phòng <span class="text-red-500">*</span></label>
+                    <input class="input" type="date" id="check_in" name="check_in" value="{{ old('check_in', $checkIn) }}" min="{{ now()->format('Y-m-d') }}" required>
+                </div>
+                <div>
+                    <label class="form-label" for="check_out">Ngày trả phòng <span class="text-red-500">*</span></label>
+                    <input class="input" type="date" id="check_out" name="check_out" value="{{ old('check_out', $checkOut) }}" min="{{ now()->addDay()->format('Y-m-d') }}" required>
+                </div>
+            </div>
+
+            <button type="submit" formmethod="GET" formaction="{{ route('customer.bookings.create') }}" class="btn-outline w-full">🔍 Kiểm tra phòng trống</button>
+
+            @if (! empty($availabilities))
+                <div class="alert {{ collect($availabilities)->every(fn ($a) => $a['error'] === null && $a['result']['can_book']) ? 'alert-success' : 'alert-danger' }}">
+                    @foreach ($availabilities as $a)
+                        <div>
+                            <strong>{{ $a['name'] }}:</strong>
+                            @if ($a['error'])
+                                {{ $a['error'] }}
+                            @elseif ($a['result']['can_book'])
+                                ✅ Còn {{ $a['result']['available_quantity'] }} phòng trống cho {{ $a['result']['nights'] }} đêm.
+                            @else
+                                ❌ Chỉ còn {{ $a['result']['available_quantity'] }} phòng trống, không đủ cho {{ $a['result']['requested_quantity'] }} phòng yêu cầu.
+                            @endif
+                        </div>
                     @endforeach
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('customer.bookings.store') }}" class="form-grid" id="booking-form">
-                @csrf
+            <div id="price-estimate" class="hidden rounded-xl bg-primary-light/50 p-4 dark:bg-primary/10">
+                <div class="mb-1 text-xs font-semibold text-slate-500 uppercase dark:text-slate-400">Giá tạm tính</div>
+                <div id="price-total" class="text-2xl font-extrabold text-primary"></div>
+                <div id="price-detail" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></div>
+            </div>
 
-                {{-- Danh sách loại phòng + số khách riêng cho từng loại (multi-choice) --}}
-                <div class="form-group">
-                    <label>Loại phòng &amp; số khách <span style="color:var(--danger)">*</span></label>
-                    <div id="items-container">
-                        @foreach ($rows as $i => $row)
-                            <div class="item-row" style="border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px;">
-                                <div style="display:flex; gap:8px; align-items:flex-start;">
-                                    <select name="items[{{ $i }}][room_type_id]" class="item-room-type" required
-                                            onchange="updateEstimate()" style="flex:1;">
-                                        <option value="">-- Chọn loại phòng --</option>
-                                        @foreach ($roomTypes as $type)
-                                            <option value="{{ $type->id }}"
-                                                    data-price="{{ (float) $type->price_per_night }}"
-                                                    data-capacity="{{ (int) $type->capacity }}"
-                                                    @selected((string) ($row['room_type_id'] ?? '') === (string) $type->id)>
-                                                {{ $type->name }} — {{ number_format($type->price_per_night, 0, ',', '.') }}đ/đêm ({{ $type->capacity }} khách/phòng)
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <input type="number" name="items[{{ $i }}][quantity]" class="item-quantity"
-                                           min="1" max="10" value="{{ (int) ($row['quantity'] ?? 1) }}" required
-                                           onchange="updateEstimate()" style="width:90px;" title="Số phòng">
-                                    <button type="button" class="btn btn-outline btn-remove-row"
-                                            onclick="removeItemRow(this)" title="Xóa dòng"
-                                            style="padding:10px 12px;">✕</button>
-                                </div>
+            <div>
+                <span class="section-kicker">Thông tin khách lưu trú</span>
+            </div>
 
-                                <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-                                    <label style="font-size:12px; font-weight:700; white-space:nowrap;">Người lớn</label>
-                                    <input type="number" name="items[{{ $i }}][adults]" class="item-adults"
-                                           min="1" max="50" value="{{ (int) ($row['adults'] ?? 1) }}" required
-                                           onchange="updateEstimate()" style="width:75px;">
+            <div>
+                <label class="form-label" for="customer_name">Họ tên khách <span class="text-red-500">*</span></label>
+                <input class="input" type="text" id="customer_name" name="customer_name" value="{{ old('customer_name', auth()->user()->name) }}" placeholder="Nguyễn Văn A" required>
+            </div>
 
-                                    <label style="font-size:12px; font-weight:700; white-space:nowrap;">Trẻ em</label>
-                                    <input type="number" name="items[{{ $i }}][children]" class="item-children"
-                                           min="0" max="50" value="{{ (int) ($row['children'] ?? 0) }}"
-                                           onchange="updateEstimate()" style="width:75px;">
+            <div>
+                <label class="form-label" for="customer_phone">Số điện thoại <span class="text-red-500">*</span></label>
+                <input class="input" type="tel" id="customer_phone" name="customer_phone" value="{{ old('customer_phone', auth()->user()->phone ?? '') }}" placeholder="09xxxxxxxx" required>
+            </div>
 
-                                    <span class="item-capacity-hint" style="font-size:12px; color:var(--muted);"></span>
-                                </div>
+            <div>
+                <label class="form-label" for="customer_email">Email liên hệ</label>
+                <input class="input" type="email" id="customer_email" name="customer_email" value="{{ old('customer_email', auth()->user()->email) }}" placeholder="email@example.com">
+            </div>
 
-                                <div class="item-capacity-warning" style="display:none; color:var(--danger); font-size:12px; margin-top:6px; font-weight:600;"></div>
-                            </div>
-                        @endforeach
-                    </div>
-                    <button type="button" class="btn btn-outline btn-sm" onclick="addItemRow()">➕ Thêm loại phòng</button>
-                </div>
+            <div>
+                <label class="form-label" for="promo_code">Mã giảm giá</label>
+                <input class="input" type="text" id="promo_code" name="promo_code" value="{{ old('promo_code') }}" placeholder="VD: SUMMER2026">
+            </div>
 
-                {{-- Ngày --}}
-                <div class="form-group">
-                    <label for="check_in">Ngày nhận phòng <span style="color:var(--danger)">*</span></label>
-                    <input type="date" id="check_in" name="check_in"
-                           value="{{ old('check_in', $checkIn) }}"
-                           min="{{ now()->format('Y-m-d') }}" required>
-                </div>
+            <div>
+                <label class="form-label" for="note">Yêu cầu đặc biệt</label>
+                <textarea class="input" id="note" name="note" rows="3" placeholder="Phòng không hút thuốc, tầng cao, ...">{{ old('note') }}</textarea>
+            </div>
 
-                <div class="form-group">
-                    <label for="check_out">Ngày trả phòng <span style="color:var(--danger)">*</span></label>
-                    <input type="date" id="check_out" name="check_out"
-                           value="{{ old('check_out', $checkOut) }}"
-                           min="{{ now()->addDay()->format('Y-m-d') }}" required>
-                </div>
-
-                {{-- Kiểm tra phòng trống: resubmit GET tới chính trang này kèm items + ngày --}}
-                <button type="submit" formmethod="GET" formaction="{{ route('customer.bookings.create') }}"
-                        class="btn btn-outline btn-block">🔍 Kiểm tra phòng trống</button>
-
-                @if (! empty($availabilities))
-                    <div class="alert {{ collect($availabilities)->every(fn ($a) => $a['error'] === null && $a['result']['can_book']) ? 'alert-success' : 'alert-danger' }}">
-                        @foreach ($availabilities as $a)
-                            <div>
-                                <strong>{{ $a['name'] }}:</strong>
-                                @if ($a['error'])
-                                    {{ $a['error'] }}
-                                @elseif ($a['result']['can_book'])
-                                    ✅ Còn {{ $a['result']['available_quantity'] }} phòng trống cho {{ $a['result']['nights'] }} đêm.
-                                @else
-                                    ❌ Chỉ còn {{ $a['result']['available_quantity'] }} phòng trống, không đủ cho {{ $a['result']['requested_quantity'] }} phòng yêu cầu.
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-
-                {{-- Ước tính giá --}}
-                <div id="price-estimate" style="display:none; background: var(--primary-soft); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
-                    <div style="color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: 6px;">GIÁ TẠM TÍNH</div>
-                    <div id="price-total" style="font-size: 22px; font-weight: 800; color: var(--primary);"></div>
-                    <div id="price-detail" style="color: var(--muted); font-size: 13px; margin-top: 4px;"></div>
-                </div>
-
-                {{-- Thông tin liên hệ --}}
-                <div class="section-kicker" style="margin-top: 4px;">Thông tin khách lưu trú</div>
-
-                <div class="form-group">
-                    <label for="customer_name">Họ tên khách <span style="color:var(--danger)">*</span></label>
-                    <input type="text" id="customer_name" name="customer_name"
-                           value="{{ old('customer_name', auth()->user()->name) }}"
-                           placeholder="Nguyễn Văn A" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="customer_phone">Số điện thoại <span style="color:var(--danger)">*</span></label>
-                    <input type="tel" id="customer_phone" name="customer_phone"
-                           value="{{ old('customer_phone', auth()->user()->phone ?? '') }}"
-                           placeholder="09xxxxxxxx" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="customer_email">Email liên hệ</label>
-                    <input type="email" id="customer_email" name="customer_email"
-                           value="{{ old('customer_email', auth()->user()->email) }}"
-                           placeholder="email@example.com">
-                </div>
-
-                <div class="form-group">
-                    <label for="note">Ghi chú</label>
-                    <textarea id="note" name="note" rows="3"
-                              placeholder="Yêu cầu đặc biệt (phòng không hút thuốc, tầng cao, ...)">{{ old('note') }}</textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block">Xác nhận đặt phòng</button>
-            </form>
-        </div>
+            <button type="submit" class="btn-primary w-full">Xác nhận đặt phòng</button>
+        </form>
     </div>
 
-    {{-- Cột phải: lưu ý --}}
-    <div>
+    <div class="h-fit space-y-5">
         <div class="card">
-            <div class="section-kicker">Lưu ý</div>
-            <ul style="margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.9;">
+            <span class="section-kicker">Lưu ý</span>
+            <ul class="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 <li>Bạn có thể chọn <strong>nhiều loại phòng</strong> trong cùng một đơn (dùng chung ngày nhận/trả).</li>
                 <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng).</li>
                 <li>Đơn đặt phòng sẽ ở trạng thái <strong>chờ xác nhận</strong> cho đến khi admin duyệt.</li>
-                <li>Bạn sẽ thanh toán khi nhận phòng (Pay at Hotel).</li>
+                <li>Mã giảm giá (nếu có) sẽ được trừ trực tiếp vào tổng tiền đơn.</li>
                 <li>Để hủy đơn, vào <strong>Đơn của tôi</strong> và chọn Hủy đơn trước ngày nhận phòng.</li>
             </ul>
         </div>
     </div>
 </div>
 
-{{-- Template dòng loại phòng (dùng để clone khi thêm dòng mới) --}}
 <template id="item-row-template">
-    <div class="item-row" style="border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px;">
-        <div style="display:flex; gap:8px; align-items:flex-start;">
-            <select name="items[__INDEX__][room_type_id]" class="item-room-type" required onchange="updateEstimate()" style="flex:1;">
+    <div class="item-row rounded-xl border border-slate-200 p-3.5 dark:border-slate-800">
+        <div class="flex items-start gap-2">
+            <select name="items[__INDEX__][room_type_id]" class="item-room-type input flex-1" required onchange="updateEstimate()">
                 <option value="">-- Chọn loại phòng --</option>
                 @foreach ($roomTypes as $type)
                     <option value="{{ $type->id }}"
@@ -184,24 +166,24 @@
                     </option>
                 @endforeach
             </select>
-            <input type="number" name="items[__INDEX__][quantity]" class="item-quantity"
-                   min="1" max="10" value="1" required onchange="updateEstimate()" style="width:90px;" title="Số phòng">
-            <button type="button" class="btn btn-outline btn-remove-row" onclick="removeItemRow(this)" title="Xóa dòng" style="padding:10px 12px;">✕</button>
+            <input type="number" name="items[__INDEX__][quantity]" class="item-quantity input w-24"
+                   min="1" max="10" value="1" required onchange="updateEstimate()" title="Số phòng">
+            <button type="button" class="btn-outline btn-sm btn-remove-row" onclick="removeItemRow(this)" title="Xóa dòng">✕</button>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-            <label style="font-size:12px; font-weight:700; white-space:nowrap;">Người lớn</label>
-            <input type="number" name="items[__INDEX__][adults]" class="item-adults"
-                   min="1" max="50" value="1" required onchange="updateEstimate()" style="width:75px;">
+        <div class="mt-2.5 flex flex-wrap items-center gap-2.5">
+            <label class="text-xs font-bold whitespace-nowrap">Người lớn</label>
+            <input type="number" name="items[__INDEX__][adults]" class="item-adults input w-20"
+                   min="1" max="50" value="1" required onchange="updateEstimate()">
 
-            <label style="font-size:12px; font-weight:700; white-space:nowrap;">Trẻ em</label>
-            <input type="number" name="items[__INDEX__][children]" class="item-children"
-                   min="0" max="50" value="0" onchange="updateEstimate()" style="width:75px;">
+            <label class="text-xs font-bold whitespace-nowrap">Trẻ em</label>
+            <input type="number" name="items[__INDEX__][children]" class="item-children input w-20"
+                   min="0" max="50" value="0" onchange="updateEstimate()">
 
-            <span class="item-capacity-hint" style="font-size:12px; color:var(--muted);"></span>
+            <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
         </div>
 
-        <div class="item-capacity-warning" style="display:none; color:var(--danger); font-size:12px; margin-top:6px; font-weight:600;"></div>
+        <div class="item-capacity-warning mt-1.5 hidden text-xs font-semibold text-red-500"></div>
     </div>
 </template>
 
@@ -266,18 +248,18 @@
 
             if (capacityPerRoom > 0 && guests > capacity) {
                 warnEl.textContent = `Vượt sức chứa: ${guests} khách > tối đa ${capacity} khách của loại phòng này.`;
-                warnEl.style.display = 'block';
+                warnEl.classList.remove('hidden');
             } else {
-                warnEl.style.display = 'none';
+                warnEl.classList.add('hidden');
             }
         });
 
         if (nights > 0 && total > 0) {
             totalEl.textContent  = fmt(total);
             detailEl.textContent = nights + ' đêm';
-            boxEl.style.display  = 'block';
+            boxEl.classList.remove('hidden');
         } else {
-            boxEl.style.display = 'none';
+            boxEl.classList.add('hidden');
         }
     };
 

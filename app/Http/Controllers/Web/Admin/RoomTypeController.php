@@ -102,6 +102,7 @@ class RoomTypeController extends Controller
             'bed_type'        => ['nullable', 'string', 'max:100'],
             'area'            => ['nullable', 'numeric', 'min:0'],
             'total_rooms'     => ['required', 'integer', 'min:1'],
+            'is_featured'     => ['nullable', 'boolean'],
             'images_text'     => ['nullable', 'string'],
         ], [], [
             'name'            => 'tên loại phòng',
@@ -111,6 +112,7 @@ class RoomTypeController extends Controller
             'bed_type'        => 'loại giường',
             'area'            => 'diện tích',
             'total_rooms'     => 'tổng số phòng',
+            'is_featured'     => 'phòng nổi bật',
         ]);
 
         $data['images'] = collect(explode("\n", $data['images_text'] ?? ''))
@@ -118,6 +120,8 @@ class RoomTypeController extends Controller
             ->filter()
             ->values()
             ->all();
+
+        $data['is_featured'] = $request->boolean('is_featured');
 
         unset($data['images_text']);
 

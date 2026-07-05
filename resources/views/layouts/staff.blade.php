@@ -5,309 +5,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Khu vực nhân viên · Homi')</title>
-    <style>
-        :root {
-            --primary: #0d9488;
-            --primary-dark: #0f766e;
-            --primary-soft: #e6fbf8;
-            --sidebar-bg: #0b1f1c;
-            --sidebar-text: #a9d4cd;
-            --white: #ffffff;
-            --text: #1f2a2a;
-            --muted: #647572;
-            --border: #c9f0ea;
-            --bg: #f3fbfa;
-            --success: #1a9b5b;
-            --danger: #d93025;
-            --warning: #b15c00;
-            --radius-lg: 20px;
-            --radius-md: 14px;
-            --radius-sm: 10px;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html, body {
-            margin: 0;
-            padding: 0;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-        }
-
-        a { text-decoration: none; color: var(--primary); }
-
-        .admin-shell {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 248px;
-            flex-shrink: 0;
-            background: var(--sidebar-bg);
-            color: var(--sidebar-text);
-            padding: 24px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .sidebar-brand {
-            color: var(--white);
-            font-size: 22px;
-            font-weight: 800;
-            padding: 0 8px 20px;
-        }
-
-        .sidebar-brand small {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--sidebar-text);
-        }
-
-        .sidebar a {
-            color: var(--sidebar-text);
-            padding: 11px 12px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            transition: 0.15s ease;
-        }
-
-        .sidebar a:hover {
-            background: rgba(255, 255, 255, 0.06);
-            color: var(--white);
-        }
-
-        .sidebar a.active {
-            background: var(--primary);
-            color: var(--white);
-        }
-
-        .sidebar-footer {
-            margin-top: auto;
-            padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .main {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            padding: 18px 28px;
-            background: var(--white);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .topbar-title { font-size: 18px; font-weight: 800; }
-        .topbar-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
-
-        .content { padding: 28px; }
-
-        .card {
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            box-shadow: 0 12px 28px rgba(15, 118, 110, 0.08);
-            padding: 24px;
-        }
-
-        .card + .card { margin-top: 20px; }
-
-        .section-kicker {
-            display: inline-block;
-            margin-bottom: 6px;
-            color: var(--primary);
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-
-        .section-title { margin: 0 0 8px; font-size: 22px; line-height: 1.2; }
-        .section-desc { margin: 0; color: var(--muted); line-height: 1.6; }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border: none;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            padding: 10px 16px;
-            cursor: pointer;
-        }
-
-        .btn-primary { background: var(--primary); color: var(--white); }
-        .btn-primary:hover { background: var(--primary-dark); }
-        .btn-outline { background: var(--white); color: var(--primary); border: 1px solid var(--border); }
-        .btn-outline:hover { background: var(--primary-soft); }
-        .btn-danger { background: #fdeceb; color: var(--danger); border: 1px solid #f6c8c3; }
-        .btn-danger:hover { background: #fbdedb; }
-        .btn-sm { padding: 7px 11px; font-size: 13px; border-radius: 8px; }
-        .btn-block { width: 100%; }
-
-        .page-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .form-grid { display: grid; gap: 16px; }
-        .form-group { display: grid; gap: 6px; }
-        label { font-size: 13px; font-weight: 700; }
-
-        input, select, textarea {
-            width: 100%;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: #fbfffe;
-            padding: 10px 12px;
-            font-size: 14px;
-            font-family: inherit;
-            color: var(--text);
-            outline: none;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.10);
-        }
-
-        textarea { resize: vertical; }
-
-        .checkbox-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 8px;
-        }
-
-        .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
-        .checkbox-item input { width: auto; }
-
-        .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-        .filter-bar input, .filter-bar select { width: auto; min-width: 180px; }
-
-        .alert { border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 14px; }
-        .alert-success { background: #eafaf1; border: 1px solid #bfeed4; color: var(--success); }
-        .alert-danger { background: #fff1f0; border: 1px solid #ffd1cc; color: var(--danger); }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            border-radius: 999px;
-            padding: 5px 10px;
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-        .badge-blue { background: #e8f0ff; color: #1850d8; }
-        .badge-green { background: #e8f8ef; color: #1a8d55; }
-        .badge-orange { background: #fff3e0; color: var(--warning); }
-        .badge-red { background: #fdeceb; color: var(--danger); }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 18px;
-        }
-
-        .stat-label { color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-        .stat-value { font-size: 22px; font-weight: 800; }
-
-        .table-wrapper { width: 100%; overflow: auto; border: 1px solid var(--border); border-radius: 14px; }
-        table { width: 100%; border-collapse: collapse; background: var(--white); }
-        thead th {
-            background: var(--primary-soft);
-            color: #0f5b52;
-            font-size: 12px;
-            font-weight: 800;
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-        }
-        tbody td { padding: 11px 12px; border-bottom: 1px solid #eafcf8; font-size: 13px; vertical-align: top; }
-        tbody tr:hover { background: #f2fdfb; }
-
-        .empty-box {
-            padding: 16px;
-            border-radius: 12px;
-            background: #f6fffd;
-            border: 1px dashed var(--border);
-            color: var(--muted);
-        }
-
-        .action-row { display: flex; flex-wrap: wrap; gap: 6px; }
-        .action-row form { margin: 0; display: inline; }
-
-        @media (max-width: 900px) {
-            .admin-shell { flex-direction: column; }
-            .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; }
-            .sidebar-footer { margin-top: 0; border-top: none; }
-            .stats-grid { grid-template-columns: 1fr 1fr; }
-        }
-    </style>
+    @include('partials._theme-script')
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
 
-<body>
-    <div class="admin-shell">
-        <aside class="sidebar">
-            <div class="sidebar-brand">
-                Homi <small>Khu vực nhân viên</small>
+<body class="bg-slate-50 font-sans text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+    <div class="flex min-h-screen flex-col md:flex-row">
+        <aside class="flex shrink-0 flex-col gap-1 bg-teal-950 p-4 text-teal-200 md:w-64 md:p-5">
+            <div class="px-2 pb-5">
+                <div class="font-heading text-xl font-extrabold text-white">Homi</div>
+                <small class="text-xs font-semibold text-teal-300/80">Khu vực nhân viên</small>
             </div>
 
-            <a href="{{ route('staff.dashboard') }}" class="{{ request()->routeIs('staff.dashboard') ? 'active' : '' }}">Tổng quan</a>
-            <a href="{{ route('staff.hotel-info.show') }}" class="{{ request()->routeIs('staff.hotel-info.*') ? 'active' : '' }}">Thông tin khách sạn</a>
-            <a href="{{ route('staff.room-types.index') }}" class="{{ request()->routeIs('staff.room-types.*') ? 'active' : '' }}">Loại phòng</a>
-            <a href="{{ route('staff.bookings.index') }}" class="{{ request()->routeIs('staff.bookings.*') ? 'active' : '' }}">Đơn đặt phòng</a>
-            <a href="{{ route('staff.payments.index') }}" class="{{ request()->routeIs('staff.payments.*') ? 'active' : '' }}">Thanh toán</a>
+            <nav class="flex flex-row flex-wrap gap-1 md:flex-col md:flex-nowrap">
+                @php
+                    $staffLinks = [
+                        ['route' => 'staff.dashboard', 'pattern' => 'staff.dashboard', 'label' => 'Tổng quan'],
+                        ['route' => 'staff.hotel-info.show', 'pattern' => 'staff.hotel-info.*', 'label' => 'Thông tin khách sạn'],
+                        ['route' => 'staff.room-types.index', 'pattern' => 'staff.room-types.*', 'label' => 'Loại phòng'],
+                        ['route' => 'staff.bookings.index', 'pattern' => 'staff.bookings.*', 'label' => 'Đơn đặt phòng'],
+                        ['route' => 'staff.payments.index', 'pattern' => 'staff.payments.*', 'label' => 'Thanh toán'],
+                    ];
+                @endphp
 
-            <div class="sidebar-footer">
-                <a href="{{ route('home') }}">← Về trang khách hàng</a>
-                <form method="POST" action="{{ route('admin.logout') }}" style="margin: 8px 0 0;">
+                @foreach ($staffLinks as $link)
+                    <a href="{{ route($link['route']) }}"
+                        class="rounded-lg px-3 py-2.5 text-sm font-semibold transition {{ request()->routeIs($link['pattern']) ? 'bg-teal-600 text-white' : 'hover:bg-white/5 hover:text-white' }}">
+                        {{ $link['label'] }}
+                    </a>
+                @endforeach
+            </nav>
+
+            <div class="mt-auto border-t border-white/10 pt-4">
+                <a href="{{ route('home') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/5 hover:text-white">← Về trang khách hàng</a>
+                <form method="POST" action="{{ route('admin.logout') }}" class="mt-2">
                     @csrf
-                    <button type="submit" class="btn btn-outline btn-block" style="background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.14);">Đăng xuất</button>
+                    <button type="submit" class="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">Đăng xuất</button>
                 </form>
             </div>
         </aside>
 
-        <div class="main">
-            <header class="topbar">
+        <div class="min-w-0 flex-1">
+            <header class="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
                 <div>
-                    <div class="topbar-title">@yield('page_title', 'Khu vực nhân viên')</div>
-                    <div class="topbar-sub">@yield('page_subtitle', '')</div>
+                    <div class="text-lg font-extrabold text-slate-900 dark:text-white">@yield('page_title', 'Khu vực nhân viên')</div>
+                    <div class="text-sm text-slate-500 dark:text-slate-400">@yield('page_subtitle', '')</div>
                 </div>
-                <div style="font-size: 13px; color: var(--muted);">
-                    {{ auth()->user()->name }} · Nhân viên
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="homiToggleTheme()" aria-label="Đổi giao diện sáng/tối"
+                        class="grid h-10 w-10 place-items-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                        <svg class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1.5m0 15V21m9-9h-1.5M4.5 12H3m15.36 6.36-1.06-1.06M6.7 6.7 5.64 5.64m12.72 0-1.06 1.06M6.7 17.3l-1.06 1.06M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>
+                        <svg class="hidden h-5 w-5 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+                    </button>
+                    <div class="hidden text-right text-sm sm:block">
+                        <div class="font-semibold text-slate-800 dark:text-slate-100">{{ auth()->user()->name }}</div>
+                        <div class="text-xs text-slate-400">Nhân viên</div>
+                    </div>
                 </div>
             </header>
 
-            <div class="content">
+            <div class="space-y-4 p-6">
                 @if (session('success'))
                     <div class="alert alert-success">{{ session('success') }}</div>
                 @endif
@@ -328,6 +86,8 @@
             </div>
         </div>
     </div>
+
+    @stack('scripts')
 </body>
 
 </html>

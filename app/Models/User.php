@@ -21,6 +21,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'address',
+        'avatar_path',
         'role',
         'status',
     ];
@@ -52,5 +53,16 @@ class User extends Authenticatable
     public function isStaff(): bool
     {
         return $this->role === 'staff';
+    }
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (! $this->avatar_path) {
+            return null;
+        }
+
+        return str_starts_with($this->avatar_path, 'http://') || str_starts_with($this->avatar_path, 'https://')
+            ? $this->avatar_path
+            : asset('storage/' . $this->avatar_path);
     }
 }

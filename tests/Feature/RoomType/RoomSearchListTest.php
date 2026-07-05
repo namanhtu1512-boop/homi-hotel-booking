@@ -476,7 +476,13 @@ class RoomSearchListTest extends TestCase
     public function test_TC_RSL_071_no_n_plus_1_query_with_10_rooms(): void
     {
         // Eager loading đã được cấu hình trong RoomTypeService::search()
-        // Tối đa 5 queries: connect, session, rooms, images, amenities
+        // Tối đa 5 queries: rooms (count+select), room images, hotel_info
+        // (địa chỉ + số sao hiển thị ở sidebar), điểm đánh giá trung bình.
+        // Seed hotel_info trước để không tính luôn INSERT tạo bản ghi mặc
+        // định (chi phí một lần duy nhất lúc khởi tạo hệ thống, không phải
+        // N+1 thật của trang danh sách phòng).
+        $this->seed(\Database\Seeders\HotelInfoSeeder::class);
+
         RoomType::factory()->count(10)->create(['status' => 'active']);
 
         $queryCount = 0;

@@ -20,6 +20,7 @@ class StoreBookingRequest extends BaseFormRequest
             'customer_phone'       => ['required', 'string', 'max:20'],
             'customer_email'       => ['nullable', 'email', 'max:100'],
             'note'                 => ['nullable', 'string', 'max:500'],
+            'promo_code'           => ['nullable', 'string', 'max:50'],
         ];
     }
 

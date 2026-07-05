@@ -86,7 +86,7 @@
                                 @if ($booking->payment)
                                     <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span>
                                 @else
-                                    <span style="color: var(--muted);">—</span>
+                                    <span class="text-slate-400">—</span>
                                 @endif
                             </td>
                             <td>

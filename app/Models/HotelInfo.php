@@ -23,6 +23,8 @@ class HotelInfo extends Model
     protected $fillable = [
         'name',
         'address',
+        'phone',
+        'email',
         'description',
         'check_in_time',
         'check_out_time',

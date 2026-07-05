@@ -4,887 +4,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Homi')</title>
-    <style>
-        :root {
-            --primary: #1e5eff;
-            --primary-dark: #1147c9;
-            --primary-soft: #edf4ff;
-            --primary-soft-2: #dbe9ff;
-            --white: #ffffff;
-            --text: #1f2a44;
-            --muted: #6c7a96;
-            --border: #d6e4ff;
-            --bg: #f4f8ff;
-            --success: #1a9b5b;
-            --danger: #d93025;
-            --shadow: 0 18px 40px rgba(17, 71, 201, 0.10);
-            --shadow-light: 0 10px 24px rgba(17, 71, 201, 0.08);
-            --radius-lg: 24px;
-            --radius-md: 16px;
-            --radius-sm: 12px;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(180deg, #f2f7ff 0%, #f8fbff 100%);
-            color: var(--text);
-        }
-
-        a {
-            text-decoration: none;
-            color: var(--primary);
-        }
-
-        .container {
-            width: min(1180px, calc(100% - 32px));
-            margin: 0 auto;
-        }
-
-        .top-banner {
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, #0b46c4 0%, #1e5eff 48%, #6aa7ff 100%);
-            color: var(--white);
-            padding: 22px 0 60px;
-        }
-
-        .top-banner::before,
-        .top-banner::after {
-            content: "";
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.10);
-            pointer-events: none;
-        }
-
-        .top-banner::before {
-            width: 320px;
-            height: 320px;
-            top: -100px;
-            right: -90px;
-        }
-
-        .top-banner::after {
-            width: 220px;
-            height: 220px;
-            left: -60px;
-            bottom: -80px;
-        }
-
-        .navbar {
-            position: relative;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 26px;
-        }
-
-        .brand {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: 0.4px;
-            color: var(--white);
-        }
-
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .nav-link {
-            color: rgba(255, 255, 255, 0.92);
-            font-weight: 600;
-            padding: 10px 14px;
-            border-radius: 999px;
-            transition: 0.2s ease;
-        }
-
-        .nav-link:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: var(--white);
-        }
-
-        .banner-content {
-            position: relative;
-            z-index: 2;
-            max-width: 760px;
-        }
-
-        .banner-tag {
-            display: inline-block;
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0.4px;
-            text-transform: uppercase;
-            padding: 8px 14px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.14);
-            margin-bottom: 18px;
-        }
-
-        .banner-content h1 {
-            margin: 0 0 14px;
-            font-size: clamp(30px, 4vw, 46px);
-            line-height: 1.15;
-        }
-
-        .banner-content p {
-            margin: 0;
-            max-width: 720px;
-            font-size: 16px;
-            line-height: 1.7;
-            color: rgba(255, 255, 255, 0.92);
-        }
-
-        .banner-subtitle-row {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px 14px;
-        }
-
-        .page-shell {
-            position: relative;
-            z-index: 1;
-            margin-top: -34px;
-            padding-bottom: 36px;
-        }
-
-        .card {
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            padding: 28px;
-        }
-
-        .card+.card {
-            margin-top: 22px;
-        }
-
-        .section-kicker {
-            display: inline-block;
-            margin-bottom: 8px;
-            color: var(--primary);
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-
-        .section-title {
-            margin: 0 0 10px;
-            font-size: 28px;
-            line-height: 1.2;
-        }
-
-        .section-desc {
-            margin: 0;
-            color: var(--muted);
-            line-height: 1.7;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border: none;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 700;
-            padding: 12px 18px;
-            cursor: pointer;
-            transition: 0.2s ease;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: var(--white);
-            box-shadow: var(--shadow-light);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            opacity: 0.97;
-        }
-
-        .btn-outline {
-            background: var(--white);
-            color: var(--primary);
-            border: 1.5px solid var(--primary-soft-2);
-        }
-
-        .btn-outline:hover {
-            background: var(--primary-soft);
-            border-color: var(--primary);
-        }
-
-        .btn-light {
-            background: rgba(255, 255, 255, 0.16);
-            color: var(--white);
-            border: 1px solid rgba(255, 255, 255, 0.22);
-        }
-
-        .btn-light:hover {
-            background: rgba(255, 255, 255, 0.22);
-        }
-
-        .btn-block {
-            width: 100%;
-        }
-
-        .form-grid {
-            display: grid;
-            gap: 18px;
-        }
-
-        .form-group {
-            display: grid;
-            gap: 8px;
-        }
-
-        label {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        input {
-            width: 100%;
-            height: 48px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            background: #fbfdff;
-            padding: 0 14px;
-            font-size: 15px;
-            color: var(--text);
-            outline: none;
-            transition: 0.2s ease;
-        }
-
-        input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(30, 94, 255, 0.10);
-            background: var(--white);
-        }
-
-        select,
-        textarea {
-            width: 100%;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            background: #fbfdff;
-            padding: 12px 14px;
-            font-size: 15px;
-            font-family: inherit;
-            color: var(--text);
-            outline: none;
-            transition: 0.2s ease;
-        }
-
-        select {
-            height: 48px;
-        }
-
-        textarea {
-            resize: vertical;
-        }
-
-        select:focus,
-        textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(30, 94, 255, 0.10);
-            background: var(--white);
-        }
-
-        .checkbox-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 10px;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text);
-        }
-
-        .checkbox-item input {
-            width: auto;
-            height: auto;
-        }
-
-        .badge-orange {
-            background: #fff3e0;
-            color: #b15c00;
-        }
-
-        .badge-red {
-            background: #fdeceb;
-            color: var(--danger);
-        }
-
-        .action-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .btn-sm {
-            padding: 8px 12px;
-            font-size: 13px;
-            border-radius: 10px;
-        }
-
-        .btn-danger {
-            background: #fdeceb;
-            color: var(--danger);
-            border: 1.5px solid #f2a89f;
-        }
-
-        .btn-danger:hover {
-            background: #fbdedb;
-            border-color: var(--danger);
-        }
-
-        .filter-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 22px;
-        }
-
-        .filter-bar input,
-        .filter-bar select {
-            width: auto;
-            min-width: 180px;
-        }
-
-        .hotel-gallery-main {
-            height: 340px;
-            background: var(--primary-soft) center/cover no-repeat;
-            border-radius: var(--radius-lg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary);
-            font-weight: 700;
-        }
-
-        .hotel-gallery-thumbs {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .hotel-gallery-thumb {
-            height: 110px;
-            background: var(--primary-soft) center/cover no-repeat;
-            border-radius: var(--radius-md);
-        }
-
-        @media (max-width: 640px) {
-            .hotel-gallery-main {
-                height: 220px;
-            }
-
-            .hotel-gallery-thumb {
-                height: 90px;
-            }
-        }
-
-        .room-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 20px;
-        }
-
-        .room-card {
-            display: flex;
-            flex-direction: column;
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-light);
-            overflow: hidden;
-        }
-
-        .room-card-image {
-            height: 160px;
-            background: var(--primary-soft) center/cover no-repeat;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary);
-            font-weight: 700;
-            font-size: 13px;
-        }
-
-        .room-card-body {
-            display: grid;
-            gap: 10px;
-            padding: 18px;
-            flex: 1;
-        }
-
-        .room-card-title {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 800;
-        }
-
-        .room-card-desc {
-            margin: 0;
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .room-card-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .room-card-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            padding-top: 12px;
-            margin-top: auto;
-            border-top: 1px solid var(--border);
-        }
-
-        .room-card-price {
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--primary);
-        }
-
-        .alert-success {
-            background: #eafaf1;
-            border: 1px solid #bfeed4;
-            color: var(--success);
-        }
-
-        .alert {
-            border-radius: 14px;
-            padding: 14px 16px;
-            margin-bottom: 18px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .alert-danger {
-            background: #fff1f0;
-            border: 1px solid #ffd1cc;
-            color: var(--danger);
-        }
-
-        .auth-layout {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 24px;
-            align-items: stretch;
-        }
-
-        .auth-card {
-            min-height: 100%;
-        }
-
-        .auth-side {
-            min-height: 100%;
-            background: linear-gradient(180deg, #f7fbff 0%, #edf4ff 100%);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow);
-            padding: 28px;
-        }
-
-        .auth-features {
-            margin-top: 18px;
-            display: grid;
-            gap: 14px;
-        }
-
-        .feature-box {
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 16px 18px;
-        }
-
-        .feature-box h4 {
-            margin: 0 0 8px;
-            font-size: 16px;
-        }
-
-        .feature-box p {
-            margin: 0;
-            color: var(--muted);
-            line-height: 1.65;
-            font-size: 14px;
-        }
-
-        .auth-footer {
-            margin-top: 16px;
-            color: var(--muted);
-            font-size: 14px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 18px;
-            margin-bottom: 22px;
-        }
-
-        .stat-card {
-            background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 20px;
-            box-shadow: var(--shadow-light);
-        }
-
-        .stat-label {
-            margin-bottom: 8px;
-            color: var(--muted);
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .stat-value {
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--text);
-        }
-
-        .stat-note {
-            margin-top: 6px;
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 22px;
-        }
-
-        .info-list {
-            display: grid;
-            margin-top: 16px;
-            border-top: 1px solid var(--border);
-        }
-
-        .info-item {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px 14px;
-            padding: 13px 2px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .info-item .label {
-            color: var(--muted);
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .info-item .value {
-            color: var(--text);
-            font-weight: 700;
-            text-align: right;
-            word-break: break-word;
-            min-width: 0;
-            margin-left: auto;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            padding: 7px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .badge-blue {
-            background: #e8f0ff;
-            color: #1850d8;
-        }
-
-        .badge-green {
-            background: #e8f8ef;
-            color: #1a8d55;
-        }
-
-        .quick-actions {
-            margin-top: 16px;
-            display: grid;
-            gap: 12px;
-        }
-
-        .quick-actions-row {
-            margin-top: 16px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .quick-actions-row > * {
-            flex: 1;
-            min-width: 140px;
-        }
-
-        .quick-actions-row .btn {
-            width: 100%;
-        }
-
-        .table-section-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .table-count {
-            min-width: 88px;
-            text-align: center;
-            background: var(--primary-soft);
-            color: var(--primary);
-            border-radius: 14px;
-            padding: 12px 14px;
-            font-weight: 800;
-        }
-
-        .db-summary {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 16px;
-            margin-bottom: 22px;
-        }
-
-        .db-summary-card {
-            background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 18px;
-        }
-
-        .db-summary-card .name {
-            color: var(--muted);
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            text-transform: capitalize;
-        }
-
-        .db-summary-card .value {
-            font-size: 24px;
-            font-weight: 800;
-            color: var(--text);
-        }
-
-        .table-wrapper {
-            width: 100%;
-            overflow: auto;
-            border: 1px solid var(--border);
-            border-radius: 16px;
-        }
-
-        table {
-            width: 100%;
-            min-width: 980px;
-            border-collapse: collapse;
-            background: var(--white);
-        }
-
-        thead th {
-            background: #edf4ff;
-            color: #23408b;
-            font-size: 13px;
-            font-weight: 800;
-            text-align: left;
-            padding: 14px;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-        }
-
-        tbody td {
-            padding: 13px 14px;
-            border-bottom: 1px solid #eef3ff;
-            font-size: 14px;
-            color: var(--text);
-            vertical-align: top;
-        }
-
-        tbody tr:nth-child(even) {
-            background: #fbfdff;
-        }
-
-        tbody tr:hover {
-            background: #f2f7ff;
-        }
-
-        .empty-box {
-            padding: 18px;
-            border-radius: 14px;
-            background: #f8fbff;
-            border: 1px dashed var(--border);
-            color: var(--muted);
-        }
-
-        .page-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 22px;
-            flex-wrap: wrap;
-        }
-
-        .logout-form {
-            margin: 0;
-        }
-
-        @media (max-width: 1024px) {
-
-            .auth-layout,
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .stats-grid,
-            .db-summary {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .container {
-                width: min(100% - 20px, 100%);
-            }
-
-            .top-banner {
-                padding: 16px 0 52px;
-            }
-
-            .navbar {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .brand {
-                font-size: 24px;
-            }
-
-            .card,
-            .auth-side {
-                padding: 20px;
-                border-radius: 18px;
-            }
-
-            .stats-grid,
-            .db-summary {
-                grid-template-columns: 1fr;
-            }
-
-            .section-title {
-                font-size: 24px;
-            }
-
-            .banner-content h1 {
-                font-size: 30px;
-            }
-
-            .info-item {
-                flex-direction: column;
-            }
-
-            .info-item .value {
-                text-align: left;
-            }
-        }
-    </style>
+    <title>@yield('title', 'Homi · Đặt phòng khách sạn')</title>
+    @include('partials._theme-script')
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body>
-    <header class="top-banner">
-        <div class="container">
-            <div class="navbar">
-                <div class="brand">Homi</div>
+<body class="font-sans text-slate-800 dark:text-slate-100">
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+        <div class="mx-auto flex w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4 py-4">
+            <a href="{{ route('home') }}" class="font-heading text-2xl font-extrabold text-primary">Homi</a>
 
-                <div class="nav-right">
-                    <a href="{{ route('home') }}" class="nav-link">Trang chủ</a>
-                    <a href="{{ route('rooms.index') }}" class="nav-link">Phòng</a>
+            <nav class="hidden items-center gap-1 lg:flex">
+                <a href="{{ route('home') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Trang chủ</a>
+                <a href="{{ route('rooms.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Khách sạn</a>
+                @if (Route::has('promotions.index'))
+                    <a href="{{ route('promotions.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Khuyến mãi</a>
+                @endif
+                @if (Route::has('contact.show'))
+                    <a href="{{ route('contact.show') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Liên hệ</a>
+                @endif
+            </nav>
 
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="homiToggleTheme()" aria-label="Đổi giao diện sáng/tối"
+                    class="grid h-10 w-10 place-items-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                    <svg class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1.5m0 15V21m9-9h-1.5M4.5 12H3m15.36 6.36-1.06-1.06M6.7 6.7 5.64 5.64m12.72 0-1.06 1.06M6.7 17.3l-1.06 1.06M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>
+                    <svg class="hidden h-5 w-5 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+                </button>
+
+                <div class="hidden items-center gap-2 sm:flex">
                     @auth
                         @if (auth()->user()->isAdmin())
-                            <a href="{{ route('admin.dashboard') }}" class="nav-link">Trang quản trị</a>
+                            <a href="{{ route('admin.dashboard') }}" class="btn-outline btn-sm">Trang quản trị</a>
                         @elseif (auth()->user()->isStaff())
-                            <a href="{{ route('staff.dashboard') }}" class="nav-link">Khu vực nhân viên</a>
+                            <a href="{{ route('staff.dashboard') }}" class="btn-outline btn-sm">Khu vực nhân viên</a>
                         @else
-                            <a href="{{ route('customer.bookings.index') }}" class="nav-link">Đơn của tôi</a>
-                            <a href="{{ route('customer.wishlist.index') }}" class="nav-link">Danh sách chờ ({{ auth()->user()->wishlistItems()->count() }})</a>
-                            <a href="{{ route('customer.profile.show') }}" class="nav-link">Tài khoản</a>
-                            <a href="{{ route('customer.bookings.create') }}" class="btn btn-light">Đặt phòng</a>
+                            <a href="{{ route('customer.wishlist.index') }}" class="btn-outline btn-sm">Yêu thích ({{ auth()->user()->wishlistItems()->count() }})</a>
+                            <a href="{{ route('customer.bookings.index') }}" class="btn-outline btn-sm">Đơn của tôi</a>
+                            <a href="{{ route('customer.profile.show') }}" class="btn-outline btn-sm">Tài khoản</a>
+                            <a href="{{ route('customer.bookings.create') }}" class="btn-primary btn-sm">Đặt phòng</a>
                         @endif
-
-                        <form method="POST" action="{{ route('logout') }}" class="logout-form">
+                        <form method="POST" action="{{ route('logout') }}" class="m-0">
                             @csrf
-                            <button type="submit" class="btn btn-light">Đăng xuất</button>
+                            <button type="submit" class="btn-outline btn-sm">Đăng xuất</button>
                         </form>
                     @else
-                        <a href="{{ route('login') }}" class="nav-link">Đăng nhập</a>
-                        <a href="{{ route('register') }}" class="btn btn-light">Đăng ký</a>
+                        <a href="{{ route('login') }}" class="btn-outline btn-sm">Đăng nhập</a>
+                        <a href="{{ route('register') }}" class="btn-primary btn-sm">Đăng ký</a>
                     @endauth
                 </div>
-            </div>
 
-            <div class="banner-content">
-                <div class="banner-tag">@yield('banner_tag', 'Homi Hotel Booking')</div>
-                <h1>@yield('banner_title', 'Hệ thống quản lý đặt phòng Homi')</h1>
-                <div class="banner-subtitle-row">
-                    <p>@yield('banner_subtitle', 'Giao diện hiện đại, rõ ràng, dễ thao tác để quản lý tài khoản, khách sạn, loại phòng và dữ liệu đặt phòng.') </p>
-                    @hasSection('banner_badge')
-                        <span class="badge @yield('banner_badge_class', 'badge-blue')">@yield('banner_badge')</span>
+                <button type="button" onclick="document.getElementById('homi-mobile-nav').classList.toggle('hidden')" aria-label="Mở menu"
+                    class="grid h-10 w-10 place-items-center rounded-full text-slate-500 hover:bg-slate-100 sm:hidden dark:text-slate-300 dark:hover:bg-slate-800">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="homi-mobile-nav" class="hidden border-t border-slate-200 px-4 py-3 sm:hidden dark:border-slate-800">
+            <div class="flex flex-col gap-1">
+                <a href="{{ route('home') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Trang chủ</a>
+                <a href="{{ route('rooms.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khách sạn</a>
+                @if (Route::has('promotions.index'))
+                    <a href="{{ route('promotions.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khuyến mãi</a>
+                @endif
+                @if (Route::has('contact.show'))
+                    <a href="{{ route('contact.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Liên hệ</a>
+                @endif
+                <div class="my-2 border-t border-slate-200 dark:border-slate-800"></div>
+                @auth
+                    @if (auth()->user()->isAdmin())
+                        <a href="{{ route('admin.dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Trang quản trị</a>
+                    @elseif (auth()->user()->isStaff())
+                        <a href="{{ route('staff.dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khu vực nhân viên</a>
+                    @else
+                        <a href="{{ route('customer.wishlist.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Yêu thích</a>
+                        <a href="{{ route('customer.bookings.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
+                        <a href="{{ route('customer.profile.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
+                        <a href="{{ route('customer.bookings.create') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-slate-100 dark:hover:bg-slate-800">Đặt phòng</a>
                     @endif
-                </div>
+                    <form method="POST" action="{{ route('logout') }}" class="m-0">
+                        @csrf
+                        <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đăng xuất</button>
+                    </form>
+                @else
+                    <a href="{{ route('login') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đăng nhập</a>
+                    <a href="{{ route('register') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-slate-100 dark:hover:bg-slate-800">Đăng ký</a>
+                @endauth
             </div>
         </div>
     </header>
 
-    <main class="page-shell">
-        <div class="container">
+    <section class="relative overflow-hidden text-white">
+        @hasSection('hero_bg_image')
+            <img src="@yield('hero_bg_image')" alt="" class="absolute inset-0 h-full w-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-900/90 via-primary/80 to-blue-600/70"></div>
+        @else
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-700 via-primary to-blue-400"></div>
+        @endif
+        <div class="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-white/10"></div>
+        <div class="absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-white/10"></div>
+
+        <div class="relative mx-auto w-[min(1180px,calc(100%-32px))] py-8 sm:py-10">
+            <span class="mb-4 inline-block rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold tracking-wide uppercase">@yield('banner_tag', 'Homi Hotel Booking')</span>
+            <h1 class="max-w-2xl text-3xl leading-tight font-extrabold sm:text-4xl">@yield('banner_title', 'Hệ thống quản lý đặt phòng Homi')</h1>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+                <p class="max-w-xl text-sm leading-relaxed text-white/90 sm:text-base">@yield('banner_subtitle', 'Giao diện hiện đại, rõ ràng, dễ thao tác để quản lý tài khoản, khách sạn, loại phòng và dữ liệu đặt phòng.')</p>
+                @hasSection('banner_badge')
+                    <span class="badge @yield('banner_badge_class', 'badge-blue')">@yield('banner_badge')</span>
+                @endif
+            </div>
+
+            @hasSection('hero_extra')
+                <div class="mt-6">
+                    @yield('hero_extra')
+                </div>
+            @endif
+        </div>
+    </section>
+
+    <main class="relative -mt-6 pb-16">
+        <div class="mx-auto w-[min(1180px,calc(100%-32px))] space-y-6">
             @yield('content')
         </div>
     </main>
+
+    @include('partials._footer')
 </body>
 
 </html>

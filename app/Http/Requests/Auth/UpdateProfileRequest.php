@@ -14,6 +14,7 @@ class UpdateProfileRequest extends BaseFormRequest
             'email'   => ['sometimes', 'required', 'email', Rule::unique('users', 'email')->ignore($this->user()->id)],
             'phone'   => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
+            'avatar'  => ['nullable', 'image', 'max:2048'],
         ];
     }
 

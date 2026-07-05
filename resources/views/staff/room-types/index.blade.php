@@ -40,7 +40,7 @@
                             <td>{{ $room->total_rooms }}</td>
                             <td>
                                 @if ($room->status !== 'active')
-                                    <span style="color: var(--muted);">—</span>
+                                    <span class="text-slate-400">—</span>
                                 @elseif ($room->available_today > 0)
                                     <span class="badge badge-green">{{ $room->available_today }}</span>
                                 @else

@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Models\HotelInfo;
+use App\Models\Review;
 use App\Models\RoomType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator as BaseLengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -28,9 +31,10 @@ class RoomTypeService
     }
 
     /**
-     * BE2/BE3 Tuần 7 — Danh sách phòng active với filter cho trang công khai.
-     * check_in/check_out chỉ validate ở tầng Request, chưa lọc availability
-     * (chức năng đó thuộc Tuần 9).
+     * Danh sách phòng active với filter cho trang công khai (trang chủ + /rooms).
+     * Khi có đủ check_in/check_out, chỉ trả về loại phòng còn đủ số lượng
+     * trống trong khoảng ngày đó (dùng lại logic overlap của AvailabilityService,
+     * tính bulk 1 query thay vì gọi lặp từng phòng).
      */
     public function search(array $filters = [], int $perPage = 12): LengthAwarePaginator
     {
@@ -56,12 +60,69 @@ class RoomTypeService
             $query->where('capacity', '>=', $filters['capacity']);
         }
 
-        return $query->orderBy('price_per_night')->paginate($perPage)->withQueryString();
+        if (! empty($filters['bed_type'])) {
+            $query->where('bed_type', $filters['bed_type']);
+        }
+
+        $this->applySort($query, $filters['sort'] ?? null);
+
+        $hasDateRange = ! empty($filters['check_in']) && ! empty($filters['check_out']);
+
+        if (! $hasDateRange) {
+            return $query->paginate($perPage)->withQueryString();
+        }
+
+        $quantity = max(1, (int) ($filters['quantity'] ?? 1));
+        $roomTypes = $query->get();
+
+        $bookedCounts = DB::table('booking_items')
+            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+            ->whereIn('bookings.status', BookingStatus::holdingStatuses())
+            ->whereDate('bookings.check_in', '<', $filters['check_out'])
+            ->whereDate('bookings.check_out', '>', $filters['check_in'])
+            ->groupBy('booking_items.room_type_id')
+            ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
+            ->pluck('total_quantity', 'room_type_id');
+
+        $available = $roomTypes->filter(function (RoomType $room) use ($bookedCounts, $quantity) {
+            $room->available_quantity = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
+
+            return $room->available_quantity >= $quantity;
+        })->values();
+
+        $page = (int) request('page', 1);
+        $slice = $available->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return (new BaseLengthAwarePaginator($slice, $available->count(), $perPage, $page, [
+            'path'  => request()->url(),
+            'query' => request()->query(),
+        ]));
+    }
+
+    private function applySort($query, ?string $sort): void
+    {
+        match ($sort) {
+            'price_desc' => $query->orderByDesc('price_per_night'),
+            'newest'     => $query->orderByDesc('created_at'),
+            'rating'     => $query->leftJoinSub(
+                Review::visible()->selectRaw('room_type_id, AVG(rating) as avg_rating')->groupBy('room_type_id'),
+                'review_avg',
+                'review_avg.room_type_id',
+                '=',
+                'room_types.id'
+            )->orderByDesc('review_avg.avg_rating')->select('room_types.*'),
+            default => $query->orderBy('price_per_night'),
+        };
     }
 
     public function find(int $id): RoomType
     {
         return RoomType::with('images')->findOrFail($id);
+    }
+
+    public function featured(int $limit = 6): Collection
+    {
+        return RoomType::active()->featured()->with('images')->orderBy('price_per_night')->limit($limit)->get();
     }
 
     /**
@@ -119,6 +180,7 @@ class RoomTypeService
             'area'            => $data['area'] ?? null,
             'total_rooms'     => $data['total_rooms'],
             'status'          => 'active',
+            'is_featured'     => $data['is_featured'] ?? false,
         ]);
 
         if (! empty($data['images'])) {
@@ -137,7 +199,7 @@ class RoomTypeService
         // array_intersect_key (không phải array_filter loại bỏ null) — để admin
         // xóa field tùy chọn (description/bed_type/area) về rỗng thì giá trị
         // null vẫn được ghi xuống DB thay vì bị bỏ qua.
-        $updatable = ['name', 'description', 'price_per_night', 'capacity', 'bed_type', 'area', 'total_rooms'];
+        $updatable = ['name', 'description', 'price_per_night', 'capacity', 'bed_type', 'area', 'total_rooms', 'is_featured'];
         $fields = array_intersect_key($data, array_flip($updatable));
 
         if (isset($data['name'])) {

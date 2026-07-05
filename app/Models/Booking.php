@@ -14,6 +14,7 @@ class Booking extends Model
     protected $fillable = [
         'booking_code',
         'user_id',
+        'promotion_id',
         'check_in',
         'check_out',
         'nights',
@@ -23,22 +24,29 @@ class Booking extends Model
         'customer_email',
         'customer_phone',
         'total_amount',
+        'discount_amount',
         'status',
         'note',
     ];
 
     protected $casts = [
-        'check_in'     => 'date',
-        'check_out'    => 'date',
-        'adults'       => 'integer',
-        'children'     => 'integer',
-        'total_amount' => 'decimal:2',
-        'status'       => BookingStatus::class,
+        'check_in'        => 'date',
+        'check_out'       => 'date',
+        'adults'          => 'integer',
+        'children'        => 'integer',
+        'total_amount'    => 'decimal:2',
+        'discount_amount' => 'integer',
+        'status'          => BookingStatus::class,
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function promotion()
+    {
+        return $this->belongsTo(Promotion::class);
     }
 
     public function bookingItems()
@@ -54,6 +62,11 @@ class Booking extends Model
     public function statusLogs()
     {
         return $this->hasMany(BookingStatusLog::class)->orderBy('created_at');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
     }
 
     public function canCancelByCustomer(): bool
