@@ -56,6 +56,8 @@ class HotelInfoController extends Controller
         $data = $request->validate([
             'name'           => ['required', 'string', 'max:255'],
             'address'        => ['required', 'string', 'max:255'],
+            'phone'          => ['nullable', 'string', 'max:30'],
+            'email'          => ['nullable', 'email', 'max:255'],
             'description'    => ['nullable', 'string', 'max:5000'],
             'check_in_time'  => ['nullable', 'date_format:H:i'],
             'check_out_time' => ['nullable', 'date_format:H:i'],
@@ -69,6 +71,8 @@ class HotelInfoController extends Controller
         ], [], [
             'name'           => 'tên khách sạn',
             'address'        => 'địa chỉ',
+            'phone'          => 'số điện thoại',
+            'email'          => 'email',
             'description'    => 'mô tả',
             'check_in_time'  => 'giờ nhận phòng',
             'check_out_time' => 'giờ trả phòng',

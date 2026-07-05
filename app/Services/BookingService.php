@@ -23,6 +23,7 @@ class BookingService
     public function __construct(
         private AvailabilityService $availabilityService,
         private PricingService $pricingService,
+        private PromotionService $promotionService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -106,20 +107,30 @@ class BookingService
                 ];
             }
 
+            $promotion = null;
+            $discount  = 0;
+
+            if (! empty($data['promo_code'])) {
+                $promotion = $this->promotionService->findValidByCode($data['promo_code']);
+                $discount  = (int) $promotion->discountFor($total);
+            }
+
             $booking = Booking::create([
-                'user_id'        => $customer->id,
-                'booking_code'   => $this->generateCode(),
-                'check_in'       => $data['check_in'],
-                'check_out'      => $data['check_out'],
-                'nights'         => $nights,
-                'adults'         => $totalAdults,
-                'children'       => $totalChildren,
-                'customer_name'  => $data['customer_name'],
-                'customer_phone' => $data['customer_phone'],
-                'customer_email' => $data['customer_email'] ?? $customer->email,
-                'note'           => $data['note'] ?? null,
-                'total_amount'   => $total,
-                'status'         => BookingStatus::PENDING,
+                'user_id'         => $customer->id,
+                'promotion_id'    => $promotion?->id,
+                'booking_code'    => $this->generateCode(),
+                'check_in'        => $data['check_in'],
+                'check_out'       => $data['check_out'],
+                'nights'          => $nights,
+                'adults'          => $totalAdults,
+                'children'        => $totalChildren,
+                'customer_name'   => $data['customer_name'],
+                'customer_phone'  => $data['customer_phone'],
+                'customer_email'  => $data['customer_email'] ?? $customer->email,
+                'note'            => $data['note'] ?? null,
+                'total_amount'    => $total - $discount,
+                'discount_amount' => $discount,
+                'status'          => BookingStatus::PENDING,
             ]);
 
             $this->logStatus($booking, null, BookingStatus::PENDING, $customer->id, 'Khách tạo đơn đặt phòng.');
@@ -129,7 +140,7 @@ class BookingService
             }
 
             $payment = $booking->payment()->create([
-                'amount' => $total,
+                'amount' => $total - $discount,
                 'status' => PaymentStatus::UNPAID,
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);

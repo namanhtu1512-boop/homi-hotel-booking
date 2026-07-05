@@ -3,7 +3,390 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* Dark mode toggled via a `.dark` class on <html> (see partials/_theme-script.blade.php) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-heading: 'Poppins', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+    --color-primary: #2563eb;
+    --color-primary-dark: #1d4ed8;
+    --color-primary-light: #dbeafe;
+
+    --color-accent: #f59e0b;
+    --color-accent-dark: #d97706;
+    --color-accent-light: #fef3c7;
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100;
+    }
+}
+
+@layer components {
+    .btn,
+    .btn-primary,
+    .btn-accent,
+    .btn-outline,
+    .btn-light,
+    .btn-danger {
+        @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-primary {
+        @apply bg-primary text-white shadow-sm shadow-primary/30 hover:bg-primary-dark;
+    }
+
+    .btn-accent {
+        @apply bg-accent text-white shadow-sm shadow-accent/30 hover:bg-accent-dark;
+    }
+
+    .btn-outline {
+        @apply border border-slate-200 bg-white text-primary hover:bg-primary-light/40 dark:border-slate-700 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-slate-800;
+    }
+
+    .btn-light {
+        @apply border border-white/25 bg-white/15 text-white backdrop-blur hover:bg-white/25;
+    }
+
+    .btn-danger {
+        @apply border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900 dark:bg-red-950 dark:text-red-300;
+    }
+
+    .btn-sm {
+        @apply rounded-lg px-3 py-1.5 text-xs;
+    }
+
+    .btn-block {
+        @apply w-full;
+    }
+
+    .card {
+        @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none;
+    }
+
+    .badge {
+        @apply inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold;
+    }
+
+    .badge-blue {
+        @apply bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300;
+    }
+
+    .badge-green {
+        @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300;
+    }
+
+    .badge-orange {
+        @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300;
+    }
+
+    .badge-red {
+        @apply bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300;
+    }
+
+    .input {
+        @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900;
+    }
+
+    select.input {
+        @apply pr-8;
+    }
+
+    textarea.input {
+        @apply resize-y;
+    }
+
+    .form-label {
+        @apply mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200;
+    }
+
+    .section-kicker {
+        @apply mb-2 inline-block text-xs font-bold tracking-wide text-primary uppercase;
+    }
+
+    .section-title {
+        @apply font-heading text-2xl font-bold text-slate-900 dark:text-white;
+    }
+
+    .section-desc {
+        @apply text-slate-500 dark:text-slate-400;
+    }
+}
+
+/*
+ * Lớp tương thích tạm thời cho các view CHƯA được viết lại bằng Tailwind
+ * thuần (đang dùng nguyên tên class cũ như .card/.form-grid/.table-wrapper).
+ * Nhờ đây toàn bộ site nhận ngay màu thương hiệu/font/dark-mode mới mà
+ * không cần sửa từng file cùng lúc. Xóa dần từng class ở đây khi view
+ * tương ứng được viết lại bằng Tailwind thuần.
+ */
+@layer components {
+    .container {
+        @apply mx-auto w-[min(1180px,calc(100%-32px))];
+    }
+
+    .page-actions {
+        @apply mb-5 flex flex-wrap items-center justify-between gap-3.5;
+    }
+
+    .action-row {
+        @apply flex flex-wrap gap-2;
+    }
+
+    .action-row form {
+        @apply m-0 inline;
+    }
+
+    .form-grid {
+        @apply grid gap-4;
+    }
+
+    .form-group {
+        @apply grid gap-1.5;
+    }
+
+    .form-group label {
+        @apply text-sm font-bold text-slate-700 dark:text-slate-200;
+    }
+
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+        @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900;
+    }
+
+    textarea {
+        @apply resize-y;
+    }
+
+    .checkbox-grid {
+        @apply grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5;
+    }
+
+    .checkbox-item {
+        @apply flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300;
+    }
+
+    .checkbox-item input {
+        @apply h-4 rounded border-slate-300 accent-primary;
+        width: auto;
+    }
+
+    .filter-bar {
+        @apply mb-5 flex flex-wrap gap-2.5;
+    }
+
+    .filter-bar input,
+    .filter-bar select {
+        @apply w-auto min-w-[180px];
+    }
+
+    .alert {
+        @apply mb-4 rounded-xl px-4 py-3.5 text-sm leading-relaxed;
+    }
+
+    .alert-success {
+        @apply border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300;
+    }
+
+    .alert-danger {
+        @apply border border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-300;
+    }
+
+    .stats-grid {
+        @apply mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4;
+    }
+
+    .stat-card {
+        @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    }
+
+    .stat-label {
+        @apply mb-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400;
+    }
+
+    .stat-value {
+        @apply text-2xl font-extrabold text-slate-900 dark:text-white;
+    }
+
+    .stat-note {
+        @apply mt-1.5 text-xs leading-relaxed text-slate-400;
+    }
+
+    .dashboard-grid {
+        @apply grid gap-5 lg:grid-cols-[1.2fr_0.8fr];
+    }
+
+    .info-list {
+        @apply grid border-t border-slate-200 dark:border-slate-800;
+    }
+
+    .info-item {
+        @apply flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 py-3.5 dark:border-slate-800;
+    }
+
+    .info-item .label {
+        @apply flex-shrink-0 font-semibold text-slate-500 dark:text-slate-400;
+    }
+
+    .info-item .value {
+        @apply ml-auto min-w-0 text-right font-bold break-words text-slate-800 dark:text-slate-100;
+    }
+
+    .quick-actions {
+        @apply mt-4 grid gap-3;
+    }
+
+    .quick-actions-row {
+        @apply mt-4 flex flex-wrap gap-3;
+    }
+
+    .quick-actions-row > * {
+        @apply min-w-[140px] flex-1;
+    }
+
+    .quick-actions-row .btn,
+    .quick-actions-row form {
+        @apply w-full;
+    }
+
+    .table-wrapper {
+        @apply w-full overflow-auto rounded-2xl border border-slate-200 dark:border-slate-800;
+    }
+
+    table {
+        @apply w-full min-w-[720px] border-collapse bg-white dark:bg-slate-900;
+    }
+
+    thead th {
+        @apply border-b border-slate-200 bg-slate-50 px-3.5 py-3 text-left text-xs font-extrabold whitespace-nowrap text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300;
+    }
+
+    tbody td {
+        @apply border-b border-slate-100 px-3.5 py-3 align-top text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200;
+    }
+
+    tbody tr:hover {
+        @apply bg-slate-50 dark:bg-slate-800/60;
+    }
+
+    .empty-box {
+        @apply rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400;
+    }
+
+    .auth-layout {
+        @apply grid items-stretch gap-6 lg:grid-cols-[1.1fr_0.9fr];
+    }
+
+    .auth-card {
+        @apply min-h-full;
+    }
+
+    .auth-side {
+        @apply min-h-full rounded-2xl border border-slate-200 bg-gradient-to-b from-blue-50 to-white p-7 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-950;
+    }
+
+    .auth-features {
+        @apply mt-4 grid gap-3.5;
+    }
+
+    .feature-box {
+        @apply rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900;
+    }
+
+    .feature-box h4 {
+        @apply mb-1.5 text-base font-bold text-slate-900 dark:text-white;
+    }
+
+    .feature-box p {
+        @apply text-sm leading-relaxed text-slate-500 dark:text-slate-400;
+    }
+
+    .auth-footer {
+        @apply mt-4 text-sm text-slate-500 dark:text-slate-400;
+    }
+
+    .hotel-gallery-main {
+        @apply grid h-[340px] place-items-center rounded-2xl bg-primary-light bg-cover bg-center font-bold text-primary sm:h-[220px];
+    }
+
+    .hotel-gallery-thumbs {
+        @apply mt-3 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3;
+    }
+
+    .hotel-gallery-thumb {
+        @apply h-[110px] rounded-xl bg-primary-light bg-cover bg-center sm:h-[90px];
+    }
+
+    .room-grid {
+        @apply grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-5;
+    }
+
+    .room-card {
+        @apply flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900;
+    }
+
+    .room-card-image {
+        @apply grid h-40 place-items-center bg-primary-light bg-cover bg-center text-sm font-bold text-primary;
+    }
+
+    .room-card-body {
+        @apply grid flex-1 gap-2.5 p-4;
+    }
+
+    .room-card-title {
+        @apply text-lg font-extrabold text-slate-900 dark:text-white;
+    }
+
+    .room-card-desc {
+        @apply text-sm leading-relaxed text-slate-500 dark:text-slate-400;
+    }
+
+    .room-card-meta {
+        @apply flex flex-wrap gap-2;
+    }
+
+    .room-card-footer {
+        @apply mt-auto flex items-center justify-between gap-2.5 border-t border-slate-200 pt-3 dark:border-slate-800;
+    }
+
+    .room-card-price {
+        @apply text-lg font-extrabold text-primary;
+    }
+
+    .db-summary {
+        @apply mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4;
+    }
+
+    .db-summary-card {
+        @apply rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900;
+    }
+
+    .db-summary-card .name {
+        @apply mb-2 text-sm font-bold text-slate-500 capitalize dark:text-slate-400;
+    }
+
+    .db-summary-card .value {
+        @apply text-2xl font-extrabold text-slate-900 dark:text-white;
+    }
+
+    .table-section-head {
+        @apply mb-4 flex items-start justify-between gap-4;
+    }
+
+    .table-count {
+        @apply min-w-[88px] rounded-2xl bg-primary-light px-3.5 py-3 text-center font-extrabold text-primary dark:bg-primary/15;
+    }
+
+    .logout-form {
+        @apply m-0;
+    }
 }

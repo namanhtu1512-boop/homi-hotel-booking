@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\FilterRoomRequest;
 use App\Services\AvailabilityService;
 use App\Services\HotelInfoService;
+use App\Services\ReviewService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,7 @@ class RoomController extends Controller
         private readonly RoomTypeService $roomTypeService,
         private readonly AvailabilityService $availabilityService,
         private readonly HotelInfoService $hotelInfoService,
+        private readonly ReviewService $reviewService,
     ) {}
 
     public function index(FilterRoomRequest $request): View
@@ -26,11 +28,20 @@ class RoomController extends Controller
             'min_price' => $request->input('min_price'),
             'max_price' => $request->input('max_price'),
             'capacity'  => $request->input('capacity'),
+            'bed_type'  => $request->input('bed_type'),
+            'sort'      => $request->input('sort'),
+            'quantity'  => $request->input('quantity'),
+            'check_in'  => $request->input('check_in'),
+            'check_out' => $request->input('check_out'),
         ], fn ($value) => $value !== null && $value !== '');
 
+        $roomTypes = $this->roomTypeService->search($filters);
+
         return view('rooms.index', [
-            'roomTypes' => $this->roomTypeService->search($filters),
-            'filters'   => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'check_in', 'check_out']),
+            'roomTypes' => $roomTypes,
+            'filters'   => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
+            'hotel'     => $this->hotelInfoService->current(),
+            'ratings'   => $this->reviewService->summaryForMany($roomTypes->pluck('id')->all()),
         ]);
     }
 
@@ -53,6 +64,10 @@ class RoomController extends Controller
             }
         }
 
+        $relatedRooms = $this->roomTypeService->list()
+            ->reject(fn ($room) => $room->id === $roomType->id)
+            ->take(3);
+
         return view('rooms.show', [
             'roomType'          => $roomType,
             'hotel'             => $this->hotelInfoService->get(),
@@ -61,6 +76,9 @@ class RoomController extends Controller
             'checkIn'           => $checkIn,
             'checkOut'          => $checkOut,
             'quantity'          => $quantity,
+            'relatedRooms'      => $relatedRooms,
+            'reviews'           => $this->reviewService->forRoomType($roomType->id),
+            'reviewSummary'     => $this->reviewService->summaryFor($roomType->id),
         ]);
     }
 }

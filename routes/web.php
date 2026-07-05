@@ -11,10 +11,19 @@ use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController;
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
+use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
+use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
+use App\Http\Controllers\Web\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Web\PromotionController;
+use App\Http\Controllers\Web\NewsController;
+use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Web\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Web\Customer\WishlistController as CustomerWishlistController;
+use App\Http\Controllers\Web\Customer\ReviewController as CustomerReviewController;
 use App\Http\Controllers\Web\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Web\Staff\HotelInfoController as StaffHotelInfoController;
 use App\Http\Controllers\Web\Staff\RoomTypeController as StaffRoomTypeController;
@@ -29,6 +38,11 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [AboutController::class, 'index'])->name('about');
 Route::get('/rooms', [RoomController::class, 'index'])->name('rooms.index');
 Route::get('/rooms/{id}', [RoomController::class, 'show'])->name('rooms.show');
+Route::get('/promotions', [PromotionController::class, 'index'])->name('promotions.index');
+Route::get('/news', [NewsController::class, 'index'])->name('news.index');
+Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
+Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
+Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
@@ -65,6 +79,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
     // Profile (Week 3 BE1)
     Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile.show');
     Route::post('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/password', [CustomerProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::post('/profile/email', [CustomerProfileController::class, 'updateEmail'])->name('profile.email');
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',          [CustomerBookingController::class, 'index'])->name('index');
@@ -85,6 +101,11 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::post('/{roomType}', [CustomerWishlistController::class, 'store'])->name('store');
         Route::patch('/{item}',    [CustomerWishlistController::class, 'update'])->name('update');
         Route::delete('/{item}',   [CustomerWishlistController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('reviews')->name('reviews.')->group(function () {
+        Route::get('/create', [CustomerReviewController::class, 'create'])->name('create');
+        Route::post('/',      [CustomerReviewController::class, 'store'])->name('store');
     });
 });
 
@@ -128,6 +149,46 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
     Route::prefix('payments')->name('payments.')->group(function () {
         Route::get('/',               [AdminPaymentController::class, 'index'])->name('index');
         Route::patch('/{id}/status',  [AdminPaymentController::class, 'updateStatus'])->name('update-status');
+    });
+
+    Route::prefix('promotions')->name('promotions.')->group(function () {
+        Route::get('/',               [AdminPromotionController::class, 'index'])->name('index');
+        Route::get('/create',         [AdminPromotionController::class, 'create'])->name('create');
+        Route::post('/',              [AdminPromotionController::class, 'store'])->name('store');
+        Route::get('/{id}/edit',      [AdminPromotionController::class, 'edit'])->name('edit');
+        Route::put('/{id}',           [AdminPromotionController::class, 'update'])->name('update');
+        Route::delete('/{id}',        [AdminPromotionController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/restore',  [AdminPromotionController::class, 'restore'])->name('restore');
+    });
+
+    Route::prefix('banners')->name('banners.')->group(function () {
+        Route::get('/',          [AdminBannerController::class, 'index'])->name('index');
+        Route::get('/create',    [AdminBannerController::class, 'create'])->name('create');
+        Route::post('/',         [AdminBannerController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [AdminBannerController::class, 'edit'])->name('edit');
+        Route::put('/{id}',      [AdminBannerController::class, 'update'])->name('update');
+        Route::delete('/{id}',   [AdminBannerController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('reviews')->name('reviews.')->group(function () {
+        Route::get('/',                  [AdminReviewController::class, 'index'])->name('index');
+        Route::patch('/{id}/toggle',     [AdminReviewController::class, 'toggleStatus'])->name('toggle');
+        Route::delete('/{id}',           [AdminReviewController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('news')->name('news.')->group(function () {
+        Route::get('/',          [AdminNewsController::class, 'index'])->name('index');
+        Route::get('/create',    [AdminNewsController::class, 'create'])->name('create');
+        Route::post('/',         [AdminNewsController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [AdminNewsController::class, 'edit'])->name('edit');
+        Route::put('/{id}',      [AdminNewsController::class, 'update'])->name('update');
+        Route::delete('/{id}',   [AdminNewsController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('contact-messages')->name('contact-messages.')->group(function () {
+        Route::get('/',               [AdminContactMessageController::class, 'index'])->name('index');
+        Route::patch('/{id}/read',    [AdminContactMessageController::class, 'markRead'])->name('mark-read');
+        Route::delete('/{id}',        [AdminContactMessageController::class, 'destroy'])->name('destroy');
     });
 });
 

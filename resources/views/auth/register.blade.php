@@ -36,6 +36,12 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="phone">Số điện thoại</label>
+                    <input id="phone" type="tel" name="phone" value="{{ old('phone') }}"
+                        placeholder="09xxxxxxxx">
+                </div>
+
+                <div class="form-group">
                     <label for="password">Mật khẩu</label>
                     <input id="password" type="password" name="password" placeholder="Tối thiểu 8 ký tự" required>
                 </div>

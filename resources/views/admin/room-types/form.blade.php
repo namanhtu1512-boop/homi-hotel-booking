@@ -55,6 +55,11 @@
             <input id="total_rooms" type="number" min="1" name="total_rooms" value="{{ old('total_rooms', $roomType->total_rooms ?? '') }}" required>
         </div>
 
+        <label class="checkbox-item">
+            <input type="checkbox" name="is_featured" value="1" @checked(old('is_featured', $roomType->is_featured ?? false))>
+            Hiển thị ở mục "Phòng nổi bật" trên trang chủ
+        </label>
+
         <div class="form-group">
             <label for="description">Mô tả</label>
             <textarea id="description" name="description" rows="4">{{ old('description', $roomType->description ?? '') }}</textarea>

@@ -20,6 +20,7 @@ class RoomType extends Model
         'area',
         'total_rooms',
         'status',
+        'is_featured',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class RoomType extends Model
         'area'            => 'decimal:2',
         'total_rooms'     => 'integer',
         'status'          => 'string',
+        'is_featured'     => 'boolean',
     ];
 
     // --- Relationships ---
@@ -42,10 +44,20 @@ class RoomType extends Model
         return $this->hasMany(RoomTypeImage::class)->orderBy('sort_order');
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
     // --- Scopes ---
 
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    public function scopeFeatured($query)
+    {
+        return $query->where('is_featured', true);
     }
 }

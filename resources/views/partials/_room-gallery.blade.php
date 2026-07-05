@@ -17,6 +17,6 @@
     @endif
 @else
     <div class="hotel-gallery-main" role="img" aria-label="Chưa có ảnh">
-        <span style="color: var(--primary); font-weight: 700;">Chưa có ảnh</span>
+        <span>Chưa có ảnh</span>
     </div>
 @endif

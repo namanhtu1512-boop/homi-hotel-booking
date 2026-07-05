@@ -6,9 +6,9 @@
     <title>Đăng nhập quản trị · Homi</title>
     <style>
         :root {
-            --primary: #1e5eff;
-            --primary-dark: #1147c9;
-            --primary-soft: #edf4ff;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-soft: #dbeafe;
             --sidebar-bg: #0b1530;
             --white: #ffffff;
             --text: #1f2a44;
@@ -22,7 +22,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             background: var(--sidebar-bg);
             min-height: 100vh;
             display: flex;

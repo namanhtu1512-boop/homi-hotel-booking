@@ -25,6 +25,17 @@
             <input id="address" type="text" name="address" value="{{ old('address', $hotel->address) }}" required>
         </div>
 
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+                <label for="phone">Số điện thoại</label>
+                <input id="phone" type="text" name="phone" value="{{ old('phone', $hotel->phone) }}">
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input id="email" type="email" name="email" value="{{ old('email', $hotel->email) }}">
+            </div>
+        </div>
+
         <div class="form-group">
             <label for="star_rating">Xếp hạng sao (1-5)</label>
             <select id="star_rating" name="star_rating">
