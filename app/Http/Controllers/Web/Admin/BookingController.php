@@ -7,6 +7,7 @@ use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
+use App\Services\RoomService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,6 +17,7 @@ class BookingController extends Controller
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly AuditLogService $auditLog,
+        private readonly RoomService $roomService,
     ) {}
 
     public function index(Request $request): View
@@ -78,6 +80,52 @@ class BookingController extends Controller
         return redirect()
             ->route('admin.bookings.show', $id)
             ->with('success', "Đã hủy đơn {$booking->booking_code}.");
+    }
+
+    public function showCheckIn(int $id): View
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+
+        $availableRooms = $booking->bookingItems->mapWithKeys(
+            fn ($item) => [$item->id => $this->roomService->availableForRoomType($item->room_type_id)]
+        );
+
+        return view('bookings.check-in', [
+            'booking'        => $booking,
+            'availableRooms' => $availableRooms,
+            'formAction'     => route('admin.bookings.check-in', $id),
+            'backRoute'      => route('admin.bookings.show', $id),
+            'layout'         => 'layouts.admin',
+        ]);
+    }
+
+    public function checkIn(int $id, Request $request): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+
+        $roomAssignments = collect($request->input('rooms', []))
+            ->map(fn ($roomIds) => array_map('intval', (array) $roomIds))
+            ->all();
+
+        $this->bookingService->checkIn($booking, $roomAssignments);
+
+        $this->auditLog->log('booking.checked_in', $booking, "Check-in đơn \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('admin.bookings.show', $id)
+            ->with('success', "Đã check-in đơn {$booking->booking_code}.");
+    }
+
+    public function checkOut(int $id): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+        $this->bookingService->checkOut($booking);
+
+        $this->auditLog->log('booking.checked_out', $booking, "Check-out đơn \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('admin.bookings.show', $id)
+            ->with('success', "Đã check-out đơn {$booking->booking_code}.");
     }
 
     public function complete(int $id): RedirectResponse

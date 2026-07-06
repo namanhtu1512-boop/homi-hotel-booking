@@ -185,6 +185,10 @@ class BookingPaymentManagementTest extends TestCase
             'pending -> cancelled (cancel)'     => ['pending', 'cancel', 'cancelled'],
             'confirmed -> completed (complete)' => ['confirmed', 'complete', 'completed'],
             'confirmed -> cancelled (cancel)'   => ['confirmed', 'cancel', 'cancelled'],
+            // Luồng đầy đủ có check-in/check-out phòng thật cũng completable
+            // (không chỉ luồng rút gọn confirmed->completed) — xem
+            // BookingStatus::canComplete() (Tuần lễ tân/buồng phòng nội bộ).
+            'checked_out -> completed (complete)' => ['checked_out', 'complete', 'completed'],
         ];
     }
 
@@ -216,7 +220,6 @@ class BookingPaymentManagementTest extends TestCase
             'complete: cancelled'         => ['cancelled', 'complete', 'cancelled'],
             'complete: already completed' => ['completed', 'complete', 'completed'],
             'complete: checked_in'        => ['checked_in', 'complete', 'checked_in'],
-            'complete: checked_out'       => ['checked_out', 'complete', 'checked_out'],
         ];
     }
 

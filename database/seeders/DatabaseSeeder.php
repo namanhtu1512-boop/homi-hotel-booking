@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             HotelInfoSeeder::class,
             RoomTypeSeeder::class,
+            RoomSeeder::class,
             BookingSeeder::class,
             PromotionSeeder::class,
             BannerSeeder::class,

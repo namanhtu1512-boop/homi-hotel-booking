@@ -8,6 +8,7 @@ use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\DatabaseController;
 use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
+use App\Http\Controllers\Web\Admin\RoomController as AdminRoomController;
 use App\Http\Controllers\Web\Admin\UserController;
 use App\Http\Controllers\Web\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
@@ -32,6 +33,7 @@ use App\Http\Controllers\Web\Customer\ReviewController as CustomerReviewControll
 use App\Http\Controllers\Web\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Web\Staff\HotelInfoController as StaffHotelInfoController;
 use App\Http\Controllers\Web\Staff\RoomTypeController as StaffRoomTypeController;
+use App\Http\Controllers\Web\Staff\RoomController as StaffRoomController;
 use App\Http\Controllers\Web\Staff\BookingController as StaffBookingController;
 use App\Http\Controllers\Web\Staff\PaymentController as StaffPaymentController;
 use App\Http\Controllers\Web\AboutController;
@@ -140,6 +142,16 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/restore',  [RoomTypeController::class, 'restore'])->name('restore');
     });
 
+    Route::prefix('rooms')->name('rooms.')->group(function () {
+        Route::get('/',                       [AdminRoomController::class, 'index'])->name('index');
+        Route::get('/create',                 [AdminRoomController::class, 'create'])->name('create');
+        Route::post('/',                      [AdminRoomController::class, 'store'])->name('store');
+        Route::get('/{id}/edit',              [AdminRoomController::class, 'edit'])->name('edit');
+        Route::put('/{id}',                   [AdminRoomController::class, 'update'])->name('update');
+        Route::delete('/{id}',                [AdminRoomController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/housekeeping',    [AdminRoomController::class, 'updateHousekeeping'])->name('update-housekeeping');
+    });
+
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/',                     [UserController::class, 'index'])->name('index');
         Route::patch('/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('toggle-status');
@@ -158,6 +170,9 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/cancel',    [AdminBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [AdminBookingController::class, 'complete'])->name('complete');
         Route::patch('/{id}/payment',  [AdminBookingController::class, 'updatePayment'])->name('update-payment');
+        Route::get('/{id}/check-in',   [AdminBookingController::class, 'showCheckIn'])->name('check-in.show');
+        Route::post('/{id}/check-in',  [AdminBookingController::class, 'checkIn'])->name('check-in');
+        Route::post('/{id}/check-out', [AdminBookingController::class, 'checkOut'])->name('check-out');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
@@ -250,6 +265,11 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::put('/{id}',      [StaffRoomTypeController::class, 'update'])->name('update');
     });
 
+    Route::prefix('rooms')->name('rooms.')->group(function () {
+        Route::get('/',                    [StaffRoomController::class, 'index'])->name('index');
+        Route::patch('/{id}/housekeeping', [StaffRoomController::class, 'updateHousekeeping'])->name('update-housekeeping');
+    });
+
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',                [StaffBookingController::class, 'index'])->name('index');
         Route::get('/{id}',            [StaffBookingController::class, 'show'])->name('show');
@@ -258,6 +278,9 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::post('/{id}/cancel',    [StaffBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [StaffBookingController::class, 'complete'])->name('complete');
         Route::patch('/{id}/payment',  [StaffBookingController::class, 'updatePayment'])->name('update-payment');
+        Route::get('/{id}/check-in',   [StaffBookingController::class, 'showCheckIn'])->name('check-in.show');
+        Route::post('/{id}/check-in',  [StaffBookingController::class, 'checkIn'])->name('check-in');
+        Route::post('/{id}/check-out', [StaffBookingController::class, 'checkOut'])->name('check-out');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {

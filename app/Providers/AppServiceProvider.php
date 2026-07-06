@@ -10,6 +10,7 @@ use App\Models\HotelInfo;
 use App\Models\News;
 use App\Models\Promotion;
 use App\Models\Review;
+use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\SeasonalRate;
 use App\Models\Service;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
             'seasonal_rates' => SeasonalRate::class,
             'services' => Service::class,
             'group_booking_requests' => GroupBookingRequest::class,
+            'rooms' => Room::class,
         ]);
 
         // Footer hiển thị trên mọi trang khách hàng — chia sẻ thông tin khách sạn

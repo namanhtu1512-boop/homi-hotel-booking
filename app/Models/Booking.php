@@ -106,6 +106,16 @@ class Booking extends Model
         return $this->status->canComplete();
     }
 
+    public function canCheckIn(): bool
+    {
+        return $this->status->canCheckIn();
+    }
+
+    public function canCheckOut(): bool
+    {
+        return $this->status->canCheckOut();
+    }
+
     /**
      * Chỉ được đánh dấu "đã thanh toán" khi đơn đã được admin/staff xác nhận
      * (confirmed) — tránh thu tiền cho đơn còn đang chờ duyệt.

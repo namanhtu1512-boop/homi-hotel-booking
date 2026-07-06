@@ -27,6 +27,18 @@
                 </form>
             @endif
 
+            @if ($booking->canCheckIn())
+                <a href="{{ route('admin.bookings.check-in.show', $booking->id) }}" class="btn btn-primary">Check-in</a>
+            @endif
+
+            @if ($booking->canCheckOut())
+                <form method="POST" action="{{ route('admin.bookings.check-out', $booking->id) }}"
+                    onsubmit="return confirm('Check-out đơn {{ $booking->booking_code }}?');">
+                    @csrf
+                    <button type="submit" class="btn btn-primary">Check-out</button>
+                </form>
+            @endif
+
             @if ($booking->canComplete())
                 <form method="POST" action="{{ route('admin.bookings.complete', $booking->id) }}"
                     onsubmit="return confirm('Đánh dấu hoàn thành đơn {{ $booking->booking_code }}?');">
@@ -53,6 +65,7 @@
             <thead>
                 <tr>
                     <th>Loại phòng</th>
+                    <th>Số phòng đã gán</th>
                     <th>Số lượng</th>
                     <th>Số khách</th>
                     <th>Giá/đêm</th>
@@ -64,6 +77,7 @@
                 @foreach ($booking->bookingItems as $item)
                     <tr>
                         <td>{{ $item->roomType->name ?? '—' }}</td>
+                        <td>{{ $item->rooms->pluck('room_number')->implode(', ') ?: '—' }}</td>
                         <td>{{ $item->quantity }}</td>
                         <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}</td>
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>

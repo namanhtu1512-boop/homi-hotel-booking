@@ -40,4 +40,17 @@ class BookingItem extends Model
     {
         return $this->belongsTo(RoomType::class);
     }
+
+    public function bookingItemRooms()
+    {
+        return $this->hasMany(BookingItemRoom::class);
+    }
+
+    /**
+     * Các phòng vật lý cụ thể đã gán cho dòng đơn này khi check-in.
+     */
+    public function rooms()
+    {
+        return $this->belongsToMany(Room::class, 'booking_item_rooms');
+    }
 }

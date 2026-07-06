@@ -6,8 +6,10 @@ use App\Enums\BookingStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
+use App\Models\BookingItemRoom;
 use App\Models\BookingStatusLog;
 use App\Models\Payment;
+use App\Models\Room;
 use App\Models\PaymentStatusLog;
 use App\Models\RoomType;
 use App\Models\Service;
@@ -240,7 +242,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -405,7 +407,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
+        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
             ->findOrFail($bookingId);
     }
 
@@ -483,6 +485,85 @@ class BookingService
         $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, Auth::id(), 'Admin/staff xác nhận đơn.');
 
         return $booking->fresh();
+    }
+
+    /**
+     * Check-in thật — gán số phòng vật lý cụ thể cho từng dòng đơn (đúng
+     * số lượng `quantity` của dòng, phòng phải cùng room_type và hiện
+     * không có khách). $roomAssignments khóa theo booking_item_id, giá
+     * trị là mảng room_id.
+     *
+     * @param  array<int, array<int, int>>  $roomAssignments
+     *
+     * @throws ValidationException
+     */
+    public function checkIn(Booking $booking, array $roomAssignments): Booking
+    {
+        if (! $booking->canCheckIn()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể check-in đơn ở trạng thái đã xác nhận.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($booking, $roomAssignments) {
+            foreach ($booking->bookingItems as $item) {
+                $roomIds = array_values(array_unique($roomAssignments[$item->id] ?? []));
+
+                if (count($roomIds) !== $item->quantity) {
+                    throw ValidationException::withMessages([
+                        'rooms' => ["Phải chọn đúng {$item->quantity} phòng cho loại phòng \"{$item->roomType->name}\"."],
+                    ]);
+                }
+
+                foreach ($roomIds as $roomId) {
+                    $room = Room::where('room_type_id', $item->room_type_id)->find($roomId);
+
+                    if (! $room) {
+                        throw ValidationException::withMessages([
+                            'rooms' => ['Phòng đã chọn không thuộc đúng loại phòng của dòng đơn này.'],
+                        ]);
+                    }
+
+                    if ($room->isOccupied()) {
+                        throw ValidationException::withMessages([
+                            'rooms' => ["Phòng \"{$room->room_number}\" hiện đang có khách."],
+                        ]);
+                    }
+
+                    BookingItemRoom::create(['booking_item_id' => $item->id, 'room_id' => $roomId]);
+                }
+            }
+
+            $oldStatus = $booking->status;
+            $booking->update(['status' => BookingStatus::CHECKED_IN]);
+            $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_IN, Auth::id(), 'Khách nhận phòng.');
+
+            return $booking->fresh(['bookingItems.rooms']);
+        });
+    }
+
+    /**
+     * Check-out — chuyển trạng thái + tự động đánh dấu các phòng đã gán
+     * cần dọn (dirty), để buồng phòng biết cần xử lý trước khi nhận khách kế tiếp.
+     */
+    public function checkOut(Booking $booking): Booking
+    {
+        if (! $booking->canCheckOut()) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể check-out đơn đang lưu trú.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($booking) {
+            $oldStatus = $booking->status;
+            $booking->update(['status' => BookingStatus::CHECKED_OUT]);
+            $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_OUT, Auth::id(), 'Khách trả phòng.');
+
+            $roomIds = BookingItemRoom::whereIn('booking_item_id', $booking->bookingItems->pluck('id'))->pluck('room_id');
+            Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
+
+            return $booking->fresh();
+        });
     }
 
     public function complete(Booking $booking): Booking

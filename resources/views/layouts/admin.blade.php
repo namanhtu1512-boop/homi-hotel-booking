@@ -24,6 +24,7 @@
                         ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Tổng quan'],
                         ['route' => 'admin.hotel-info.show', 'pattern' => 'admin.hotel-info.*', 'label' => 'Thông tin khách sạn'],
                         ['route' => 'admin.room-types.index', 'pattern' => 'admin.room-types.*', 'label' => 'Loại phòng'],
+                        ['route' => 'admin.rooms.index', 'pattern' => 'admin.rooms.*', 'label' => 'Phòng vật lý'],
                         ['route' => 'admin.bookings.index', 'pattern' => 'admin.bookings.*', 'label' => 'Đơn đặt phòng'],
                         ['route' => 'admin.payments.index', 'pattern' => 'admin.payments.*', 'label' => 'Thanh toán'],
                         ['route' => 'admin.customers.index', 'pattern' => 'admin.customers.*', 'label' => 'Khách hàng'],

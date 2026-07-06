@@ -75,11 +75,12 @@ enum BookingStatus: string
     }
 
     /**
-     * Admin đánh dấu đơn đã hoàn thành — chỉ hợp lệ từ confirmed
-     * (theo yêu cầu nghiệp vụ: pending->confirmed->completed).
+     * Admin đánh dấu đơn đã hoàn thành — hợp lệ từ confirmed (luồng rút gọn
+     * pending->confirmed->completed, không qua check-in/check-out vật lý)
+     * hoặc từ checked_out (luồng đầy đủ có check-in/check-out phòng thật).
      */
     public function canComplete(): bool
     {
-        return $this === self::CONFIRMED;
+        return in_array($this, [self::CONFIRMED, self::CHECKED_OUT], true);
     }
 }
