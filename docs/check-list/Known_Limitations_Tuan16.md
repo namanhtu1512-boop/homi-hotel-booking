@@ -1,0 +1,38 @@
+# Known Limitations — Tuần 16 (bản gộp cuối cùng)
+
+Gom lại toàn bộ giới hạn/việc chưa làm đã ghi nhận rải rác ở
+`Staging_Checklist_Tuan14.md` và `Bug_Report_Sprint7_Tuan14.md` thành 1 danh
+sách duy nhất, để chủ động trình bày khi bảo vệ thay vì để thầy tự phát
+hiện. Không phải bug — đều là quyết định phạm vi có chủ đích hoặc đánh đổi
+thời gian đã biết trước.
+
+## Nghiệp vụ / tính năng
+
+| Giới hạn | Vì sao chấp nhận được |
+|---|---|
+| Thanh toán chỉ mô phỏng (không nối VNPay/Momo/Stripe thật) | Đúng phạm vi đề tài ("thanh toán mô phỏng"), có state machine đầy đủ (unpaid/pending/deposit_paid/paid/refunded) và test kỹ. |
+| Email không gửi thật (`MAIL_MAILER=log`) | Không có luồng nghiệp vụ nào phụ thuộc email (xác nhận đơn hiển thị ngay trên web, không qua email). |
+| Không có module "dịch vụ" (services) riêng | Kế hoạch chỉ yêu cầu promotions + reviews "mức vừa đủ" cho module phụ — dịch vụ bị lược bỏ có chủ đích, không phải làm dở. |
+| Tính giá đơn giản (không theo mùa/cuối tuần, không phụ thu trẻ em) | Nằm trong danh sách "có thời gian thì mở rộng" của kế hoạch gốc, không phải Must-have. |
+| Khuyến mãi chỉ 1 mã/đơn, không stack nhiều mã | Tương tự — voucher phức tạp là mở rộng, không bắt buộc. |
+| Không giữ chỗ tạm thời (hold 10-15 phút) khi khách đang điền form đặt phòng | Khác với OTA lớn (Booking.com/Agoda) — availability chỉ chốt tại thời điểm bấm "Đặt phòng" trong transaction. Chấp nhận được vì đây là site 1 khách sạn, lưu lượng thấp hơn nhiều so với OTA. |
+| Không có CAPTCHA ở đăng ký/liên hệ/đánh giá | Đã bù bằng rate-limit (5 lần/phút) ở các form nhạy cảm — giảm rủi ro spam/brute-force ở mức chấp nhận được cho quy mô đồ án. |
+| Route `/admin/reports` (kế hoạch gốc liệt kê riêng) không tồn tại tách biệt | Toàn bộ số liệu báo cáo đã gộp vào `/admin/dashboard` (doanh thu, tỷ lệ hủy, lấp đầy) — không thiếu chức năng, chỉ khác tên route so với bảng route dự kiến ban đầu. |
+| Không có màn tạo Amenity (tiện ích) mới qua UI | 10 tiện ích cố định từ seeder, admin chỉ chọn/bỏ chọn qua checkbox ở trang hotel-info — đủ dùng cho 1 khách sạn, không cần CRUD riêng. |
+
+## Kỹ thuật / kiến trúc (không sửa trong đợt review vừa qua)
+
+| Giới hạn | Lý do |
+|---|---|
+| Song song `/api/v1/*` (REST API) và Blade monolith | Tàn dư giai đoạn đầu dự án, mâu thuẫn với ghi chú kiến trúc trong kế hoạch — nhưng đã hoàn thiện đầy đủ (không còn stub) và có test, không gây rủi ro chức năng. Gỡ bỏ hẳn là thay đổi lớn ngoài phạm vi. |
+| 4 controller Admin/Staff `BookingController`/`PaymentController` trùng lặp gần như 100% | Refactor thành base class tốt hơn cho bảo trì nhưng rủi ro phá vỡ hành vi hiện tại không tương xứng lợi ích trong thời gian còn lại. |
+| `UserController::toggleStatus` cho phép admin khóa admin khác | Là quyết định nghiệp vụ (có chủ đích cho phép hay không), chưa xin ý kiến Product Owner để khóa cứng lại. |
+| `BookingStatus::CHECKED_IN/CHECKED_OUT`, `PaymentStatus::FAILED` chưa có luồng thật sử dụng | Scaffolding sẵn cho tính năng check-in/check-out vật lý và xử lý thanh toán thất bại thật — chưa cần thiết vì luồng hiện tại chỉ dừng ở xác nhận/hoàn thành đơn. |
+| Không CI/CD deploy tự động, không monitoring lỗi thật (Sentry...) | Chi phí hạ tầng ngoài phạm vi đồ án sinh viên — GitHub Actions hiện tại chỉ chạy test tự động khi push/PR. |
+
+## Vận hành / hạ tầng
+
+| Giới hạn | Phương án |
+|---|---|
+| Chưa deploy lên staging thật | Phương án hợp lệ theo tiêu chí nghiệm thu: chạy local ổn định + hướng dẫn cài đặt rõ ràng (`README.md`, `Staging_Checklist_Tuan14.md`). |
+| Chưa có file backup DB đóng gói sẵn trong repo | Lệnh backup (`php artisan schema:dump` hoặc `mysqldump`) đã có sẵn và test chạy được — xem `DB_Checklist_Tuan16.md`, chạy ngay trước khi nộp/deploy để backup luôn là bản mới nhất. |

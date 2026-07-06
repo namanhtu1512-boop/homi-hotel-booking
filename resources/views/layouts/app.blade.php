@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Homi · Đặt phòng khách sạn')</title>
+    <meta name="description" content="@yield('meta_description', 'Homi Hotel — đặt phòng trực tiếp, xem phòng trống theo ngày, giá minh bạch, xác nhận nhanh.')">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="@yield('title', 'Homi · Đặt phòng khách sạn')">
+    <meta property="og:description" content="@yield('meta_description', 'Homi Hotel — đặt phòng trực tiếp, xem phòng trống theo ngày, giá minh bạch, xác nhận nhanh.')">
     @include('partials._theme-script')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Payment;
+use App\Models\Review;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -23,6 +24,7 @@ class BookingSeeder extends Seeder
         $standardRoom = RoomType::where('name', 'Phòng Standard')->first();
         $superiorRoom = RoomType::where('name', 'Phòng Superior')->first();
         $suiteRoom    = RoomType::where('name', 'Phòng Suite')->first();
+        $deluxeRoom   = RoomType::where('name', 'Phòng Deluxe')->first();
 
         // ---------- Đơn 1: pending, khách vừa đặt ----------
         if ($standardRoom && ! Booking::where('booking_code', 'HOMI-DEMO-PENDING')->exists()) {
@@ -162,6 +164,62 @@ class BookingSeeder extends Seeder
                     'status'     => 'unpaid',
                 ]);
             }
+        }
+
+        // ---------- Đơn 7-8: completed + đã đánh giá — để trang chi tiết
+        // phòng và /admin/reviews có dữ liệu mẫu ngay sau khi seed, không
+        // phải tự tay hoàn thành đơn rồi viết đánh giá mới thấy được demo. ----------
+        $reviewedBookings = [
+            ['code' => 'HOMI-DEMO-REVIEWED-1', 'room' => $deluxeRoom, 'who' => $customer, 'rating' => 5, 'comment' => 'Phòng sạch đẹp, nhân viên nhiệt tình, sẽ quay lại lần sau!'],
+            ['code' => 'HOMI-DEMO-REVIEWED-2', 'room' => $superiorRoom, 'who' => $secondCustomer, 'rating' => 4, 'comment' => 'Vị trí thuận tiện, phòng ổn, chỉ hơi ồn vào buổi sáng.'],
+        ];
+
+        foreach ($reviewedBookings as $data) {
+            $room = $data['room'];
+
+            if (! $room || Booking::where('booking_code', $data['code'])->exists()) {
+                continue;
+            }
+
+            $checkIn  = now()->subDays(20)->format('Y-m-d');
+            $checkOut = now()->subDays(18)->format('Y-m-d');
+            $subtotal = $room->price_per_night * 2;
+
+            $b = Booking::create([
+                'booking_code'   => $data['code'],
+                'user_id'        => $data['who']->id,
+                'check_in'       => $checkIn,
+                'check_out'      => $checkOut,
+                'nights'         => 2,
+                'customer_name'  => $data['who']->name,
+                'customer_email' => $data['who']->email,
+                'customer_phone' => $data['who']->phone ?? '0900000001',
+                'total_amount'   => $subtotal,
+                'status'         => 'completed',
+            ]);
+            BookingItem::create([
+                'booking_id'      => $b->id,
+                'room_type_id'    => $room->id,
+                'quantity'        => 1,
+                'price_per_night' => $room->price_per_night,
+                'nights'          => 2,
+                'subtotal'        => $subtotal,
+            ]);
+            Payment::create([
+                'booking_id' => $b->id,
+                'method'     => 'pay_at_hotel',
+                'amount'     => $subtotal,
+                'status'     => 'paid',
+                'paid_at'    => now()->subDays(18),
+            ]);
+            Review::create([
+                'booking_id'   => $b->id,
+                'room_type_id' => $room->id,
+                'user_id'      => $data['who']->id,
+                'rating'       => $data['rating'],
+                'comment'      => $data['comment'],
+                'status'       => 'visible',
+            ]);
         }
     }
 }

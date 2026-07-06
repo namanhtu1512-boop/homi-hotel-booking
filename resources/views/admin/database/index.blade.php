@@ -51,16 +51,12 @@
                                     @php
                                         $rawValue = $row->$column;
 
-                                        if ($column === 'password' && !empty($rawValue)) {
-                                            $displayValue = '********';
-                                        } elseif (is_null($rawValue) || $rawValue === '') {
-                                            $displayValue = 'Trống';
-                                        } else {
-                                            $displayValue = \Illuminate\Support\Str::limit((string) $rawValue, 80);
-                                        }
+                                        $displayValue = (is_null($rawValue) || $rawValue === '')
+                                            ? 'Trống'
+                                            : \Illuminate\Support\Str::limit((string) $rawValue, 80);
                                     @endphp
 
-                                    <td title="{{ is_null($rawValue) ? '' : (string) $rawValue }}">
+                                    <td title="{{ $displayValue === 'Trống' ? '' : $displayValue }}">
                                         {{ $displayValue }}
                                     </td>
                                 @endforeach

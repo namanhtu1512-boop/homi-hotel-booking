@@ -94,7 +94,15 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        // currentAccessToken() trả về TransientToken (không có delete()) khi
+        // request được xác thực qua session guard thay vì Bearer token thật
+        // — Sanctum hỗ trợ cả 2 kiểu song song nên phải kiểm tra trước khi
+        // gọi delete(), tránh 500 cho client xác thực qua session.
+        $token = $request->user()->currentAccessToken();
+
+        if ($token instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $token->delete();
+        }
 
         return $this->success([], 'Đã đăng xuất.');
     }

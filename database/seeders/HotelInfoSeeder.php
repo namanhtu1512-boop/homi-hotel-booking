@@ -4,23 +4,27 @@ namespace Database\Seeders;
 
 use App\Models\Amenity;
 use App\Models\HotelInfo;
-use App\Models\RoomType;
+use App\Services\ImageService;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 /**
  * Seed dữ liệu cho khách sạn singleton Homi (1 bản ghi hotel_info duy
- * nhất) cùng danh sách loại phòng. Vì hệ thống chỉ vận hành 1 khách sạn,
- * không seed nhiều bản ghi hotel — chỉ seed đúng 1 hotel_info + tiện ích
- * + loại phòng.
+ * nhất) cùng tiện ích và ảnh khách sạn. Vì hệ thống chỉ vận hành 1 khách
+ * sạn, không seed nhiều bản ghi hotel — chỉ seed đúng 1 hotel_info.
+ *
+ * Loại phòng do RoomTypeSeeder đảm nhiệm (chạy sau, có mô tả đầy đủ + ảnh
+ * thật) — KHÔNG seed room_types ở đây nữa. Trước đây seeder này còn có thêm
+ * seedRoomTypes() tạo 5 room type cùng slug nhưng dữ liệu sơ sài hơn; vì
+ * chạy trước RoomTypeSeeder trong DatabaseSeeder, firstOrCreate() theo slug
+ * khiến bản ghi "thắng" luôn là bản sơ sài này còn dữ liệu đẹp của
+ * RoomTypeSeeder bị lặng lẽ bỏ qua (chỉ ảnh được gắn thêm vào sau).
  */
 class HotelInfoSeeder extends Seeder
 {
-    public function run(): void
+    public function run(ImageService $imageService): void
     {
         $this->seedAmenities();
-        $this->seedHotelInfo();
-        $this->seedRoomTypes();
+        $this->seedHotelInfo($imageService);
     }
 
     private function seedAmenities(): void
@@ -43,7 +47,7 @@ class HotelInfoSeeder extends Seeder
         }
     }
 
-    private function seedHotelInfo(): void
+    private function seedHotelInfo(ImageService $imageService): void
     {
         $hotel = HotelInfo::instance();
 
@@ -65,63 +69,14 @@ class HotelInfoSeeder extends Seeder
                 'Điều hòa', 'Thang máy',
             ])->pluck('id')
         );
-    }
 
-    private function seedRoomTypes(): void
-    {
-        $rooms = [
-            [
-                'name'            => 'Phòng Standard',
-                'description'     => 'Phòng tiêu chuẩn, đầy đủ tiện nghi cơ bản.',
-                'price_per_night' => 650000,
-                'capacity'        => 2,
-                'bed_type'        => '1 giường đôi',
-                'area'            => 25,
-                'total_rooms'     => 10,
-            ],
-            [
-                'name'            => 'Phòng Superior',
-                'description'     => 'Phòng tiện nghi, phù hợp cho khách lưu trú ngắn ngày.',
-                'price_per_night' => 800000,
-                'capacity'        => 2,
-                'bed_type'        => '2 giường đơn',
-                'area'            => 28,
-                'total_rooms'     => 12,
-            ],
-            [
-                'name'            => 'Phòng Deluxe',
-                'description'     => 'Phòng rộng, view thành phố, phù hợp cho cặp đôi hoặc khách công tác.',
-                'price_per_night' => 950000,
-                'capacity'        => 2,
-                'bed_type'        => '1 giường đôi lớn',
-                'area'            => 32,
-                'total_rooms'     => 8,
-            ],
-            [
-                'name'            => 'Phòng Family',
-                'description'     => 'Phòng gia đình rộng rãi, phù hợp cho nhóm nhỏ.',
-                'price_per_night' => 1400000,
-                'capacity'        => 4,
-                'bed_type'        => '2 giường đôi',
-                'area'            => 45,
-                'total_rooms'     => 6,
-            ],
-            [
-                'name'            => 'Phòng Suite',
-                'description'     => 'Suite cao cấp với phòng khách riêng và bồn tắm.',
-                'price_per_night' => 2800000,
-                'capacity'        => 2,
-                'bed_type'        => '1 giường đôi lớn',
-                'area'            => 60,
-                'total_rooms'     => 4,
-            ],
-        ];
-
-        foreach ($rooms as $room) {
-            RoomType::firstOrCreate(
-                ['slug' => Str::slug($room['name'])],
-                [...$room, 'slug' => Str::slug($room['name']), 'status' => 'active'],
-            );
+        if ($hotel->images()->count() === 0) {
+            $imageService->syncHotelInfoImages($hotel, [
+                'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&h=800&fit=crop&auto=format',
+                'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=1200&h=800&fit=crop&auto=format',
+                'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&h=800&fit=crop&auto=format',
+                'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=1200&h=800&fit=crop&auto=format',
+            ]);
         }
     }
 }

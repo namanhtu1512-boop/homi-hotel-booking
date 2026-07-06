@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', $roomType->name . ' · Homi')
+@section('meta_description', \Illuminate\Support\Str::limit(strip_tags($roomType->description ?? ''), 155, '…') ?: $roomType->name . ' tại Homi Hotel.')
 @section('banner_tag', 'Chi tiết phòng')
 @section('banner_title', $roomType->name)
 @section('banner_subtitle', 'Sức chứa ' . $roomType->capacity . ' khách · ' . number_format($roomType->price_per_night, 0, ',', '.') . 'đ / đêm')

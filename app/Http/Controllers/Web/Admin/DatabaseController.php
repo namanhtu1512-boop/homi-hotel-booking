@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Schema;
 
 class DatabaseController extends Controller
 {
+    /**
+     * Cột nhạy cảm không bao giờ được nạp/hiển thị ở trang xem nhanh DB này —
+     * loại ngay từ câu SELECT (không phải chỉ che ở view) để không có cách
+     * nào rò rỉ ra ngoài qua title attribute, export, hay debug.
+     */
+    private const SENSITIVE_COLUMNS = ['password', 'remember_token'];
+
     public function index()
     {
         $tables = [
@@ -26,12 +33,12 @@ class DatabaseController extends Controller
                 continue;
             }
 
-            $columns = Schema::getColumnListing($table);
+            $columns = array_values(array_diff(Schema::getColumnListing($table), self::SENSITIVE_COLUMNS));
 
             $database[$table] = [
                 'columns' => $columns,
                 'count' => DB::table($table)->count(),
-                'rows' => DB::table($table)->limit(20)->get(),
+                'rows' => DB::table($table)->select($columns)->limit(20)->get(),
             ];
         }
 

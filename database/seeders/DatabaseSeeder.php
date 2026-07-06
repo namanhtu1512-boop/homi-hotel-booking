@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             PromotionSeeder::class,
             BannerSeeder::class,
             NewsSeeder::class,
+            ContactMessageSeeder::class,
             ServiceSeeder::class,
         ]);
     }

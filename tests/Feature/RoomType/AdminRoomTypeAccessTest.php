@@ -105,6 +105,25 @@ class AdminRoomTypeAccessTest extends TestCase
     }
 
     /**
+     * Regression: route Web (admin.room-types.store) phải validate images_text
+     * đúng như FormRequest API (CreateRoomTypeRequest) — mỗi dòng tối đa 500
+     * ký tự — để 2 lối vào không bị lệch rule với nhau.
+     */
+    public function test_admin_cannot_create_room_type_with_image_line_over_500_chars_via_web_route(): void
+    {
+        $payload = array_merge($this->roomTypePayload(), [
+            'images_text' => str_repeat('a', 501),
+        ]);
+
+        $this->actingAs($this->makeUser('admin'))
+            ->withSession(['login_context' => 'admin'])
+            ->post(route('admin.room-types.store'), $payload)
+            ->assertSessionHasErrors('images_text');
+
+        $this->assertDatabaseMissing('room_types', ['name' => 'Phòng Deluxe Mới']);
+    }
+
+    /**
      * Regression: capacity là unsignedTinyInteger (tối đa 255) — thiếu rule
      * max sẽ để Eloquent ném lỗi DB (500) thay vì trả lỗi validation (422).
      */

@@ -120,4 +120,25 @@ class LoginTest extends TestCase
 
         $this->assertGuest();
     }
+
+    /**
+     * Chống brute-force — tối đa 5 lần thử/phút, lần thứ 6 phải bị chặn 429
+     * trước khi kịp chạm vào logic kiểm tra mật khẩu.
+     */
+    public function test_login_is_rate_limited_after_5_attempts_per_minute(): void
+    {
+        User::factory()->create(['email' => 'user@homi.vn', 'password' => '123456']);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->post('/customer/login', [
+                'email'    => 'user@homi.vn',
+                'password' => 'sai_mat_khau',
+            ])->assertSessionHasErrors('email');
+        }
+
+        $this->post('/customer/login', [
+            'email'    => 'user@homi.vn',
+            'password' => '123456',
+        ])->assertStatus(429);
+    }
 }

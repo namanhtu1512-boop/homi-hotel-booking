@@ -83,7 +83,6 @@ Route::prefix('v1')->group(function () {
 
     // ---------------------------------------------------------------
     // CUSTOMER — Quản lý đơn đặt phòng của chính mình
-    // TODO Tuần 11: hoàn thiện logic tạo đơn và hủy đơn
     // ---------------------------------------------------------------
     Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
         Route::get('/bookings',                   [BookingController::class, 'myBookings']);
@@ -94,7 +93,6 @@ Route::prefix('v1')->group(function () {
 
     // ---------------------------------------------------------------
     // ADMIN / STAFF — Quản lý tất cả đơn và thanh toán mô phỏng
-    // TODO Tuần 12: hoàn thiện filter, cập nhật trạng thái, payment
     // ---------------------------------------------------------------
     Route::middleware(['auth:sanctum', 'role:admin,staff'])->prefix('admin')->group(function () {
         Route::get('/bookings',                         [BookingController::class, 'adminIndex']);

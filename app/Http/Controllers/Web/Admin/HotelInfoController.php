@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RoomType\Concerns\ValidatesImageText;
 use App\Models\Amenity;
 use App\Services\HotelInfoService;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,8 @@ use Illuminate\View\View;
 
 class HotelInfoController extends Controller
 {
+    use ValidatesImageText;
+
     public function __construct(private readonly HotelInfoService $hotelInfoService) {}
 
     public function show(): View
@@ -63,9 +66,11 @@ class HotelInfoController extends Controller
             'check_out_time' => ['nullable', 'date_format:H:i'],
             'policies'       => ['nullable', 'string', 'max:5000'],
             'star_rating'    => ['nullable', 'integer', 'between:1,5'],
+            'weekend_surcharge_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'child_surcharge_per_night' => ['nullable', 'integer', 'min:0'],
             'amenity_ids'    => ['nullable', 'array'],
             'amenity_ids.*'  => ['integer', 'exists:amenities,id'],
-            'images_text'    => ['nullable', 'string'],
+            'images_text'    => ['nullable', 'string', $this->eachImageLineMax500()],
             'image_files'    => ['nullable', 'array'],
             'image_files.*'  => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
@@ -78,6 +83,8 @@ class HotelInfoController extends Controller
             'check_out_time' => 'giờ trả phòng',
             'policies'       => 'chính sách',
             'star_rating'    => 'xếp hạng sao',
+            'weekend_surcharge_percent' => 'phụ thu cuối tuần',
+            'child_surcharge_per_night' => 'phụ thu trẻ em/đêm',
             'amenity_ids'    => 'tiện ích',
             'image_files.*'  => 'file ảnh',
         ]);

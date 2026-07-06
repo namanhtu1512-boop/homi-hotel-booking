@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Danh sách phòng · Homi')
+@section('meta_description', 'Xem và lọc danh sách loại phòng tại ' . $hotel->name . ' theo giá, sức chứa và tiện ích — kiểm tra phòng trống theo ngày.')
 @section('banner_tag', 'Phòng')
 @section('banner_title', 'Tìm phòng phù hợp với bạn')
 @section('banner_subtitle', 'Xem và lọc các loại phòng đang nhận đặt tại ' . $hotel->name . '.')

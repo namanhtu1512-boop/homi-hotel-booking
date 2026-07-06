@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RoomType\Concerns\ValidatesImageText;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\RoomTypeService;
@@ -12,6 +13,8 @@ use Illuminate\View\View;
 
 class RoomTypeController extends Controller
 {
+    use ValidatesImageText;
+
     public function __construct(
         private readonly RoomTypeService $roomTypeService,
         private readonly AuditLogService $auditLog,
@@ -103,7 +106,7 @@ class RoomTypeController extends Controller
             'area'            => ['nullable', 'numeric', 'min:0'],
             'total_rooms'     => ['required', 'integer', 'min:1'],
             'is_featured'     => ['nullable', 'boolean'],
-            'images_text'     => ['nullable', 'string'],
+            'images_text'     => ['nullable', 'string', $this->eachImageLineMax500()],
         ], [], [
             'name'            => 'tên loại phòng',
             'description'     => 'mô tả',
