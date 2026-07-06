@@ -21,6 +21,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/docs/use-cases/diagrams/plantuml.jar
 _ide_helper.php
 Homestead.json
 Homestead.yaml
