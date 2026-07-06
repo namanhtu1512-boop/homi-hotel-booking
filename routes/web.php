@@ -14,6 +14,7 @@ use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Web\Admin\SeasonalRateController as AdminSeasonalRateController;
+use App\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
@@ -175,6 +176,16 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::get('/{id}/edit', [AdminSeasonalRateController::class, 'edit'])->name('edit');
         Route::put('/{id}',      [AdminSeasonalRateController::class, 'update'])->name('update');
         Route::delete('/{id}',   [AdminSeasonalRateController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('services')->name('services.')->group(function () {
+        Route::get('/',               [AdminServiceController::class, 'index'])->name('index');
+        Route::get('/create',         [AdminServiceController::class, 'create'])->name('create');
+        Route::post('/',              [AdminServiceController::class, 'store'])->name('store');
+        Route::get('/{id}/edit',      [AdminServiceController::class, 'edit'])->name('edit');
+        Route::put('/{id}',           [AdminServiceController::class, 'update'])->name('update');
+        Route::delete('/{id}',        [AdminServiceController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/restore',  [AdminServiceController::class, 'restore'])->name('restore');
     });
 
     Route::prefix('banners')->name('banners.')->group(function () {

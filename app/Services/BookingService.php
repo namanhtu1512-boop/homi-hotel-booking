@@ -10,6 +10,7 @@ use App\Models\BookingStatusLog;
 use App\Models\Payment;
 use App\Models\PaymentStatusLog;
 use App\Models\RoomType;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +50,14 @@ class BookingService
                     ->findOrFail($item['room_type_id']),
             ]);
 
+        // Nạp trước dịch vụ thêm active theo id — findOrFail giữ hành vi 404
+        // khi có id không hợp lệ/không active, giống room types ở trên.
+        $services = collect($data['services'] ?? [])
+            ->mapWithKeys(fn (array $item) => [
+                (int) $item['service_id'] => Service::where('status', 'active')
+                    ->findOrFail($item['service_id']),
+            ]);
+
         // Kiểm tra sức chứa theo TỪNG loại phòng — mỗi dòng có capacity riêng
         // (roomType.capacity × quantity của chính dòng đó), không gộp chung
         // với các dòng khác trong đơn.
@@ -66,7 +75,7 @@ class BookingService
             }
         }
 
-        return DB::transaction(function () use ($customer, $data, $roomTypes, $holdSessionId) {
+        return DB::transaction(function () use ($customer, $data, $roomTypes, $services, $holdSessionId) {
             // Khóa các loại phòng liên quan theo thứ tự id tăng dần (tránh
             // deadlock khi 2 đơn cùng khóa nhiều loại phòng chung) TRƯỚC khi
             // tính lại availability. SELECT ... FOR UPDATE luôn đọc dữ liệu
@@ -127,6 +136,26 @@ class BookingService
                 ];
             }
 
+            // Dịch vụ thêm cộng thẳng vào $total TRƯỚC vòng khuyến mãi bên
+            // dưới — khuyến mãi áp dụng lên tổng phòng + dịch vụ, không chỉ
+            // riêng tiền phòng (quyết định nghiệp vụ đã chốt).
+            $serviceLines = [];
+
+            foreach ($data['services'] ?? [] as $item) {
+                $service  = $services[(int) $item['service_id']];
+                $quantity = max(1, (int) ($item['quantity'] ?? 1));
+                $subtotal = (float) $service->price * $quantity;
+
+                $total += $subtotal;
+
+                $serviceLines[] = [
+                    'service_id' => $service->id,
+                    'quantity'   => $quantity,
+                    'unit_price' => $service->price,
+                    'subtotal'   => $subtotal,
+                ];
+            }
+
             $promotions = collect();
             $discount   = 0;
             $promoLines = [];
@@ -170,6 +199,10 @@ class BookingService
                 $booking->bookingItems()->create($line);
             }
 
+            foreach ($serviceLines as $serviceLine) {
+                $booking->serviceItems()->create($serviceLine);
+            }
+
             foreach ($promoLines as $promoLine) {
                 $booking->promotions()->attach($promoLine['promotion_id'], ['discount_amount' => $promoLine['discount_amount']]);
             }
@@ -188,7 +221,7 @@ class BookingService
                 $this->roomHoldService->releaseForSession($holdSessionId);
             }
 
-            return $booking->load(['bookingItems.roomType', 'payment']);
+            return $booking->load(['bookingItems.roomType', 'serviceItems.service', 'payment']);
         });
     }
 
@@ -207,7 +240,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'payment.statusLogs.changedBy', 'promotions'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -372,7 +405,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
+        return Booking::with(['user', 'bookingItems.roomType', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
             ->findOrFail($bookingId);
     }
 

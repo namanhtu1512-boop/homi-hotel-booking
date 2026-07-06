@@ -132,6 +132,26 @@
                 <input class="input" type="email" id="customer_email" name="customer_email" value="{{ old('customer_email', auth()->user()->email) }}" placeholder="email@example.com">
             </div>
 
+            @if ($services->isNotEmpty())
+                <div>
+                    <label class="form-label">Dịch vụ thêm</label>
+                    <div class="checkbox-grid" id="services-container">
+                        @php $oldServiceIds = old('service_ids', []); @endphp
+                        @foreach ($services as $service)
+                            <label class="checkbox-item">
+                                <input type="checkbox" name="service_ids[]" value="{{ $service->id }}"
+                                    class="service-checkbox" data-price="{{ (float) $service->price }}"
+                                    @checked(in_array((string) $service->id, $oldServiceIds))
+                                    onchange="updateEstimate()">
+                                {{ $service->name }} ({{ number_format($service->price, 0, ',', '.') }}đ)
+                                <input type="number" name="service_quantities[{{ $service->id }}]" value="{{ old('service_quantities.' . $service->id, 1) }}"
+                                    min="1" max="20" class="input service-quantity" style="width: 60px;" onchange="updateEstimate()">
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <div>
                 <label class="form-label" for="promo_codes_text">Mã giảm giá</label>
                 <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text', is_array(old('promo_codes')) ? implode(', ', old('promo_codes')) : '') }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
@@ -261,9 +281,16 @@
             }
         });
 
+        document.querySelectorAll('.service-checkbox:checked').forEach(cb => {
+            const price = parseFloat(cb.dataset.price) || 0;
+            const qtyEl = cb.closest('.checkbox-item').querySelector('.service-quantity');
+            const qty   = parseInt(qtyEl?.value) || 1;
+            total += price * qty;
+        });
+
         if (nights > 0 && total > 0) {
             totalEl.textContent  = fmt(total);
-            detailEl.textContent = nights + ' đêm';
+            detailEl.textContent = nights + ' đêm (giá tạm tính, có thể lệch nhẹ so với giá cuối cùng nếu áp dụng giá theo mùa/cuối tuần)';
             boxEl.classList.remove('hidden');
         } else {
             boxEl.classList.add('hidden');

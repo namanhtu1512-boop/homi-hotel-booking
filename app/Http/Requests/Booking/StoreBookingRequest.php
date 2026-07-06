@@ -22,6 +22,9 @@ class StoreBookingRequest extends BaseFormRequest
             'note'                 => ['nullable', 'string', 'max:500'],
             'promo_codes'          => ['nullable', 'array', 'max:5'],
             'promo_codes.*'        => ['string', 'max:50', 'distinct'],
+            'services'                => ['nullable', 'array'],
+            'services.*.service_id'   => ['required_with:services', 'integer', 'distinct', 'exists:services,id'],
+            'services.*.quantity'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ];
     }
 
@@ -65,6 +68,24 @@ class StoreBookingRequest extends BaseFormRequest
                 ->all();
 
             $this->merge(['promo_codes' => $codes]);
+        }
+
+        // Form dùng checkbox chọn dịch vụ (service_ids[]) + số lượng riêng
+        // theo id (service_quantities[id]) — gộp thành services[] có cấu
+        // trúc để validate/xử lý đồng nhất với items[].
+        if (! is_array($this->input('services')) && is_array($this->input('service_ids'))) {
+            $quantities = $this->input('service_quantities', []);
+
+            $services = collect($this->input('service_ids'))
+                ->filter()
+                ->map(fn ($id) => [
+                    'service_id' => (int) $id,
+                    'quantity'   => max(1, (int) ($quantities[$id] ?? 1)),
+                ])
+                ->values()
+                ->all();
+
+            $this->merge(['services' => $services]);
         }
 
         $items = $this->input('items');

@@ -205,6 +205,13 @@ class BookingController extends Controller
                 'code'            => $promo->code,
                 'discount_amount' => (int) $promo->pivot->discount_amount,
             ])->all(),
+            'services' => $booking->serviceItems->map(fn ($item) => [
+                'service_id'   => $item->service_id,
+                'service_name' => $item->service?->name,
+                'quantity'     => $item->quantity,
+                'unit_price'   => $item->unit_price,
+                'subtotal'     => $item->subtotal,
+            ])->all(),
             'payment' => $booking->payment ? [
                 'status'        => $booking->payment->status->value,
                 'status_label'  => $booking->payment->status->label(),

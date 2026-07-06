@@ -11,6 +11,7 @@ use App\Models\Promotion;
 use App\Models\Review;
 use App\Models\RoomType;
 use App\Models\SeasonalRate;
+use App\Models\Service;
 use App\Models\User;
 use App\Services\HotelInfoService;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -42,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
             'reviews'     => Review::class,
             'contact_messages' => ContactMessage::class,
             'seasonal_rates' => SeasonalRate::class,
+            'services' => Service::class,
         ]);
 
         // Footer hiển thị trên mọi trang khách hàng — chia sẻ thông tin khách sạn

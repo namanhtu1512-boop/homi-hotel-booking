@@ -76,6 +76,32 @@
         </table>
     </div>
 
+    @if ($booking->serviceItems->isNotEmpty())
+        <div class="section-kicker" style="margin-top: 22px;">Dịch vụ thêm</div>
+        <div class="table-wrapper" style="margin-top: 10px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Dịch vụ</th>
+                        <th>Số lượng</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($booking->serviceItems as $serviceItem)
+                        <tr>
+                            <td>{{ $serviceItem->service?->name ?? '—' }}</td>
+                            <td>{{ $serviceItem->quantity }}</td>
+                            <td>{{ number_format($serviceItem->unit_price, 0, ',', '.') }}đ</td>
+                            <td>{{ number_format($serviceItem->subtotal, 0, ',', '.') }}đ</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 22px;">
         <div>
             <div class="section-kicker">Thông tin khách hàng</div>

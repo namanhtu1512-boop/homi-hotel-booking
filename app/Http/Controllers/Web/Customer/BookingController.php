@@ -8,6 +8,7 @@ use App\Services\AvailabilityService;
 use App\Services\BookingService;
 use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
+use App\Services\ServiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +21,7 @@ class BookingController extends Controller
         private readonly RoomTypeService $roomTypeService,
         private readonly AvailabilityService $availabilityService,
         private readonly RoomHoldService $roomHoldService,
+        private readonly ServiceService $serviceService,
     ) {}
 
     public function create(Request $request): View
@@ -86,6 +88,7 @@ class BookingController extends Controller
             'checkOut'       => $checkOut,
             'availabilities' => $availabilities,
             'holdExpiresAt'  => $holdExpiresAt,
+            'services'       => $this->serviceService->activePublic(),
         ]);
     }
 
