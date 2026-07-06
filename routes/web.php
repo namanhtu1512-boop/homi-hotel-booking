@@ -22,6 +22,8 @@ use App\Http\Controllers\Web\Admin\ContactMessageController as AdminContactMessa
 use App\Http\Controllers\Web\PromotionController;
 use App\Http\Controllers\Web\NewsController;
 use App\Http\Controllers\Web\ContactController;
+use App\Http\Controllers\Web\GroupBookingController;
+use App\Http\Controllers\Web\Admin\GroupBookingController as AdminGroupBookingController;
 use App\Http\Controllers\Web\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Web\Customer\ProfileController as CustomerProfileController;
@@ -46,6 +48,8 @@ Route::get('/news', [NewsController::class, 'index'])->name('news.index');
 Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
+Route::get('/group-bookings', [GroupBookingController::class, 'show'])->name('group-bookings.show');
+Route::post('/group-bookings', [GroupBookingController::class, 'store'])->middleware('throttle:5,1')->name('group-bookings.store');
 
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
@@ -218,6 +222,12 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::get('/',               [AdminContactMessageController::class, 'index'])->name('index');
         Route::patch('/{id}/read',    [AdminContactMessageController::class, 'markRead'])->name('mark-read');
         Route::delete('/{id}',        [AdminContactMessageController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('group-bookings')->name('group-bookings.')->group(function () {
+        Route::get('/',                    [AdminGroupBookingController::class, 'index'])->name('index');
+        Route::patch('/{id}/mark-contacted', [AdminGroupBookingController::class, 'markContacted'])->name('mark-contacted');
+        Route::delete('/{id}',             [AdminGroupBookingController::class, 'destroy'])->name('destroy');
     });
 });
 

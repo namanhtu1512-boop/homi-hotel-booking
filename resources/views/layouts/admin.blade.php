@@ -35,6 +35,7 @@
                         ['route' => 'admin.banners.index', 'pattern' => 'admin.banners.*', 'label' => 'Banner'],
                         ['route' => 'admin.reviews.index', 'pattern' => 'admin.reviews.*', 'label' => 'Đánh giá'],
                         ['route' => 'admin.contact-messages.index', 'pattern' => 'admin.contact-messages.*', 'label' => 'Liên hệ'],
+                        ['route' => 'admin.group-bookings.index', 'pattern' => 'admin.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
                         ['route' => 'admin.database', 'pattern' => 'admin.database', 'label' => 'Database'],
                     ];
                 @endphp

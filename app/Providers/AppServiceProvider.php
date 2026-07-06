@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Banner;
 use App\Models\Booking;
 use App\Models\ContactMessage;
+use App\Models\GroupBookingRequest;
 use App\Models\HotelInfo;
 use App\Models\News;
 use App\Models\Promotion;
@@ -44,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
             'contact_messages' => ContactMessage::class,
             'seasonal_rates' => SeasonalRate::class,
             'services' => Service::class,
+            'group_booking_requests' => GroupBookingRequest::class,
         ]);
 
         // Footer hiển thị trên mọi trang khách hàng — chia sẻ thông tin khách sạn

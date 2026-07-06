@@ -26,6 +26,9 @@
                 @if (Route::has('contact.show'))
                     <li><a href="{{ route('contact.show') }}" class="hover:text-primary">Liên hệ</a></li>
                 @endif
+                @if (Route::has('group-bookings.show'))
+                    <li><a href="{{ route('group-bookings.show') }}" class="hover:text-primary">Đặt đoàn/nhóm</a></li>
+                @endif
                 <li><a href="{{ route('about') }}" class="hover:text-primary">Giới thiệu</a></li>
             </ul>
         </div>
