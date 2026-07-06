@@ -201,6 +201,10 @@
         @apply border border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-300;
     }
 
+    .alert-warning {
+        @apply border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300;
+    }
+
     .stats-grid {
         @apply mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4;
     }

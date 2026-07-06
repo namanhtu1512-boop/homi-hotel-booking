@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\BookingStatus;
 use App\Models\BookingItem;
+use App\Models\RoomHold;
 use App\Models\RoomType;
 
 class AvailabilityService
@@ -15,16 +16,20 @@ class AvailabilityService
     /**
      * Kiểm tra availability cho một room type trong khoảng ngày.
      *
+     * $excludeSessionId: session đang giữ hold cho chính khoảng ngày/phòng
+     * này không bị tính là "đã bị chiếm" bởi hold của chính nó — chỉ hold từ
+     * session khác mới làm giảm availability.
+     *
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException nếu room_type không tồn tại/không active
      */
-    public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1): array
+    public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1, ?string $excludeSessionId = null): array
     {
         $this->dateRange->validate($checkIn, $checkOut);
 
         $roomType = RoomType::where('status', 'active')->findOrFail($roomTypeId);
 
-        $bookedQuantity    = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut);
+        $bookedQuantity    = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut, $excludeSessionId);
         $availableQuantity = $roomType->total_rooms - $bookedQuantity;
 
         return [
@@ -53,15 +58,24 @@ class AvailabilityService
      * khi chạy test) không ép kiểu nên có thể lưu kèm "00:00:00". whereDate()
      * chuẩn hóa cả hai vế về phần ngày, tránh sai lệch giữa 2 loại DB.
      */
-    public function getBookedQuantity(int $roomTypeId, string $checkIn, string $checkOut): int
+    public function getBookedQuantity(int $roomTypeId, string $checkIn, string $checkOut, ?string $excludeSessionId = null): int
     {
-        return (int) BookingItem::where('room_type_id', $roomTypeId)
+        $booked = (int) BookingItem::where('room_type_id', $roomTypeId)
             ->whereHas('booking', fn ($q) => $q
                 ->whereIn('status', BookingStatus::holdingStatuses())
                 ->whereDate('check_in', '<', $checkOut)
                 ->whereDate('check_out', '>', $checkIn)
             )
             ->sum('quantity');
+
+        $held = (int) RoomHold::where('room_type_id', $roomTypeId)
+            ->active()
+            ->when($excludeSessionId, fn ($q) => $q->where('session_id', '!=', $excludeSessionId))
+            ->whereDate('check_in', '<', $checkOut)
+            ->whereDate('check_out', '>', $checkIn)
+            ->sum('quantity');
+
+        return $booked + $held;
     }
 
     /**
@@ -69,9 +83,9 @@ class AvailabilityService
      *
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      */
-    public function canBook(int $roomTypeId, string $checkIn, string $checkOut, int $quantity): bool
+    public function canBook(int $roomTypeId, string $checkIn, string $checkOut, int $quantity, ?string $excludeSessionId = null): bool
     {
-        return $this->check($roomTypeId, $checkIn, $checkOut, $quantity)['can_book'];
+        return $this->check($roomTypeId, $checkIn, $checkOut, $quantity, $excludeSessionId)['can_book'];
     }
 
     /**

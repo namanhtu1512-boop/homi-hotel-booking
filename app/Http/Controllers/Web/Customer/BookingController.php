@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Services\AvailabilityService;
 use App\Services\BookingService;
+use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class BookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly RoomTypeService $roomTypeService,
         private readonly AvailabilityService $availabilityService,
+        private readonly RoomHoldService $roomHoldService,
     ) {}
 
     public function create(Request $request): View
@@ -42,6 +44,8 @@ class BookingController extends Controller
         // + ngày để hiển thị available_quantity/can_book cho từng loại phòng
         // trước khi khách đặt thật.
         $availabilities = [];
+        $holdExpiresAt  = null;
+        $sessionId      = $request->session()->getId();
 
         if ($checkIn && $checkOut) {
             foreach ($items as $item) {
@@ -54,7 +58,7 @@ class BookingController extends Controller
 
                 try {
                     $result = $this->availabilityService->check(
-                        (int) $item['room_type_id'], $checkIn, $checkOut, $quantity
+                        (int) $item['room_type_id'], $checkIn, $checkOut, $quantity, $sessionId
                     );
                     $availabilities[] = [
                         'name'   => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
@@ -69,6 +73,10 @@ class BookingController extends Controller
                     ];
                 }
             }
+
+            // Giữ chỗ tạm thời cho các dòng phòng vừa kiểm tra trong khi
+            // khách điền nốt thông tin — hết hạn sau RoomHoldService::TTL_MINUTES.
+            $holdExpiresAt = $this->roomHoldService->createForSession($sessionId, $items, $checkIn, $checkOut);
         }
 
         return view('customer.booking.create', [
@@ -77,6 +85,7 @@ class BookingController extends Controller
             'checkIn'        => $checkIn,
             'checkOut'       => $checkOut,
             'availabilities' => $availabilities,
+            'holdExpiresAt'  => $holdExpiresAt,
         ]);
     }
 
@@ -110,7 +119,10 @@ class BookingController extends Controller
 
     public function store(StoreBookingRequest $request): RedirectResponse
     {
-        $booking = $this->bookingService->create($request->user(), $request->validated());
+        $data                       = $request->validated();
+        $data['_hold_session_id']   = $request->session()->getId();
+
+        $booking = $this->bookingService->create($request->user(), $data);
 
         return redirect()
             ->route('customer.bookings.show', $booking->id)

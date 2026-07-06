@@ -24,6 +24,7 @@ class BookingService
         private AvailabilityService $availabilityService,
         private PricingService $pricingService,
         private PromotionService $promotionService,
+        private RoomHoldService $roomHoldService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -32,6 +33,11 @@ class BookingService
 
     public function create(User $customer, array $data): Booking
     {
+        // Session đang giữ room hold cho chính khoảng ngày/phòng này — hold
+        // của chính nó không được tính là "đã bị chiếm" khi re-check trong
+        // transaction (xem RoomHoldService, AvailabilityService).
+        $holdSessionId = $data['_hold_session_id'] ?? null;
+
         // DateRangeService validate đã được gọi qua AvailabilityService
         $this->availabilityService->validateDates($data['check_in'], $data['check_out']);
 
@@ -60,7 +66,7 @@ class BookingService
             }
         }
 
-        return DB::transaction(function () use ($customer, $data, $roomTypes) {
+        return DB::transaction(function () use ($customer, $data, $roomTypes, $holdSessionId) {
             // Khóa các loại phòng liên quan theo thứ tự id tăng dần (tránh
             // deadlock khi 2 đơn cùng khóa nhiều loại phòng chung) TRƯỚC khi
             // tính lại availability. SELECT ... FOR UPDATE luôn đọc dữ liệu
@@ -87,7 +93,8 @@ class BookingService
                     $roomType->id,
                     $data['check_in'],
                     $data['check_out'],
-                    $quantity
+                    $quantity,
+                    $holdSessionId
                 )) {
                     throw ValidationException::withMessages([
                         'items' => ["Phòng \"{$roomType->name}\" đã hết trong khoảng thời gian này."],
@@ -155,6 +162,13 @@ class BookingService
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
             $this->logPaymentStatus($payment, null, PaymentStatus::UNPAID, $customer->id, 'Tạo đơn đặt phòng.');
+
+            // Đơn đã tạo thành công trong transaction này — giải phóng hold
+            // của session (nếu có) ngay trong transaction, để nếu transaction
+            // rollback (lỗi phát sinh sau đó) thì hold vẫn còn nguyên.
+            if ($holdSessionId) {
+                $this->roomHoldService->releaseForSession($holdSessionId);
+            }
 
             return $booking->load(['bookingItems.roomType', 'payment']);
         });

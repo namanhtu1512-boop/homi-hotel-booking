@@ -100,6 +100,13 @@
                 </div>
             @endif
 
+            @if ($holdExpiresAt)
+                <div class="alert alert-warning" id="hold-countdown-banner">
+                    ⏳ Phòng đang được <strong>giữ tạm</strong> cho bạn — vui lòng hoàn tất đặt phòng trong
+                    <strong id="hold-countdown-timer"></strong>, sau đó phòng sẽ được mở lại cho khách khác.
+                </div>
+            @endif
+
             <div id="price-estimate" class="hidden rounded-xl bg-primary-light/50 p-4 dark:bg-primary/10">
                 <div class="mb-1 text-xs font-semibold text-slate-500 uppercase dark:text-slate-400">Giá tạm tính</div>
                 <div id="price-total" class="text-2xl font-extrabold text-primary"></div>
@@ -265,6 +272,30 @@
 
     [checkInEl, checkOutEl].forEach(el => el.addEventListener('change', updateEstimate));
     updateEstimate();
+
+    @if ($holdExpiresAt)
+        (function () {
+            const expiresAt = new Date(@json($holdExpiresAt->toIso8601String())).getTime();
+            const timerEl   = document.getElementById('hold-countdown-timer');
+            const bannerEl  = document.getElementById('hold-countdown-banner');
+
+            function tick() {
+                const remainingMs = expiresAt - Date.now();
+                if (remainingMs <= 0) {
+                    timerEl.textContent = '0:00';
+                    bannerEl.classList.add('alert-danger');
+                    return;
+                }
+                const totalSeconds = Math.floor(remainingMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                timerEl.textContent = minutes + ':' + String(seconds).padStart(2, '0');
+                setTimeout(tick, 1000);
+            }
+
+            tick();
+        })();
+    @endif
 })();
 </script>
 @endsection
