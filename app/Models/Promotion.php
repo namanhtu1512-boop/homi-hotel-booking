@@ -19,6 +19,7 @@ class Promotion extends Model
         'starts_at',
         'ends_at',
         'status',
+        'stackable',
     ];
 
     protected $casts = [
@@ -26,6 +27,7 @@ class Promotion extends Model
         'discount_amount'  => 'integer',
         'starts_at'        => 'date',
         'ends_at'          => 'date',
+        'stackable'        => 'boolean',
     ];
 
     public function scopeActive($query)

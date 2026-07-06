@@ -201,6 +201,10 @@ class BookingController extends Controller
                 'child_surcharge' => $item->child_surcharge,
                 'price_breakdown' => $item->price_breakdown,
             ])->all(),
+            'promotions' => $booking->promotions->map(fn ($promo) => [
+                'code'            => $promo->code,
+                'discount_amount' => (int) $promo->pivot->discount_amount,
+            ])->all(),
             'payment' => $booking->payment ? [
                 'status'        => $booking->payment->status->value,
                 'status_label'  => $booking->payment->status->label(),

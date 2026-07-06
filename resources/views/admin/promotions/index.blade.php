@@ -29,7 +29,12 @@
                 <tbody>
                     @foreach ($promotions as $promo)
                         <tr>
-                            <td>{{ $promo->name }}</td>
+                            <td>
+                                {{ $promo->name }}
+                                @if ($promo->stackable)
+                                    <span class="badge badge-blue">Stack được</span>
+                                @endif
+                            </td>
                             <td><span class="badge badge-blue">{{ $promo->code }}</span></td>
                             <td>
                                 @if ($promo->discount_percent)

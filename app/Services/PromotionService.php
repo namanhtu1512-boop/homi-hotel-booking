@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Promotion;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Validation\ValidationException;
 
 class PromotionService
@@ -40,11 +41,35 @@ class PromotionService
 
         if (! $promotion || ! $promotion->isValidNow()) {
             throw ValidationException::withMessages([
-                'promo_code' => ['Mã giảm giá không hợp lệ hoặc đã hết hạn.'],
+                'promo_codes' => ["Mã giảm giá \"{$code}\" không hợp lệ hoặc đã hết hạn."],
             ]);
         }
 
         return $promotion;
+    }
+
+    /**
+     * Tìm nhiều mã khuyến mãi hợp lệ cùng lúc (stack) — mỗi mã phải hợp lệ
+     * riêng lẻ (tái dùng findValidByCode), và nếu có từ 2 mã trở lên thì
+     * TẤT CẢ phải được đánh dấu stackable=true, tránh khách cộng dồn 2 mã
+     * giảm giá không dự tính stack chung (VD 2 mã 50% làm phòng miễn phí).
+     *
+     * @param  array<int, string>  $codes
+     * @return SupportCollection<int, Promotion>
+     *
+     * @throws ValidationException
+     */
+    public function findValidManyByCodes(array $codes): SupportCollection
+    {
+        $promotions = collect($codes)->map(fn (string $code) => $this->findValidByCode($code));
+
+        if ($promotions->count() > 1 && $promotions->contains(fn (Promotion $p) => ! $p->stackable)) {
+            throw ValidationException::withMessages([
+                'promo_codes' => ['Một hoặc nhiều mã không hỗ trợ dùng chung với mã khác — mỗi đơn chỉ được dùng 1 mã không stack.'],
+            ]);
+        }
+
+        return $promotions;
     }
 
     public function create(array $data): Promotion

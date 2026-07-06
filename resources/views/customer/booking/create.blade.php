@@ -133,8 +133,8 @@
             </div>
 
             <div>
-                <label class="form-label" for="promo_code">Mã giảm giá</label>
-                <input class="input" type="text" id="promo_code" name="promo_code" value="{{ old('promo_code') }}" placeholder="VD: SUMMER2026">
+                <label class="form-label" for="promo_codes_text">Mã giảm giá</label>
+                <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text', is_array(old('promo_codes')) ? implode(', ', old('promo_codes')) : '') }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
             </div>
 
             <div>

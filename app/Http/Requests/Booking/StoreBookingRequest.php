@@ -20,7 +20,8 @@ class StoreBookingRequest extends BaseFormRequest
             'customer_phone'       => ['required', 'string', 'max:20'],
             'customer_email'       => ['nullable', 'email', 'max:100'],
             'note'                 => ['nullable', 'string', 'max:500'],
-            'promo_code'           => ['nullable', 'string', 'max:50'],
+            'promo_codes'          => ['nullable', 'array', 'max:5'],
+            'promo_codes.*'        => ['string', 'max:50', 'distinct'],
         ];
     }
 
@@ -49,6 +50,23 @@ class StoreBookingRequest extends BaseFormRequest
 
     protected function prepareForValidation(): void
     {
+        // Tương thích ngược: client cũ gửi 1 mã duy nhất qua `promo_code`
+        // (string) — gộp thành mảng 1 phần tử cho `promo_codes[]` mới.
+        if (! is_array($this->input('promo_codes')) && $this->filled('promo_code')) {
+            $this->merge(['promo_codes' => [$this->input('promo_code')]]);
+        }
+
+        // Form nhập 1 ô, nhiều mã ngăn cách bằng dấu phẩy — tách thành mảng.
+        if (! is_array($this->input('promo_codes')) && $this->filled('promo_codes_text')) {
+            $codes = collect(explode(',', $this->input('promo_codes_text')))
+                ->map(fn ($code) => trim($code))
+                ->filter()
+                ->values()
+                ->all();
+
+            $this->merge(['promo_codes' => $codes]);
+        }
+
         $items = $this->input('items');
 
         // Tương thích ngược: payload phẳng room_type_id + quantity (+ adults/

@@ -101,10 +101,17 @@
                 <span class="label">Tạm tính</span>
                 <span class="value">{{ number_format($booking->total_amount + $booking->discount_amount, 0, ',', '.') }}đ</span>
             </div>
-            <div class="info-item">
-                <span class="label">Giảm giá {{ $booking->promotion ? '(' . $booking->promotion->code . ')' : '' }}</span>
-                <span class="value text-accent">-{{ number_format($booking->discount_amount, 0, ',', '.') }}đ</span>
-            </div>
+            @forelse ($booking->promotions as $promo)
+                <div class="info-item">
+                    <span class="label">Giảm giá ({{ $promo->code }})</span>
+                    <span class="value text-accent">-{{ number_format($promo->pivot->discount_amount, 0, ',', '.') }}đ</span>
+                </div>
+            @empty
+                <div class="info-item">
+                    <span class="label">Giảm giá {{ $booking->promotion ? '(' . $booking->promotion->code . ')' : '' }}</span>
+                    <span class="value text-accent">-{{ number_format($booking->discount_amount, 0, ',', '.') }}đ</span>
+                </div>
+            @endforelse
         @endif
         <div class="info-item">
             <span class="label">Tổng tiền</span>

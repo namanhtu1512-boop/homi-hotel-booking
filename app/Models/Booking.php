@@ -49,6 +49,18 @@ class Booking extends Model
         return $this->belongsTo(Promotion::class);
     }
 
+    /**
+     * Toàn bộ mã khuyến mãi đã áp dụng (hỗ trợ stack nhiều mã) — cột
+     * promotion_id/discount_amount ở trên chỉ giữ lại mã đầu tiên/tổng giảm
+     * để hiển thị nhanh, không phản ánh đầy đủ khi có nhiều hơn 1 mã.
+     */
+    public function promotions()
+    {
+        return $this->belongsToMany(Promotion::class, 'booking_promotions')
+            ->withPivot('discount_amount')
+            ->withTimestamps();
+    }
+
     public function bookingItems()
     {
         return $this->hasMany(BookingItem::class);

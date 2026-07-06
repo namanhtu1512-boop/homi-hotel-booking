@@ -90,7 +90,7 @@ class PromotionController extends Controller
 
     private function validatePromotion(Request $request, ?int $ignoreId = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name'              => ['required', 'string', 'max:255'],
             'code'              => ['required', 'string', 'max:50', 'alpha_dash', 'unique:promotions,code,' . ($ignoreId ?? 'NULL') . ',id'],
             'description'       => ['nullable', 'string', 'max:2000'],
@@ -99,6 +99,7 @@ class PromotionController extends Controller
             'starts_at'         => ['nullable', 'date'],
             'ends_at'           => ['nullable', 'date', 'after_or_equal:starts_at'],
             'status'            => ['required', 'in:active,hidden'],
+            'stackable'         => ['nullable', 'boolean'],
         ], [], [
             'name'             => 'tên khuyến mãi',
             'code'             => 'mã khuyến mãi',
@@ -108,6 +109,11 @@ class PromotionController extends Controller
             'starts_at'        => 'ngày bắt đầu',
             'ends_at'          => 'ngày kết thúc',
             'status'           => 'trạng thái',
+            'stackable'        => 'cho phép dùng chung với mã khác',
         ]);
+
+        $data['stackable'] = $request->boolean('stackable');
+
+        return $data;
     }
 }

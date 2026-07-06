@@ -17,6 +17,12 @@ class PromotionFactory extends Factory
             'starts_at'        => now()->subDays(1),
             'ends_at'          => now()->addMonths(1),
             'status'           => 'active',
+            'stackable'        => false,
         ];
+    }
+
+    public function stackable(): static
+    {
+        return $this->state(['stackable' => true]);
     }
 }

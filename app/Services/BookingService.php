@@ -127,17 +127,28 @@ class BookingService
                 ];
             }
 
-            $promotion = null;
-            $discount  = 0;
+            $promotions = collect();
+            $discount   = 0;
+            $promoLines = [];
 
-            if (! empty($data['promo_code'])) {
-                $promotion = $this->promotionService->findValidByCode($data['promo_code']);
-                $discount  = (int) $promotion->discountFor($total);
+            if (! empty($data['promo_codes'])) {
+                $promotions = $this->promotionService->findValidManyByCodes($data['promo_codes']);
+
+                // Mỗi mã tính giảm trên PHẦN CÒN LẠI sau các mã trước đó (tuần
+                // tự), tự động cap về 0 — không thể giảm vượt quá tổng đơn dù
+                // stack bao nhiêu mã cũng vậy.
+                $remaining = $total;
+                foreach ($promotions as $promotion) {
+                    $lineDiscount = min((int) $promotion->discountFor($remaining), $remaining);
+                    $discount    += $lineDiscount;
+                    $remaining   -= $lineDiscount;
+                    $promoLines[] = ['promotion_id' => $promotion->id, 'discount_amount' => $lineDiscount];
+                }
             }
 
             $booking = Booking::create([
                 'user_id'         => $customer->id,
-                'promotion_id'    => $promotion?->id,
+                'promotion_id'    => $promotions->first()?->id,
                 'booking_code'    => $this->generateCode(),
                 'check_in'        => $data['check_in'],
                 'check_out'       => $data['check_out'],
@@ -157,6 +168,10 @@ class BookingService
 
             foreach ($lines as $line) {
                 $booking->bookingItems()->create($line);
+            }
+
+            foreach ($promoLines as $promoLine) {
+                $booking->promotions()->attach($promoLine['promotion_id'], ['discount_amount' => $promoLine['discount_amount']]);
             }
 
             $payment = $booking->payment()->create([
@@ -192,7 +207,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'payment.statusLogs.changedBy'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'payment.statusLogs.changedBy', 'promotions'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);

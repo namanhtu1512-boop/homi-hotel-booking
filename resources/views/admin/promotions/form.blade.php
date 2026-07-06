@@ -69,6 +69,13 @@
             </select>
         </div>
 
+        <div class="form-group">
+            <label class="checkbox-item">
+                <input type="checkbox" name="stackable" value="1" @checked(old('stackable', $promotion->stackable ?? false))>
+                Cho phép dùng chung với mã khác trong cùng 1 đơn (stack)
+            </label>
+        </div>
+
         <button type="submit" class="btn btn-primary btn-block">{{ $isEdit ? 'Lưu thay đổi' : 'Tạo khuyến mãi' }}</button>
     </form>
 </div>
