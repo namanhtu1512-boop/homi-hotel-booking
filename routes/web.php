@@ -5,7 +5,6 @@ use App\Http\Controllers\Web\AuthWebController;
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\RoomController;
 use App\Http\Controllers\Web\Admin\DashboardController;
-use App\Http\Controllers\Web\Admin\DatabaseController;
 use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\RoomController as AdminRoomController;
@@ -30,12 +29,15 @@ use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingContro
 use App\Http\Controllers\Web\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Web\Customer\WishlistController as CustomerWishlistController;
 use App\Http\Controllers\Web\Customer\ReviewController as CustomerReviewController;
+use App\Http\Controllers\Web\Customer\ChatController as CustomerChatController;
+use App\Http\Controllers\Web\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Web\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Web\Staff\HotelInfoController as StaffHotelInfoController;
 use App\Http\Controllers\Web\Staff\RoomTypeController as StaffRoomTypeController;
 use App\Http\Controllers\Web\Staff\RoomController as StaffRoomController;
 use App\Http\Controllers\Web\Staff\BookingController as StaffBookingController;
 use App\Http\Controllers\Web\Staff\PaymentController as StaffPaymentController;
+use App\Http\Controllers\Web\Staff\ChatController as StaffChatController;
 use App\Http\Controllers\Web\AboutController;
 
 // ---------------------------------------------------------------
@@ -117,6 +119,12 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::get('/create', [CustomerReviewController::class, 'create'])->name('create');
         Route::post('/',      [CustomerReviewController::class, 'store'])->name('store');
     });
+
+    Route::prefix('chat')->name('chat.')->group(function () {
+        Route::get('/',      [CustomerChatController::class, 'index'])->name('index');
+        Route::post('/',     [CustomerChatController::class, 'store'])->name('store')->middleware('throttle:30,1');
+        Route::get('/poll',  [CustomerChatController::class, 'poll'])->name('poll');
+    });
 });
 
 // ---------------------------------------------------------------
@@ -124,7 +132,6 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
 // ---------------------------------------------------------------
 Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/database',  [DatabaseController::class, 'index'])->name('database');
 
     Route::get('/hotel-info',                 [HotelInfoController::class, 'show'])->name('hotel-info.show');
     Route::get('/hotel-info/edit',            [HotelInfoController::class, 'edit'])->name('hotel-info.edit');
@@ -244,6 +251,13 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::patch('/{id}/mark-contacted', [AdminGroupBookingController::class, 'markContacted'])->name('mark-contacted');
         Route::delete('/{id}',             [AdminGroupBookingController::class, 'destroy'])->name('destroy');
     });
+
+    Route::prefix('chat')->name('chat.')->group(function () {
+        Route::get('/',                 [AdminChatController::class, 'index'])->name('index');
+        Route::get('/{customerId}',     [AdminChatController::class, 'show'])->name('show');
+        Route::post('/{customerId}',    [AdminChatController::class, 'store'])->name('store')->middleware('throttle:30,1');
+        Route::get('/{customerId}/poll', [AdminChatController::class, 'poll'])->name('poll');
+    });
 });
 
 // ---------------------------------------------------------------
@@ -286,5 +300,12 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
     Route::prefix('payments')->name('payments.')->group(function () {
         Route::get('/',              [StaffPaymentController::class, 'index'])->name('index');
         Route::patch('/{id}/status', [StaffPaymentController::class, 'updateStatus'])->name('update-status');
+    });
+
+    Route::prefix('chat')->name('chat.')->group(function () {
+        Route::get('/',                 [StaffChatController::class, 'index'])->name('index');
+        Route::get('/{customerId}',     [StaffChatController::class, 'show'])->name('show');
+        Route::post('/{customerId}',    [StaffChatController::class, 'store'])->name('store')->middleware('throttle:30,1');
+        Route::get('/{customerId}/poll', [StaffChatController::class, 'poll'])->name('poll');
     });
 });

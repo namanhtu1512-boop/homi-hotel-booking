@@ -48,6 +48,7 @@
                         @else
                             <a href="{{ route('customer.wishlist.index') }}" class="btn-outline btn-sm">Yêu thích ({{ auth()->user()->wishlistItems()->count() }})</a>
                             <a href="{{ route('customer.bookings.index') }}" class="btn-outline btn-sm">Đơn của tôi</a>
+                            <a href="{{ route('customer.chat.index') }}" class="btn-outline btn-sm">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
                             <a href="{{ route('customer.profile.show') }}" class="btn-outline btn-sm">Tài khoản</a>
                             <a href="{{ route('customer.bookings.create') }}" class="btn-primary btn-sm">Đặt phòng</a>
                         @endif
@@ -90,6 +91,7 @@
                     @else
                         <a href="{{ route('customer.wishlist.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Yêu thích</a>
                         <a href="{{ route('customer.bookings.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
+                        <a href="{{ route('customer.chat.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
                         <a href="{{ route('customer.profile.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
                         <a href="{{ route('customer.bookings.create') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-slate-100 dark:hover:bg-slate-800">Đặt phòng</a>
                     @endif

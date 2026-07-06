@@ -37,7 +37,7 @@
                         ['route' => 'admin.reviews.index', 'pattern' => 'admin.reviews.*', 'label' => 'Đánh giá'],
                         ['route' => 'admin.contact-messages.index', 'pattern' => 'admin.contact-messages.*', 'label' => 'Liên hệ'],
                         ['route' => 'admin.group-bookings.index', 'pattern' => 'admin.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
-                        ['route' => 'admin.database', 'pattern' => 'admin.database', 'label' => 'Database'],
+                        ['route' => 'admin.chat.index', 'pattern' => 'admin.chat.*', 'label' => 'Chat khách hàng'],
                     ];
                 @endphp
 
@@ -46,6 +46,9 @@
                         <a href="{{ route($link['route']) }}"
                             class="rounded-lg px-3 py-2.5 text-sm font-semibold transition {{ request()->routeIs($link['pattern']) ? 'bg-primary text-white' : 'hover:bg-white/5 hover:text-white' }}">
                             {{ $link['label'] }}
+                            @if ($link['route'] === 'admin.chat.index' && ($chatUnreadCount ?? 0) > 0)
+                                <span class="badge badge-orange">{{ $chatUnreadCount }}</span>
+                            @endif
                         </a>
                     @endif
                 @endforeach

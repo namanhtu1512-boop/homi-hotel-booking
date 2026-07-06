@@ -15,8 +15,10 @@ use App\Models\RoomType;
 use App\Models\SeasonalRate;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\ChatService;
 use App\Services\HotelInfoService;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -57,6 +59,25 @@ class AppServiceProvider extends ServiceProvider
         // controller của trang đó đã tự tải hotel rồi.
         View::composer('partials._footer', function ($view) {
             $view->with('footerHotel', $this->app->make(HotelInfoService::class)->current());
+        });
+
+        // Badge số tin chat chưa đọc trên nav admin/staff — mirror đúng
+        // cách chia sẻ dữ liệu qua composer như footer ở trên.
+        View::composer(['layouts.admin', 'layouts.staff'], function ($view) {
+            $view->with('chatUnreadCount', $this->app->make(ChatService::class)->unreadCountForStaff());
+        });
+
+        // Badge số tin chat chưa đọc trên nav customer (chỉ có ý nghĩa khi
+        // đã đăng nhập với vai trò customer).
+        View::composer('layouts.app', function ($view) {
+            $user = Auth::user();
+
+            $view->with(
+                'customerChatUnreadCount',
+                $user && $user->role === 'customer'
+                    ? $this->app->make(ChatService::class)->unreadCountForCustomer($user->id)
+                    : 0
+            );
         });
     }
 }

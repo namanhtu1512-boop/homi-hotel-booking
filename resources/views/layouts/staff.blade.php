@@ -27,6 +27,7 @@
                         ['route' => 'staff.rooms.index', 'pattern' => 'staff.rooms.*', 'label' => 'Phòng vật lý'],
                         ['route' => 'staff.bookings.index', 'pattern' => 'staff.bookings.*', 'label' => 'Đơn đặt phòng'],
                         ['route' => 'staff.payments.index', 'pattern' => 'staff.payments.*', 'label' => 'Thanh toán'],
+                        ['route' => 'staff.chat.index', 'pattern' => 'staff.chat.*', 'label' => 'Chat khách hàng'],
                     ];
                 @endphp
 
@@ -34,6 +35,9 @@
                     <a href="{{ route($link['route']) }}"
                         class="rounded-lg px-3 py-2.5 text-sm font-semibold transition {{ request()->routeIs($link['pattern']) ? 'bg-teal-600 text-white' : 'hover:bg-white/5 hover:text-white' }}">
                         {{ $link['label'] }}
+                        @if ($link['route'] === 'staff.chat.index' && ($chatUnreadCount ?? 0) > 0)
+                            <span class="badge badge-orange">{{ $chatUnreadCount }}</span>
+                        @endif
                     </a>
                 @endforeach
             </nav>
