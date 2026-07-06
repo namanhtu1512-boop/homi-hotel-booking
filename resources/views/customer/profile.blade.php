@@ -6,7 +6,7 @@
 @section('banner_subtitle', 'Xem và cập nhật thông tin tài khoản của bạn.')
 
 @section('content')
-<div class="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+<div class="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
 
     <div class="space-y-5">
         <div class="card">

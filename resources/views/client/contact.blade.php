@@ -6,7 +6,7 @@
 @section('banner_subtitle', 'Có câu hỏi hoặc yêu cầu đặc biệt? Gửi tin nhắn cho Homi, chúng tôi sẽ phản hồi sớm nhất.')
 
 @section('content')
-<div class="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+<div class="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
     <div class="card">
         @if (session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>

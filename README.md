@@ -64,6 +64,10 @@ Checklist đầy đủ hơn (smoke test, security checklist khi deploy) xem
 
 Chi tiết dữ liệu mẫu (mã đơn, mã khuyến mãi...) xem
 [`docs/demo-scripts/DemoScript_Tuan10-13.md`](docs/demo-scripts/DemoScript_Tuan10-13.md).
+Kịch bản demo đầy đủ **toàn bộ chức năng** (kể cả giữ chỗ, giá theo mùa,
+khuyến mãi stack, dịch vụ thêm, bản đồ, hóa đơn nội bộ, đặt đoàn/nhóm, lễ
+tân & buồng phòng) xem
+[`docs/demo-scripts/DemoScript_TatCaChucNang.md`](docs/demo-scripts/DemoScript_TatCaChucNang.md).
 
 ---
 

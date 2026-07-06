@@ -226,7 +226,7 @@
     }
 
     .dashboard-grid {
-        @apply grid gap-5 lg:grid-cols-[1.2fr_0.8fr];
+        @apply grid gap-5 md:grid-cols-[1.2fr_0.8fr];
     }
 
     .info-list {

@@ -9,7 +9,7 @@
 @section('content')
 @php $hasFilters = ! empty(array_filter($filters)); @endphp
 
-<div class="grid gap-6 lg:grid-cols-[280px_1fr]">
+<div class="grid gap-6 md:grid-cols-[280px_1fr]">
     <aside class="card h-fit space-y-5">
         @if ($errors->any())
             <div class="alert alert-danger">

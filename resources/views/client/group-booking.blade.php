@@ -6,7 +6,7 @@
 @section('banner_subtitle', 'Từ 5 phòng trở lên? Gửi yêu cầu để Homi liên hệ báo giá ưu đãi riêng cho đoàn/công ty của bạn.')
 
 @section('content')
-<div class="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+<div class="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
     <div class="card">
         @if (session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>

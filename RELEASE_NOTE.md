@@ -28,11 +28,20 @@ Laravel 13 Blade monolith. Đủ 3 khu vực: public (xem/tìm phòng), customer
   admin, quản lý khuyến mãi/đánh giá/tin tức/banner/liên hệ.
 - **API JSON `/api/v1/*`**: hoàn thiện đầy đủ (không còn stub), dùng
   Sanctum — vai trò phụ, xem README.
+- **Bổ sung sau Tuần 16** (nhóm còn thời gian nên làm thêm, vượt phạm vi
+  bắt buộc của kế hoạch gốc): giữ chỗ tạm thời (room hold) 10-15 phút, giá
+  theo mùa/cuối tuần + phụ thu trẻ em, khuyến mãi stack nhiều mã/đơn, module
+  dịch vụ thêm gắn vào đơn đặt phòng, form đặt đoàn/nhóm + báo giá corporate
+  thủ công, hóa đơn/biên nhận nội bộ cho đơn đặt phòng, bản đồ & chỉ đường
+  trên trang chủ/liên hệ, module lễ tân & buồng phòng nội bộ (check-in/out
+  thật + housekeeping).
 
 ## Số liệu kiểm thử
 
-**538/538 test pass**, 1276 assertion, 0 failed — chi tiết breakdown theo
-module xem [`docs/check-list/TestReport_Final_Tuan15.md`](docs/check-list/TestReport_Final_Tuan15.md).
+**612/612 test pass**, 1488 assertion, 0 failed — chi tiết breakdown theo
+module xem [`docs/check-list/TestReport_Final_Tuan15.md`](docs/check-list/TestReport_Final_Tuan15.md)
+(số liệu gốc tại thời điểm Tuần 16; test suite đã tăng lên khi làm thêm các
+module ở mục trên).
 
 > Lưu ý cho lần chạy lại sau này: `tests/Unit/Services/AvailabilityServiceTest.php`
 > trước đây dùng ngày hardcode tuyệt đối (`2026-07-05`...) — khi ngày thật
@@ -50,8 +59,8 @@ xem [`docs/check-list/Bug_Report_Sprint7_Tuan14.md`](docs/check-list/Bug_Report_
 ## Known limitations
 
 Xem đầy đủ tại [`docs/check-list/Known_Limitations_Tuan16.md`](docs/check-list/Known_Limitations_Tuan16.md) —
-tóm tắt: thanh toán/email chỉ mô phỏng, không có module dịch vụ riêng, chưa
-deploy staging thật (dùng phương án local ổn định).
+tóm tắt: thanh toán/email chỉ mô phỏng, chưa deploy staging thật (dùng
+phương án local ổn định).
 
 ## Cách chạy
 

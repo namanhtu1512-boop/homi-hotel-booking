@@ -27,6 +27,9 @@
                 @if (Route::has('contact.show'))
                     <a href="{{ route('contact.show') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Liên hệ</a>
                 @endif
+                @if (Route::has('group-bookings.show'))
+                    <a href="{{ route('group-bookings.show') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Đặt đoàn/nhóm</a>
+                @endif
             </nav>
 
             <div class="flex items-center gap-2">
@@ -74,6 +77,9 @@
                 @endif
                 @if (Route::has('contact.show'))
                     <a href="{{ route('contact.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Liên hệ</a>
+                @endif
+                @if (Route::has('group-bookings.show'))
+                    <a href="{{ route('group-bookings.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đặt đoàn/nhóm</a>
                 @endif
                 <div class="my-2 border-t border-slate-200 dark:border-slate-800"></div>
                 @auth

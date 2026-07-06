@@ -16,7 +16,7 @@
     <span>{{ $roomType->name }}</span>
 </nav>
 
-<div class="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+<div class="grid gap-5 md:grid-cols-[1.2fr_0.8fr]">
 
     <div class="flex flex-col gap-5">
         <div class="card overflow-hidden !p-0">
@@ -150,7 +150,6 @@
     </div>
 
     <div class="flex flex-col gap-5">
-        <div id="price-sidebar-anchor"></div>
         <div id="price-sidebar" class="card sticky top-20">
             <span class="section-kicker">Giá phòng</span>
             <div class="mb-1 text-3xl font-extrabold text-primary">
@@ -320,64 +319,6 @@
 
     [checkInInput, checkOutInput, quantityInput].forEach(el => el.addEventListener('change', updateEstimate));
     updateEstimate();
-})();
-</script>
-
-<script>
-{{-- Ô "Giá phòng" đứng cố định trên màn hình khi cuộn (không chỉ dính trong
-     phạm vi cột phải — CSS `sticky` thuần sẽ nhả ra khi cột phải hết nội
-     dung trước cột trái). Dùng JS chuyển sang position:fixed thật khi đã
-     cuộn tới đúng vị trí, và giữ nguyên vị trí/độ rộng khớp với cột gốc. --}}
-(function () {
-    const sidebar = document.getElementById('price-sidebar');
-    const anchor  = document.getElementById('price-sidebar-anchor');
-    if (!sidebar || !anchor) return;
-
-    const TOP_OFFSET = 80; // khớp với top-20 (5rem)
-    const BREAKPOINT = 1024; // khớp lg: của Tailwind
-
-    function reset() {
-        sidebar.style.position = '';
-        sidebar.style.top = '';
-        sidebar.style.left = '';
-        sidebar.style.width = '';
-        anchor.style.height = '';
-    }
-
-    function apply() {
-        if (window.innerWidth < BREAKPOINT) {
-            reset();
-            return;
-        }
-
-        const wasFixed = sidebar.style.position === 'fixed';
-
-        if (!wasFixed) {
-            // Đo kích thước TRƯỚC khi chuyển fixed (lúc này anchor và sidebar
-            // đang cùng một chỗ trong luồng bình thường, kích thước khớp nhau).
-            const naturalRect = sidebar.getBoundingClientRect();
-            if (naturalRect.top > TOP_OFFSET) return; // chưa tới lúc cố định
-
-            anchor.style.height = naturalRect.height + 'px';
-            sidebar.style.width = naturalRect.width + 'px';
-            sidebar.style.position = 'fixed';
-            sidebar.style.top = TOP_OFFSET + 'px';
-        }
-
-        const anchorRect = anchor.getBoundingClientRect();
-
-        if (anchorRect.top > TOP_OFFSET) {
-            reset();
-            return;
-        }
-
-        sidebar.style.left = anchorRect.left + 'px';
-        sidebar.style.width = anchorRect.width + 'px';
-    }
-
-    window.addEventListener('scroll', apply, { passive: true });
-    window.addEventListener('resize', apply);
-    apply();
 })();
 </script>
 @endsection

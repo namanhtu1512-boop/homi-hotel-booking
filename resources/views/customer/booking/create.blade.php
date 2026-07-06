@@ -14,7 +14,7 @@
         : [['room_type_id' => null, 'quantity' => 1, 'adults' => 1, 'children' => 0]];
 @endphp
 
-<div class="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+<div class="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
 
     <div class="card">
         @if ($errors->any())
