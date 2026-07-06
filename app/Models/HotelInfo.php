@@ -23,6 +23,8 @@ class HotelInfo extends Model
     protected $fillable = [
         'name',
         'address',
+        'latitude',
+        'longitude',
         'phone',
         'email',
         'description',
@@ -40,7 +42,34 @@ class HotelInfo extends Model
         'status'                    => 'string',
         'weekend_surcharge_percent' => 'decimal:2',
         'child_surcharge_per_night' => 'integer',
+        'latitude'                  => 'decimal:7',
+        'longitude'                 => 'decimal:7',
     ];
+
+    /**
+     * URL nhúng Google Maps (không cần API key) — ưu tiên tọa độ nếu có,
+     * fallback theo địa chỉ text nếu admin chưa nhập tọa độ.
+     */
+    public function mapEmbedUrl(): string
+    {
+        $query = ($this->latitude && $this->longitude)
+            ? "{$this->latitude},{$this->longitude}"
+            : $this->address;
+
+        return 'https://www.google.com/maps?q=' . urlencode((string) $query) . '&output=embed';
+    }
+
+    /**
+     * URL chỉ đường Google Maps — ưu tiên tọa độ nếu có, fallback theo địa chỉ.
+     */
+    public function directionsUrl(): string
+    {
+        $destination = ($this->latitude && $this->longitude)
+            ? "{$this->latitude},{$this->longitude}"
+            : $this->address;
+
+        return 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode((string) $destination);
+    }
 
     // --- Relationships ---
 

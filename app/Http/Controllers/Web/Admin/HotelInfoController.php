@@ -59,6 +59,8 @@ class HotelInfoController extends Controller
         $data = $request->validate([
             'name'           => ['required', 'string', 'max:255'],
             'address'        => ['required', 'string', 'max:255'],
+            'latitude'       => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude'      => ['nullable', 'numeric', 'between:-180,180'],
             'phone'          => ['nullable', 'string', 'max:30'],
             'email'          => ['nullable', 'email', 'max:255'],
             'description'    => ['nullable', 'string', 'max:5000'],
@@ -76,6 +78,8 @@ class HotelInfoController extends Controller
         ], [], [
             'name'           => 'tên khách sạn',
             'address'        => 'địa chỉ',
+            'latitude'       => 'vĩ độ',
+            'longitude'      => 'kinh độ',
             'phone'          => 'số điện thoại',
             'email'          => 'email',
             'description'    => 'mô tả',

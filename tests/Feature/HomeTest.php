@@ -36,4 +36,15 @@ class HomeTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Phòng nổi bật');
     }
+
+    public function test_home_page_shows_map_embed_using_hotel_address(): void
+    {
+        $this->seed(\Database\Seeders\HotelInfoSeeder::class);
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee('google.com/maps', false);
+        $response->assertSee('Chỉ đường');
+    }
 }

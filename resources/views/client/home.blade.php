@@ -61,6 +61,10 @@
         <h2 class="section-title">Vì sao chọn {{ $hotel->name }}</h2>
         <p class="section-desc mt-1">{{ $hotel->address }}</p>
 
+        <div class="mt-4">
+            @include('partials._map-embed', ['hotel' => $hotel])
+        </div>
+
         <div class="mt-4 flex flex-wrap gap-2">
             @forelse ($hotel->amenities as $amenity)
                 <span class="badge badge-blue">{{ $amenity->name }}</span>

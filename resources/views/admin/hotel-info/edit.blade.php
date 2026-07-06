@@ -27,6 +27,18 @@
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group">
+                <label for="latitude">Vĩ độ (latitude)</label>
+                <input id="latitude" type="number" step="0.0000001" min="-90" max="90" name="latitude" value="{{ old('latitude', $hotel->latitude) }}" placeholder="VD: 10.7756587">
+            </div>
+            <div class="form-group">
+                <label for="longitude">Kinh độ (longitude)</label>
+                <input id="longitude" type="number" step="0.0000001" min="-180" max="180" name="longitude" value="{{ old('longitude', $hotel->longitude) }}" placeholder="VD: 106.7004238">
+            </div>
+        </div>
+        <p class="section-desc">Lấy tọa độ bằng cách mở vị trí khách sạn trên Google Maps rồi copy 2 số trong URL. Bỏ trống thì bản đồ sẽ hiển thị tạm theo địa chỉ text.</p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
                 <label for="phone">Số điện thoại</label>
                 <input id="phone" type="text" name="phone" value="{{ old('phone', $hotel->phone) }}">
             </div>

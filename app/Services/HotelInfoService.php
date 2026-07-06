@@ -40,6 +40,8 @@ class HotelInfoService
         $fields = array_filter([
             'name'           => $data['name'] ?? null,
             'address'        => $data['address'] ?? null,
+            'latitude'       => $data['latitude'] ?? null,
+            'longitude'      => $data['longitude'] ?? null,
             'phone'          => $data['phone'] ?? null,
             'email'          => $data['email'] ?? null,
             'description'    => $data['description'] ?? null,

@@ -68,6 +68,10 @@
                 </div>
             @endif
         </div>
+
+        <div class="mt-4">
+            @include('partials._map-embed', ['hotel' => $hotel])
+        </div>
     </div>
 </div>
 @endsection

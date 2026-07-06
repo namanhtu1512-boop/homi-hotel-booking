@@ -101,6 +101,35 @@ class AdminHotelInfoTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_update_map_coordinates(): void
+    {
+        $this->actingAsAdmin($this->admin())
+            ->put(route('admin.hotel-info.update'), [
+                'name'      => 'Homi Hotel',
+                'address'   => '1 Đường ABC',
+                'latitude'  => 10.7756587,
+                'longitude' => 106.7004238,
+            ])
+            ->assertRedirect(route('admin.hotel-info.show'));
+
+        $this->assertDatabaseHas('hotel_info', [
+            'id'        => 1,
+            'latitude'  => 10.7756587,
+            'longitude' => 106.7004238,
+        ]);
+    }
+
+    public function test_update_fails_with_out_of_range_coordinates(): void
+    {
+        $this->actingAsAdmin($this->admin())
+            ->put(route('admin.hotel-info.update'), [
+                'name'      => 'Homi Hotel',
+                'address'   => '1 Đường ABC',
+                'latitude'  => 999,
+            ])
+            ->assertSessionHasErrors('latitude');
+    }
+
     public function test_customer_cannot_update_hotel_info(): void
     {
         $customer = User::factory()->customer()->create();
