@@ -67,6 +67,18 @@
             <textarea id="policies" name="policies" rows="4" placeholder="Mỗi dòng 1 quy định">{{ old('policies', $hotel->policies) }}</textarea>
         </div>
 
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+                <label for="weekend_surcharge_percent">Phụ thu cuối tuần (%)</label>
+                <input id="weekend_surcharge_percent" type="number" min="0" max="100" step="0.1" name="weekend_surcharge_percent" value="{{ old('weekend_surcharge_percent', $hotel->weekend_surcharge_percent) }}">
+                <p class="section-desc">Áp dụng cho đêm thứ Sáu/Bảy, tính trên giá đã điều chỉnh theo mùa (nếu có).</p>
+            </div>
+            <div class="form-group">
+                <label for="child_surcharge_per_night">Phụ thu trẻ em (VNĐ/trẻ/đêm)</label>
+                <input id="child_surcharge_per_night" type="number" min="0" name="child_surcharge_per_night" value="{{ old('child_surcharge_per_night', $hotel->child_surcharge_per_night) }}">
+            </div>
+        </div>
+
         <div class="form-group">
             <label>Tiện ích</label>
             <div class="checkbox-grid">

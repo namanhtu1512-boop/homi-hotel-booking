@@ -47,6 +47,8 @@ class HotelInfoService
             'check_out_time' => $data['check_out_time'] ?? null,
             'policies'       => $data['policies'] ?? null,
             'star_rating'    => $data['star_rating'] ?? null,
+            'weekend_surcharge_percent' => $data['weekend_surcharge_percent'] ?? null,
+            'child_surcharge_per_night' => $data['child_surcharge_per_night'] ?? null,
         ], fn ($v) => $v !== null);
 
         $hotel->update($fields);

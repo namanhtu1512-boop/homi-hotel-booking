@@ -31,11 +31,15 @@ class HotelInfo extends Model
         'policies',
         'star_rating',
         'status',
+        'weekend_surcharge_percent',
+        'child_surcharge_per_night',
     ];
 
     protected $casts = [
-        'star_rating' => 'integer',
-        'status'      => 'string',
+        'star_rating'               => 'integer',
+        'status'                    => 'string',
+        'weekend_surcharge_percent' => 'decimal:2',
+        'child_surcharge_per_night' => 'integer',
     ];
 
     // --- Relationships ---

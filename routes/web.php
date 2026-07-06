@@ -13,6 +13,7 @@ use App\Http\Controllers\Web\Admin\CustomerController as AdminCustomerController
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Web\Admin\SeasonalRateController as AdminSeasonalRateController;
 use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
@@ -43,7 +44,7 @@ Route::get('/promotions', [PromotionController::class, 'index'])->name('promotio
 Route::get('/news', [NewsController::class, 'index'])->name('news.index');
 Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
-Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
 
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
@@ -53,10 +54,10 @@ Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' =
 // ---------------------------------------------------------------
 Route::middleware('guest')->group(function () {
     Route::get('/customer/register', [AuthWebController::class, 'showRegister'])->name('register');
-    Route::post('/customer/register', [AuthWebController::class, 'register']);
+    Route::post('/customer/register', [AuthWebController::class, 'register'])->middleware('throttle:5,1');
 
     Route::get('/customer/login', [AuthWebController::class, 'showLogin'])->name('login');
-    Route::post('/customer/login', [AuthWebController::class, 'login']);
+    Route::post('/customer/login', [AuthWebController::class, 'login'])->middleware('throttle:5,1');
 });
 
 Route::post('/logout', [AuthWebController::class, 'logout'])
@@ -65,7 +66,7 @@ Route::post('/logout', [AuthWebController::class, 'logout'])
 
 // Admin login (separate, not under guest middleware so already-logged-in admins get redirected)
 Route::get('/admin/login', [AuthWebController::class, 'showAdminLogin'])->name('admin.login');
-Route::post('/admin/login', [AuthWebController::class, 'adminLogin'])->name('admin.login.post');
+Route::post('/admin/login', [AuthWebController::class, 'adminLogin'])->middleware('throttle:5,1')->name('admin.login.post');
 
 Route::post('/admin/logout', [AuthWebController::class, 'adminLogout'])
     ->middleware('auth')
@@ -165,6 +166,15 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::put('/{id}',           [AdminPromotionController::class, 'update'])->name('update');
         Route::delete('/{id}',        [AdminPromotionController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/restore',  [AdminPromotionController::class, 'restore'])->name('restore');
+    });
+
+    Route::prefix('seasonal-rates')->name('seasonal-rates.')->group(function () {
+        Route::get('/',          [AdminSeasonalRateController::class, 'index'])->name('index');
+        Route::get('/create',    [AdminSeasonalRateController::class, 'create'])->name('create');
+        Route::post('/',         [AdminSeasonalRateController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [AdminSeasonalRateController::class, 'edit'])->name('edit');
+        Route::put('/{id}',      [AdminSeasonalRateController::class, 'update'])->name('update');
+        Route::delete('/{id}',   [AdminSeasonalRateController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('banners')->name('banners.')->group(function () {

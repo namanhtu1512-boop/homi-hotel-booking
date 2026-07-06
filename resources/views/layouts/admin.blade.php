@@ -29,6 +29,7 @@
                         ['route' => 'admin.customers.index', 'pattern' => 'admin.customers.*', 'label' => 'Khách hàng'],
                         ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Người dùng'],
                         ['route' => 'admin.promotions.index', 'pattern' => 'admin.promotions.*', 'label' => 'Khuyến mãi'],
+                        ['route' => 'admin.seasonal-rates.index', 'pattern' => 'admin.seasonal-rates.*', 'label' => 'Giá theo mùa'],
                         ['route' => 'admin.news.index', 'pattern' => 'admin.news.*', 'label' => 'Tin tức'],
                         ['route' => 'admin.banners.index', 'pattern' => 'admin.banners.*', 'label' => 'Banner'],
                         ['route' => 'admin.reviews.index', 'pattern' => 'admin.reviews.*', 'label' => 'Đánh giá'],

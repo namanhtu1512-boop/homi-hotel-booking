@@ -67,7 +67,12 @@
                         <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}</td>
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                         <td>{{ $item->nights }}</td>
-                        <td>{{ number_format($item->subtotal, 0, ',', '.') }}đ</td>
+                        <td>
+                            {{ number_format($item->subtotal + $item->child_surcharge, 0, ',', '.') }}đ
+                            @if ($item->child_surcharge > 0)
+                                <div class="text-xs text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->child_surcharge, 0, ',', '.') }}đ phụ thu trẻ em)</div>
+                            @endif
+                        </td>
                     </tr>
                 @endforeach
             </tbody>

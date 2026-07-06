@@ -22,7 +22,7 @@ class PricingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new PricingService();
+        $this->service = $this->app->make(PricingService::class);
     }
 
     public function test_calculate_returns_correct_nights_price_and_total(): void

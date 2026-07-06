@@ -105,7 +105,8 @@ class BookingService
                     $roomType,
                     $data['check_in'],
                     $data['check_out'],
-                    $quantity
+                    $quantity,
+                    $children
                 );
 
                 $nights        ??= $pricing['nights'];
@@ -120,7 +121,9 @@ class BookingService
                     'children'        => $children,
                     'price_per_night' => $pricing['unit_price'],
                     'nights'          => $pricing['nights'],
-                    'subtotal'        => $pricing['total_price'],
+                    'subtotal'        => $pricing['room_subtotal'],
+                    'child_surcharge' => $pricing['child_surcharge'],
+                    'price_breakdown' => $pricing['nightly_breakdown'],
                 ];
             }
 

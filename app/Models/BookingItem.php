@@ -18,13 +18,17 @@ class BookingItem extends Model
         'price_per_night',
         'nights',
         'subtotal',
+        'child_surcharge',
+        'price_breakdown',
     ];
 
     protected $casts = [
         'adults'          => 'integer',
         'children'        => 'integer',
         'price_per_night' => 'decimal:2',
-        'subtotal' => 'decimal:2',
+        'subtotal'        => 'decimal:2',
+        'child_surcharge' => 'decimal:2',
+        'price_breakdown' => 'array',
     ];
 
     public function booking()

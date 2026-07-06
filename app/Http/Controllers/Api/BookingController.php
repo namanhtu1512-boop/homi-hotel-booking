@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
+use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Services\AvailabilityService;
 use App\Services\BookingService;
 use App\Traits\ApiResponse;
@@ -26,21 +27,24 @@ class BookingController extends Controller
     /**
      * GET /api/v1/bookings
      * Danh sách đơn đặt phòng của customer đang đăng nhập.
-     * TODO (Tuần 11): truy vấn bookings theo user_id.
      */
     public function myBookings(Request $request): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 11)');
+        $bookings = $this->bookingService->myBookings($request->user(), $request->only('status'));
+
+        return $this->success($bookings->through(fn ($booking) => $this->formatBooking($booking)));
     }
 
     /**
      * GET /api/v1/bookings/{booking}
-     * Chi tiết một đơn đặt phòng của customer.
-     * TODO (Tuần 11): kiểm tra đơn có thuộc về user không.
+     * Chi tiết một đơn đặt phòng của customer — findForCustomer() đã tự
+     * kiểm tra quyền sở hữu (Gate::authorize), 403/404 render JSON tự động.
      */
-    public function show(int $booking): JsonResponse
+    public function show(int $booking, Request $request): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 11)');
+        $bookingModel = $this->bookingService->findForCustomer($booking, $request->user());
+
+        return $this->success($this->formatBooking($bookingModel));
     }
 
     /**
@@ -63,11 +67,12 @@ class BookingController extends Controller
     /**
      * POST /api/v1/bookings/{booking}/cancel
      * Khách hủy đơn của chính mình.
-     * TODO (Tuần 11): kiểm tra điều kiện hủy, cập nhật trạng thái.
      */
-    public function cancel(int $booking): JsonResponse
+    public function cancel(int $booking, Request $request): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 11)');
+        $bookingModel = $this->bookingService->cancelByCustomer($booking, $request->user());
+
+        return $this->success($this->formatBooking($bookingModel), 'Đã hủy đơn.');
     }
 
     // ----------------------------------------------------------------
@@ -76,42 +81,66 @@ class BookingController extends Controller
 
     /**
      * GET /api/v1/admin/bookings
-     * Danh sách tất cả đơn (admin/staff).
-     * TODO (Tuần 12): filter theo trạng thái, ngày, khách hàng, khách sạn.
+     * Danh sách tất cả đơn (admin/staff) — tái dùng nguyên bộ filter đã có
+     * ở BookingService::adminList() (status, payment_status, customer_name,
+     * room_type_id, created_from/to, check_in_from/to...).
      */
     public function adminIndex(Request $request): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 12)');
+        $bookings = $this->bookingService->adminList($request->all());
+
+        return $this->success($bookings->through(fn ($booking) => $this->formatBooking($booking)));
     }
 
     /**
      * GET /api/v1/admin/bookings/{booking}
      * Chi tiết đơn (admin/staff).
-     * TODO (Tuần 12).
      */
     public function adminShow(int $booking): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 12)');
+        $bookingModel = $this->bookingService->findForAdmin($booking);
+
+        return $this->success($this->formatBooking($bookingModel));
     }
 
     /**
      * PUT /api/v1/admin/bookings/{booking}/status
-     * Admin/staff cập nhật trạng thái đơn.
-     * TODO (Tuần 12): validate transition hợp lệ.
+     * Admin/staff xác nhận/hủy/hoàn thành đơn — chỉ 3 hướng chuyển hợp lệ
+     * này được phép qua API, khớp đúng 3 action riêng biệt bên Blade
+     * (confirm/cancel/complete). Rule chuyển trạng thái hợp lệ nằm ở
+     * BookingService (canConfirm/canCancelByAdmin/canComplete).
      */
     public function updateStatus(Request $request, int $booking): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 12)');
+        $data = $request->validate([
+            'status' => ['required', 'string', 'in:confirmed,cancelled,completed'],
+        ], [], [
+            'status' => 'trạng thái',
+        ]);
+
+        $bookingModel = $this->bookingService->findForAdmin($booking);
+
+        $updated = match ($data['status']) {
+            'confirmed' => $this->bookingService->confirm($bookingModel),
+            'cancelled' => $this->bookingService->cancelByAdmin($bookingModel),
+            'completed' => $this->bookingService->complete($bookingModel),
+        };
+
+        return $this->success($this->formatBooking($updated), 'Cập nhật trạng thái thành công.');
     }
 
     /**
      * PUT /api/v1/admin/bookings/{booking}/payment
-     * Admin/staff cập nhật trạng thái thanh toán mô phỏng.
-     * TODO (Tuần 12): unpaid → paid → refunded.
+     * Admin/staff cập nhật trạng thái thanh toán mô phỏng (unpaid → paid,
+     * paid → refunded) — tái dùng UpdatePaymentStatusRequest đã dùng ở Blade.
      */
-    public function updatePayment(Request $request, int $booking): JsonResponse
+    public function updatePayment(UpdatePaymentStatusRequest $request, int $booking): JsonResponse
     {
-        return $this->success([], 'Chức năng đang phát triển (Tuần 12)');
+        $bookingModel = $this->bookingService->findForAdmin($booking);
+
+        $updated = $this->bookingService->updatePaymentStatus($bookingModel, $request->validated('status'));
+
+        return $this->success($this->formatBooking($updated), 'Cập nhật thanh toán thành công.');
     }
 
     // ----------------------------------------------------------------
@@ -147,19 +176,32 @@ class BookingController extends Controller
     private function formatBooking($booking): array
     {
         return [
-            'id'             => $booking->id,
-            'booking_code'   => $booking->booking_code,
-            'check_in'       => $booking->check_in->toDateString(),
-            'check_out'      => $booking->check_out->toDateString(),
-            'nights'         => $booking->nights,
-            'customer_name'  => $booking->customer_name,
-            'customer_phone' => $booking->customer_phone,
-            'customer_email' => $booking->customer_email,
-            'total_amount'   => $booking->total_amount,
-            'status'         => $booking->status->value,
-            'status_label'   => $booking->status->label(),
-            'note'           => $booking->note,
-            'payment'        => $booking->payment ? [
+            'id'              => $booking->id,
+            'booking_code'    => $booking->booking_code,
+            'check_in'        => $booking->check_in->toDateString(),
+            'check_out'       => $booking->check_out->toDateString(),
+            'nights'          => $booking->nights,
+            'customer_name'   => $booking->customer_name,
+            'customer_phone'  => $booking->customer_phone,
+            'customer_email'  => $booking->customer_email,
+            'total_amount'    => $booking->total_amount,
+            'discount_amount' => $booking->discount_amount,
+            'status'          => $booking->status->value,
+            'status_label'    => $booking->status->label(),
+            'note'            => $booking->note,
+            'items'           => $booking->bookingItems->map(fn ($item) => [
+                'room_type_id'    => $item->room_type_id,
+                'room_type_name'  => $item->roomType?->name,
+                'quantity'        => $item->quantity,
+                'adults'          => $item->adults,
+                'children'        => $item->children,
+                'price_per_night' => $item->price_per_night,
+                'nights'          => $item->nights,
+                'subtotal'        => $item->subtotal,
+                'child_surcharge' => $item->child_surcharge,
+                'price_breakdown' => $item->price_breakdown,
+            ])->all(),
+            'payment' => $booking->payment ? [
                 'status'        => $booking->payment->status->value,
                 'status_label'  => $booking->payment->status->label(),
                 'method'        => $booking->payment->method->value,
