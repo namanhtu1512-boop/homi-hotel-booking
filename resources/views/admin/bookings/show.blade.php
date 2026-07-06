@@ -15,6 +15,10 @@
         </div>
 
         <div class="action-row">
+            @if ($booking->payment)
+                <a href="{{ route('admin.bookings.invoice', $booking->id) }}" target="_blank" class="btn btn-outline">🖨 Xem hóa đơn</a>
+            @endif
+
             @if ($booking->canConfirm())
                 <form method="POST" action="{{ route('admin.bookings.confirm', $booking->id) }}"
                     onsubmit="return confirm('Xác nhận đơn {{ $booking->booking_code }}?');">

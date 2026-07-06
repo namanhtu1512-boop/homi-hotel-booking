@@ -90,6 +90,7 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::get('/create',    [CustomerBookingController::class, 'create'])->name('create');
         Route::post('/',         [CustomerBookingController::class, 'store'])->name('store');
         Route::get('/{id}',      [CustomerBookingController::class, 'show'])->name('show');
+        Route::get('/{id}/invoice', [CustomerBookingController::class, 'invoice'])->name('invoice');
         Route::post('/{id}/cancel', [CustomerBookingController::class, 'cancel'])->name('cancel');
 
         // Thanh toán tự phục vụ — chỉ khả dụng khi đơn đã được admin xác nhận
@@ -148,6 +149,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',                [AdminBookingController::class, 'index'])->name('index');
         Route::get('/{id}',            [AdminBookingController::class, 'show'])->name('show');
+        Route::get('/{id}/invoice',    [AdminBookingController::class, 'invoice'])->name('invoice');
         Route::post('/{id}/confirm',   [AdminBookingController::class, 'confirm'])->name('confirm');
         Route::post('/{id}/cancel',    [AdminBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [AdminBookingController::class, 'complete'])->name('complete');
@@ -241,6 +243,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',                [StaffBookingController::class, 'index'])->name('index');
         Route::get('/{id}',            [StaffBookingController::class, 'show'])->name('show');
+        Route::get('/{id}/invoice',    [StaffBookingController::class, 'invoice'])->name('invoice');
         Route::post('/{id}/confirm',   [StaffBookingController::class, 'confirm'])->name('confirm');
         Route::post('/{id}/cancel',    [StaffBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [StaffBookingController::class, 'complete'])->name('complete');

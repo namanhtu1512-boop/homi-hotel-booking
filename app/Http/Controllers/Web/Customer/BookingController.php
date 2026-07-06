@@ -149,6 +149,14 @@ class BookingController extends Controller
         ]);
     }
 
+    public function invoice(int $id, Request $request): View
+    {
+        return view('bookings.invoice', [
+            'booking'   => $this->bookingService->findForCustomer($id, $request->user()),
+            'backRoute' => route('customer.bookings.show', $id),
+        ]);
+    }
+
     public function cancel(int $id, Request $request): RedirectResponse
     {
         $this->bookingService->cancelByCustomer($id, $request->user());

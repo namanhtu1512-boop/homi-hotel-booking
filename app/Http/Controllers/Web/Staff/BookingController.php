@@ -48,6 +48,14 @@ class BookingController extends Controller
         ]);
     }
 
+    public function invoice(int $id): View
+    {
+        return view('bookings.invoice', [
+            'booking'   => $this->bookingService->findForAdmin($id),
+            'backRoute' => route('staff.bookings.show', $id),
+        ]);
+    }
+
     public function confirm(int $id): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);

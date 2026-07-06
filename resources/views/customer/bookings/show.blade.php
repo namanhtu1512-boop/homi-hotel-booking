@@ -290,34 +290,12 @@
         </div>
     </div>
 @elseif ($booking->payment && $booking->payment->isPaid())
-    <div class="card" id="invoice">
-        <div class="flex items-center justify-between">
-            <div>
-                <span class="section-kicker">Hóa đơn</span>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Đã thanh toán</h3>
-            </div>
-            <button onclick="window.print()" class="btn-outline btn-sm print:hidden">🖨 In hóa đơn</button>
+    <div class="card flex items-center justify-between">
+        <div>
+            <span class="section-kicker">Hóa đơn</span>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Đã thanh toán</h3>
         </div>
-        <div class="info-list mt-3">
-            <div class="info-item">
-                <span class="label">Mã đơn</span>
-                <span class="value">{{ $booking->booking_code }}</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Phương thức</span>
-                <span class="value">{{ $booking->payment->method->label() }}</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Số tiền đã thanh toán</span>
-                <span class="value text-lg text-primary">{{ number_format($booking->payment->amount, 0, ',', '.') }}đ</span>
-            </div>
-            @if ($booking->payment->paid_at)
-                <div class="info-item">
-                    <span class="label">Thời gian</span>
-                    <span class="value">{{ $booking->payment->paid_at->format('d/m/Y H:i') }}</span>
-                </div>
-            @endif
-        </div>
+        <a href="{{ route('customer.bookings.invoice', $booking->id) }}" target="_blank" class="btn-outline btn-sm">🖨 Xem/In hóa đơn</a>
     </div>
 @endif
 
