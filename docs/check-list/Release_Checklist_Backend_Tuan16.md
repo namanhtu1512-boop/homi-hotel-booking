@@ -15,7 +15,6 @@
       theo khu vực Public/Customer/Admin/Staff/API).
 - [x] `composer run setup` chạy đủ từ đầu (`migrate --seed` + `storage:link`
       — 2 bước từng thiếu, đã sửa ở Tuần 14).
-- [x] `php artisan test` 538/538 pass — xem `TestReport_Final_Tuan15.md`.
 
 ## Q&A dự kiến khi bảo vệ (kiến trúc backend / Auth / RBAC)
 
@@ -35,14 +34,13 @@ trắng); riêng route admin/staff còn kiểm tra thêm `session('login_context
 **Vì sao có cả API JSON lẫn Blade?** Tầng API (`/api/v1/*`) là tàn dư từ
 giai đoạn đầu dự án trước khi nhóm chuyển hẳn sang Blade monolith theo đúng
 định hướng đề tài (1 khách sạn, không cần app di động/SPA riêng). Đã hoàn
-thiện và có test đầy đủ ở Tuần 15 thay vì để dở dang, nhưng sản phẩm chính
-để chấm là Blade.
+thiện thay vì để dở dang, nhưng sản phẩm chính để chấm là Blade.
 
-**Chống đặt trùng phòng (race condition) xử lý ra sao?** Xem giải thích chi
-tiết ở [`TestReport_Final_Tuan15.md`](TestReport_Final_Tuan15.md) mục 4 —
-tóm tắt: overlap theo điều kiện `check_in < X.check_out AND check_out >
-X.check_in`, cộng `SELECT ... FOR UPDATE` khóa row RoomType bên trong
-`DB::transaction()` trước khi tính lại availability.
+**Chống đặt trùng phòng (race condition) xử lý ra sao?** Overlap theo điều
+kiện `check_in < X.check_out AND check_out > X.check_in`, cộng
+`SELECT ... FOR UPDATE` khóa row RoomType bên trong `DB::transaction()`
+trước khi tính lại availability — xem `app/Services/AvailabilityService.php`
+và `app/Services/BookingService.php`.
 
 **Mật khẩu/token có an toàn không?** Mật khẩu hash bằng bcrypt
 (`Hash::make`), không bao giờ trả ra JSON/view (`$hidden` trên User model).

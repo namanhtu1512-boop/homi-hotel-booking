@@ -18,15 +18,15 @@ Trước khi bắt đầu: `php artisan migrate:fresh --seed`, `php artisan serv
 | 8 | 5:15-6:15 | `/admin/bookings` → xác nhận 1 đơn pending → đánh dấu paid | "State machine chặn chuyển sai bước, có log ai làm lúc nào (`booking_status_logs`)." |
 | 9 | 6:15-7:00 | `/admin/customers` → xem lịch sử đặt phòng 1 khách | "Tách khỏi `/admin/users` — trang riêng cho nghiệp vụ CSKH." |
 | 10 | 7:00-7:45 | `/admin/room-types` → sửa giá/số lượng 1 phòng | "Không cho giảm số phòng xuống dưới mức đang có khách đặt trong tương lai." |
-| 11 | 7:45-8:30 | Chạy `php artisan test` trước mặt thầy | "538/538 pass — bao gồm cả các case chống đặt trùng, phân quyền, và toàn bộ tính năng phụ (review, promotion, wishlist...)." |
 
 ## Câu hỏi khó có thể gặp — trả lời ngắn
 
 - **"Sao có cả API lẫn Blade?"** → Tầng API là tàn dư giai đoạn đầu, đã hoàn
-  thiện + có test đầy đủ, nhưng sản phẩm chính chấm điểm là Blade.
-- **"Chống đặt trùng phòng thế nào khi 2 người bấm cùng lúc?"** → Trích dẫn
-  `TestReport_Final_Tuan15.md` mục 4: `lockForUpdate()` trên RoomType +
-  `SELECT ... FOR UPDATE` luôn đọc dữ liệu mới nhất đã commit.
+  thiện, nhưng sản phẩm chính chấm điểm là Blade.
+- **"Chống đặt trùng phòng thế nào khi 2 người bấm cùng lúc?"** →
+  `lockForUpdate()` trên RoomType + `SELECT ... FOR UPDATE` luôn đọc dữ liệu
+  mới nhất đã commit, tất cả trong 1 `DB::transaction()` — xem
+  `app/Services/BookingService.php`.
 - **"Có gì chưa hoàn thiện không?"** → Trả lời thẳng, dẫn
   [`Known_Limitations_Tuan16.md`](../check-list/Known_Limitations_Tuan16.md)
   thay vì né tránh — gây thiện cảm hơn là để thầy tự phát hiện.

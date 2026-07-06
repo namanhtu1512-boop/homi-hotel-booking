@@ -1,10 +1,9 @@
 # Known Limitations — Tuần 16 (bản gộp cuối cùng)
 
-Gom lại toàn bộ giới hạn/việc chưa làm đã ghi nhận rải rác ở
-`Staging_Checklist_Tuan14.md` và `Bug_Report_Sprint7_Tuan14.md` thành 1 danh
-sách duy nhất, để chủ động trình bày khi bảo vệ thay vì để thầy tự phát
-hiện. Không phải bug — đều là quyết định phạm vi có chủ đích hoặc đánh đổi
-thời gian đã biết trước.
+Gom lại toàn bộ giới hạn/việc chưa làm đã ghi nhận rải rác trong quá trình
+làm dự án thành 1 danh sách duy nhất, để chủ động trình bày khi bảo vệ thay
+vì để thầy tự phát hiện. Không phải bug — đều là quyết định phạm vi có chủ
+đích hoặc đánh đổi thời gian đã biết trước.
 
 > **Cập nhật 2026-07-06:** sau khi tài liệu này chốt lần đầu, nhóm vẫn còn
 > thời gian nên đã làm thêm module dịch vụ, giá theo mùa/cuối tuần + phụ
@@ -12,6 +11,12 @@ thời gian đã biết trước.
 > check-in/check-out thật + housekeeping, đặt đoàn/nhóm, hóa đơn nội bộ —
 > các mục tương ứng đã được xóa khỏi bảng dưới vì không còn là giới hạn.
 > Chi tiết đầy đủ xem [`RELEASE_NOTE.md`](../../RELEASE_NOTE.md).
+>
+> **Cập nhật thêm:** bộ test tự động (PHPUnit/Pest) và toàn bộ tài liệu
+> test-case/test-evidence/bug-report đã được gỡ bỏ khỏi dự án theo quyết
+> định của nhóm — các câu trong bảng dưới nhắc tới "có test"/CI chạy test
+> chỉ còn đúng ở thời điểm ghi nhận ban đầu, không còn phản ánh trạng thái
+> hiện tại của repo.
 
 ## Nghiệp vụ / tính năng
 
@@ -31,7 +36,7 @@ thời gian đã biết trước.
 | 4 controller Admin/Staff `BookingController`/`PaymentController` trùng lặp gần như 100% | Refactor thành base class tốt hơn cho bảo trì nhưng rủi ro phá vỡ hành vi hiện tại không tương xứng lợi ích trong thời gian còn lại. |
 | `UserController::toggleStatus` cho phép admin khóa admin khác | Là quyết định nghiệp vụ (có chủ đích cho phép hay không), chưa xin ý kiến Product Owner để khóa cứng lại. |
 | `PaymentStatus::FAILED` chưa có luồng thật sử dụng | Scaffolding sẵn cho xử lý thanh toán thất bại thật — chưa cần thiết vì luồng hiện tại chỉ dừng ở xác nhận/hoàn thành đơn. (`BookingStatus::CHECKED_IN/CHECKED_OUT` nay đã dùng thật — xem module lễ tân/housekeeping.) |
-| Không CI/CD deploy tự động, không monitoring lỗi thật (Sentry...) | Chi phí hạ tầng ngoài phạm vi đồ án sinh viên — GitHub Actions hiện tại chỉ chạy test tự động khi push/PR. |
+| Không CI/CD deploy tự động, không monitoring lỗi thật (Sentry...) | Chi phí hạ tầng ngoài phạm vi đồ án sinh viên. |
 
 ## Vận hành / hạ tầng
 

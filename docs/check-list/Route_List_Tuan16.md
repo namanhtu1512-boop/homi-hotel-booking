@@ -37,7 +37,7 @@ lặp giữa các bảng.
 | Method | URI | Chức năng |
 |---|---|---|
 | GET | `/admin/dashboard` | Thống kê tổng quan (đơn, doanh thu, tỷ lệ hủy, lấp đầy) |
-| GET | `/admin/database` | Xem nhanh dữ liệu thô (đã vá lỗ hổng lộ password — xem Bug_Report_Sprint7_Tuan14.md) |
+| GET | `/admin/database` | Xem nhanh dữ liệu thô (đã vá lỗ hổng lộ password hash) |
 | GET/PUT/PATCH | `/admin/hotel-info*` | Thông tin khách sạn singleton |
 | CRUD | `/admin/room-types*` | Loại phòng, giá, tồn kho, soft-delete |
 | GET/POST/PATCH | `/admin/bookings*` | Xác nhận/hủy/hoàn thành đơn |
@@ -66,5 +66,4 @@ xóa loại phòng — đúng chủ đích tách biệt quyền hạn.
 `POST /register|login`, `GET /me`, `PUT /profile|change-password`,
 `POST /logout`, `GET|POST /bookings*`, `GET|PUT /admin/bookings*`,
 `GET /room-types*`, `GET|PUT|PATCH|DELETE /admin/{hotel-info,room-types,users}*`,
-`GET /admin/audit-logs`. Toàn bộ đã hoàn thiện (không còn stub) và có test ở
-`tests/Feature/Api/`.
+`GET /admin/audit-logs`. Toàn bộ đã hoàn thiện (không còn stub).

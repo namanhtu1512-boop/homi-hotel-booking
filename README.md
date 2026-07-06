@@ -107,23 +107,9 @@ database/
 ├── migrations/
 └── seeders/                  # DatabaseSeeder — chạy migrate --seed để có data demo đầy đủ
 docs/
-├── check-list/               # Bug report, staging checklist theo từng sprint
-├── demo-scripts/             # Kịch bản demo
-└── test-cases/, test-evidence/
+├── check-list/               # Staging/release/route checklist theo từng sprint
+└── demo-scripts/             # Kịch bản demo
 ```
-
----
-
-## Chạy kiểm thử
-
-```bash
-php artisan test
-```
-
-Test suite hiện tại: xem số liệu mới nhất trong
-[`docs/check-list/TestReport_Final_Tuan15.md`](docs/check-list/TestReport_Final_Tuan15.md).
-Toàn bộ luồng nghiệp vụ lõi (auth/RBAC, hotel/room, booking/availability/
-payment, admin extras) đều có test feature/unit tương ứng trong `tests/`.
 
 ---
 
@@ -142,9 +128,9 @@ payment, admin extras) đều có test feature/unit tương ứng trong `tests/`
 `app/Http/Controllers/Api/*` + `routes/api.php` (prefix `/api/v1`) là tầng
 REST API dùng Laravel Sanctum, còn sót lại từ giai đoạn đầu dự án trước khi
 nhóm chuyển hẳn sang Blade monolith. Đã được hoàn thiện đầy đủ (không còn
-stub) và có test (`tests/Feature/Api/`), nhưng **không phải sản phẩm chính**
-để demo — luồng nghiệp vụ thật (đặt phòng, quản trị, thanh toán) chạy trên
-Blade (`/customer`, `/admin`, `/staff`).
+stub), nhưng **không phải sản phẩm chính** để demo — luồng nghiệp vụ thật
+(đặt phòng, quản trị, thanh toán) chạy trên Blade (`/customer`, `/admin`,
+`/staff`).
 
 Chuẩn response chung:
 

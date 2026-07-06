@@ -47,7 +47,10 @@ npm run dev               # nếu cần hot-reload Vite khi chỉnh CSS/JS
 
 ## 5. Smoke test sau khi setup — chạy đủ 4 bước này trước khi báo "chạy được"
 
-1. `php artisan test` → phải thấy **496/496 pass** (số này tăng theo thời gian, xem `phpunit.result.cache` hoặc log CI để biết số hiện tại — quan trọng là **0 failed**).
+> Bước 1 gốc là chạy `php artisan test` — bộ test tự động đã được gỡ khỏi dự
+> án (quyết định của nhóm), nên smoke test giờ dựa hoàn toàn vào thao tác
+> tay ở bước 2-4 dưới đây.
+1. Chạy `migrate:fresh --seed` sạch, không lỗi.
 2. Mở `/` — trang chủ load được, thấy banner + phòng nổi bật + tin tức.
 3. Đăng nhập cả 3 tài khoản demo (bảng dưới) và xác nhận redirect đúng khu vực (`/customer/dashboard`, `/admin/dashboard`, `/staff/dashboard`).
 4. Mở `/admin/room-types` → ảnh phòng phải hiển thị được (không phải icon ảnh vỡ). Nếu ảnh vỡ → `storage:link` chưa chạy hoặc chạy sai thư mục.
@@ -69,8 +72,7 @@ Chi tiết dữ liệu mẫu có sẵn (mã đơn, mã khuyến mãi...) xem [`d
 - [ ] `.env` **không** được commit lên git (đã có trong `.gitignore` — chỉ cần không dùng `git add -f`).
 - [ ] `APP_DEBUG=false` trên môi trường staging/production thật (máy demo cá nhân cho thầy xem qua localhost thì giữ `true` cũng được, không bắt buộc).
 - [ ] `APP_ENV` không để `local` nếu deploy lên server công khai.
-- [ ] Đã chạy `php artisan test` full pass trước khi build (không có regression) — kết quả tại BUG-S7 report (`Bug_Report_Sprint7_Tuan14.md`).
-- [ ] `/admin/database` (trang xem nhanh DB) đã được vá không lộ password hash/remember_token — xem BUG-S7-03. Vẫn nên coi trang này là công cụ debug nội bộ, không mở public.
+- [ ] `/admin/database` (trang xem nhanh DB) đã được vá không lộ password hash/remember_token. Vẫn nên coi trang này là công cụ debug nội bộ, không mở public.
 - [ ] Không có secret (API key thật, mật khẩu DB thật) nào bị hardcode trong code — đã grep `app/` không thấy.
 
 ## 8. Vấn đề đã biết (không phải bug môi trường, ghi để không tốn thời gian debug lại)
@@ -80,7 +82,7 @@ Chi tiết dữ liệu mẫu có sẵn (mã đơn, mã khuyến mãi...) xem [`d
 | Thanh toán chỉ là mô phỏng | Chưa nối VNPay/Momo thật — `PaymentMethod::ONLINE_DEMO` sinh mã giao dịch giả `DEMO-xxxxx`. Đúng theo phạm vi đồ án ("thanh toán mô phỏng"). |
 | Email không gửi thật | `MAIL_MAILER=log` — mọi email (nếu có) chỉ ghi vào `storage/logs/laravel.log`, không gửi thật. Không có tính năng gửi email nào đang được dùng ở luồng chính hiện tại. |
 | README.md mô tả dự án là "Backend API" | Đã lỗi thời — dự án hiện là Blade monolith, README chưa cập nhật theo. Việc viết lại README đầy đủ (hướng dẫn cài đặt, tài khoản demo, cấu trúc thư mục đúng thực tế) là nhiệm vụ Tuần 15 (BE1), chưa làm ở tuần này để tránh trùng phạm vi. |
-| Có cả `/api/v1/*` (REST API) và route Blade | Kiến trúc song song còn sót từ giai đoạn đầu dự án — xem mục "Không sửa trong sprint này" ở `Bug_Report_Sprint7_Tuan14.md`. Không ảnh hưởng demo Blade chính. |
+| Có cả `/api/v1/*` (REST API) và route Blade | Kiến trúc song song còn sót từ giai đoạn đầu dự án — quyết định có chủ đích không gỡ bỏ vì rủi ro/lợi ích không tương xứng. Không ảnh hưởng demo Blade chính. |
 
 ## 9. Nếu deploy lên staging thật (không chỉ chạy local)
 

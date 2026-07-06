@@ -89,7 +89,7 @@ Mã khuyến mãi hợp lệ: `HOMISUMMER` (giảm 15%), `WELCOME100K` (giảm 1
 7. Đăng nhập `customer@homi.test`, vào `/customer/reviews/create` → thấy **Phòng Superior** xuất hiện (vì đơn vừa completed) → chọn 5 sao, viết nhận xét, gửi.
 8. Vào trang công khai `/rooms/{Phòng Superior}` → thấy đánh giá mới + **điểm trung bình** cập nhật.
 9. Quay lại `admin@homi.test`, vào `/admin/dashboard` → chỉ đủ các số liệu: trạng thái khách sạn, loại phòng active, **tổng khách hàng**, tổng đơn, pending, confirmed, cancelled, **tỷ lệ hủy (%)**, tỷ lệ lấp đầy hôm nay, và biểu đồ doanh thu 6 tháng gần nhất.
-10. Đối chiếu nhanh: mở `/admin/bookings?status=cancelled` đếm số dòng, so với số "Đơn đã hủy" trên dashboard → khớp nhau (đã có test tự động `DashboardStatsTest` kiểm chứng, xem `tests/Feature/Admin/DashboardStatsTest.php`).
+10. Đối chiếu nhanh: mở `/admin/bookings?status=cancelled` đếm số dòng, so với số "Đơn đã hủy" trên dashboard → khớp nhau.
 
 ---
 
@@ -98,4 +98,4 @@ Mã khuyến mãi hợp lệ: `HOMISUMMER` (giảm 15%), `WELCOME100K` (giảm 1
 - **"Sao không đặt trùng phòng khi 2 khách bấm cùng lúc?"** → chỉ vào `AvailabilityService::canBook()` được gọi lại bên trong `DB::transaction` của `BookingService::create()`, không chỉ tin vào kết quả kiểm tra trống hiển thị trên form trước đó.
 - **"Hủy đơn xong tiền có mất không?"** → tiền cọc (`deposit_paid`) không tự hoàn khi hủy (chính sách giữ chỗ), chỉ khoản đã trả đủ (`paid`) mới tự động refund — xem `PaymentStatus::canRefund()`.
 - **"Vì sao tách `/admin/customers` khỏi `/admin/users`?"** → `/admin/users` quản lý tài khoản nói chung (cả admin/staff/customer, chỉ khóa/mở), `/admin/customers` là màn nghiệp vụ riêng cho CSKH — tìm khách và xem lịch sử đặt phòng nhanh mà không lẫn tài khoản nội bộ.
-- **"Test tự động có phủ hết các case vừa demo không?"** → chạy `php artisan test` trước mặt thầy, hiện tại 460/460 pass, bao gồm các test case tương ứng: `tests/Feature/Booking/BookingE2ETest.php`, `AdminBookingManagementTest.php`, `AdminPaymentManagementTest.php`, `tests/Feature/Admin/CustomerManagementTest.php`, `DashboardStatsTest.php`.
+- **"Test tự động có phủ hết các case vừa demo không?"** → Không, bộ test tự động đã được gỡ khỏi dự án; các case trên được kiểm chứng thủ công qua thao tác trực tiếp trên UI trong buổi demo.

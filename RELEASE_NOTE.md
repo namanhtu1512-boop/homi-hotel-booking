@@ -36,25 +36,11 @@ Laravel 13 Blade monolith. Đủ 3 khu vực: public (xem/tìm phòng), customer
   trên trang chủ/liên hệ, module lễ tân & buồng phòng nội bộ (check-in/out
   thật + housekeeping).
 
-## Số liệu kiểm thử
-
-**612/612 test pass**, 1488 assertion, 0 failed — chi tiết breakdown theo
-module xem [`docs/check-list/TestReport_Final_Tuan15.md`](docs/check-list/TestReport_Final_Tuan15.md)
-(số liệu gốc tại thời điểm Tuần 16; test suite đã tăng lên khi làm thêm các
-module ở mục trên).
-
-> Lưu ý cho lần chạy lại sau này: `tests/Unit/Services/AvailabilityServiceTest.php`
-> trước đây dùng ngày hardcode tuyệt đối (`2026-07-05`...) — khi ngày thật
-> trôi qua mốc đó, test tự fail dù code không đổi (`DateRangeService` chặn
-> check_in trước hôm nay). Đã sửa sang ngày tương đối (`now()->addDays(...)`)
-> ở Tuần 16 nên test suite không còn "tự hết hạn" theo thời gian.
-
 ## Bảo mật đã siết trong quá trình review
 
 Chặn lộ password hash ở trang xem DB nội bộ, chặn brute-force login/đăng
 ký/liên hệ, chặn SVG upload (nguy cơ XSS), fix race condition có thể
-overbook phòng, fix logic tính giảm giá sai khi percent=0 — chi tiết đầy đủ
-xem [`docs/check-list/Bug_Report_Sprint7_Tuan14.md`](docs/check-list/Bug_Report_Sprint7_Tuan14.md).
+overbook phòng, fix logic tính giảm giá sai khi percent=0.
 
 ## Known limitations
 

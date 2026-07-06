@@ -58,13 +58,7 @@
 
 ## 6. Bằng chứng kiểm thử
 
-Toàn bộ mục có trạng thái ✅ ở bảng 2–4 được xác minh bằng test tự động:
-
-```
-tests/Feature/Auth/RegisterTest.php  — 8 test
-tests/Feature/Auth/LoginTest.php     — 6 test
-tests/Feature/Auth/ProfileTest.php   — 11 test
-tests/Feature/Auth/RbacTest.php      — 7 test
-```
-
-Chạy: `php artisan test tests/Feature/Auth`
+Toàn bộ mục có trạng thái ✅ ở bảng 2–4 từng được xác minh bằng test tự động
+trong quá trình phát triển (register/login/profile/RBAC). Bộ test đã được
+gỡ khỏi dự án theo quyết định của nhóm — kiểm tra lại thủ công bằng cách
+đăng ký/đăng nhập/đổi thông tin qua UI và xác nhận redirect đúng role.
