@@ -20,15 +20,19 @@ class DashboardService
 {
     public function stats(): array
     {
+        $totalBookings     = Booking::count();
+        $cancelledBookings = Booking::where('status', 'cancelled')->count();
+
         return [
             'hotel_status'       => HotelInfo::instance()->status,
             'total_room_types'   => RoomType::count(),
             'active_room_types'  => RoomType::where('status', 'active')->count(),
             'total_customers'    => User::where('role', 'customer')->count(),
-            'total_bookings'     => Booking::count(),
+            'total_bookings'     => $totalBookings,
             'pending_bookings'   => Booking::where('status', 'pending')->count(),
             'confirmed_bookings' => Booking::where('status', 'confirmed')->count(),
-            'cancelled_bookings' => Booking::where('status', 'cancelled')->count(),
+            'cancelled_bookings' => $cancelledBookings,
+            'cancellation_rate'  => $totalBookings > 0 ? (int) round($cancelledBookings / $totalBookings * 100) : 0,
         ];
     }
 

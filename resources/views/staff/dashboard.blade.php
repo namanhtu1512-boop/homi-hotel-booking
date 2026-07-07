@@ -45,6 +45,7 @@
     <div class="stat-card">
         <div class="stat-label">Đơn đã hủy</div>
         <div class="stat-value">{{ $stats['cancelled_bookings'] }}</div>
+        <div class="stat-note">Tỷ lệ hủy: {{ $stats['cancellation_rate'] }}%</div>
     </div>
 
     <div class="stat-card">

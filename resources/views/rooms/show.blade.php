@@ -229,7 +229,7 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card relative">
             <span class="section-kicker">Về khách sạn</span>
             <h3 class="mb-2 text-lg font-bold text-slate-900 dark:text-white">{{ $hotel->name }}</h3>
 
@@ -263,7 +263,7 @@
         </div>
 
         @if ($relatedRooms->isNotEmpty())
-            <div class="card">
+            <div class="card relative">
                 <span class="section-kicker">Có thể bạn thích</span>
                 <h3 class="mb-3 text-lg font-bold text-slate-900 dark:text-white">Loại phòng khác</h3>
                 <div class="space-y-3">

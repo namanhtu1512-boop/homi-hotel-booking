@@ -283,6 +283,27 @@ class RoomSearchListTest extends TestCase
         $response->assertSessionHasErrors('capacity');
     }
 
+    /** @test */
+    public function test_TC_RSL_032_amenities_filter_only_returns_rooms_with_all_selected_amenities(): void
+    {
+        $wifi = \App\Models\Amenity::create(['name' => 'Wifi miễn phí']);
+        $pool = \App\Models\Amenity::create(['name' => 'Hồ bơi']);
+
+        $roomWithBoth = $this->makeActive(['name' => 'Phòng Đủ Tiện Ích']);
+        $roomWithBoth->amenities()->sync([$wifi->id, $pool->id]);
+
+        $roomWithOne = $this->makeActive(['name' => 'Phòng Thiếu Tiện Ích']);
+        $roomWithOne->amenities()->sync([$wifi->id]);
+
+        $this->makeActive(['name' => 'Phòng Không Tiện Ích']);
+
+        $response = $this->get($this->roomsUrl(['amenities' => [$wifi->id, $pool->id]]));
+
+        $response->assertSee('Phòng Đủ Tiện Ích');
+        $response->assertDontSee('Phòng Thiếu Tiện Ích');
+        $response->assertDontSee('Phòng Không Tiện Ích');
+    }
+
     // =========================================================
     // TC-RSL-040 đến TC-RSL-045: Filter theo ngày (check_in / check_out)
     // =========================================================
@@ -476,8 +497,10 @@ class RoomSearchListTest extends TestCase
     public function test_TC_RSL_071_no_n_plus_1_query_with_10_rooms(): void
     {
         // Eager loading đã được cấu hình trong RoomTypeService::search()
-        // Tối đa 5 queries: rooms (count+select), room images, hotel_info
-        // (địa chỉ + số sao hiển thị ở sidebar), điểm đánh giá trung bình.
+        // Tối đa 6 queries: rooms (count+select), room images, hotel_info
+        // (địa chỉ + số sao hiển thị ở sidebar), điểm đánh giá trung bình,
+        // danh sách tiện ích cho bộ lọc. Mỗi query này có chi phí cố định,
+        // không tăng theo số phòng — nên vẫn đảm bảo không có N+1 thật.
         // Seed hotel_info trước để không tính luôn INSERT tạo bản ghi mặc
         // định (chi phí một lần duy nhất lúc khởi tạo hệ thống, không phải
         // N+1 thật của trang danh sách phòng).
@@ -493,9 +516,9 @@ class RoomSearchListTest extends TestCase
         $this->get('/rooms')->assertOk();
 
         $this->assertLessThanOrEqual(
-            5,
+            6,
             $queryCount,
-            "Tải 10 phòng không nên vượt quá 5 queries (N+1 check). Thực tế: {$queryCount} queries."
+            "Tải 10 phòng không nên vượt quá 6 queries (N+1 check). Thực tế: {$queryCount} queries."
         );
     }
 

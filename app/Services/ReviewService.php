@@ -13,14 +13,16 @@ use Illuminate\Validation\ValidationException;
 class ReviewService
 {
     /**
-     * Đơn đã hoàn tất (completed) của khách nhưng từng loại phòng trong đơn
-     * chưa được đánh giá — dùng để hiển thị nút "Viết đánh giá".
+     * Đơn đã xác nhận (confirmed) hoặc hoàn tất (completed) của khách nhưng
+     * từng loại phòng trong đơn chưa được đánh giá — dùng để hiển thị nút
+     * "Viết đánh giá". Theo acceptance criteria US11: "confirmed/completed
+     * mới được đánh giá".
      */
     public function reviewableItems(User $user): \Illuminate\Support\Collection
     {
         $bookings = Booking::query()
             ->where('user_id', $user->id)
-            ->where('status', BookingStatus::COMPLETED)
+            ->whereIn('status', [BookingStatus::CONFIRMED, BookingStatus::COMPLETED])
             ->with('bookingItems.roomType')
             ->get();
 
@@ -57,9 +59,9 @@ class ReviewService
     {
         $booking = Booking::where('user_id', $user->id)->findOrFail($data['booking_id']);
 
-        if ($booking->status !== BookingStatus::COMPLETED) {
+        if (! in_array($booking->status, [BookingStatus::CONFIRMED, BookingStatus::COMPLETED], true)) {
             throw ValidationException::withMessages([
-                'booking_id' => ['Chỉ có thể đánh giá sau khi đơn đã hoàn tất.'],
+                'booking_id' => ['Chỉ có thể đánh giá đơn đã được xác nhận hoặc đã hoàn tất.'],
             ]);
         }
 

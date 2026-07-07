@@ -4,15 +4,17 @@ namespace Database\Seeders;
 
 use App\Models\Amenity;
 use App\Models\HotelInfo;
-use App\Models\RoomType;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 /**
  * Seed dữ liệu cho khách sạn singleton Homi (1 bản ghi hotel_info duy
- * nhất) cùng danh sách loại phòng. Vì hệ thống chỉ vận hành 1 khách sạn,
- * không seed nhiều bản ghi hotel — chỉ seed đúng 1 hotel_info + tiện ích
- * + loại phòng.
+ * nhất) và danh mục tiện ích dùng chung (hotel + room type). Vì hệ thống
+ * chỉ vận hành 1 khách sạn, không seed nhiều bản ghi hotel.
+ *
+ * Loại phòng được seed riêng ở RoomTypeSeeder — không lặp lại ở đây để
+ * tránh 2 nguồn dữ liệu phòng xung đột nhau (đã từng xảy ra: seeder này
+ * tạo phòng trước với giá/mô tả sơ sài, RoomTypeSeeder chạy sau chỉ bổ
+ * sung được ảnh vì slug đã tồn tại, còn giá/mô tả đầy đủ hơn thì bị bỏ qua).
  */
 class HotelInfoSeeder extends Seeder
 {
@@ -20,7 +22,6 @@ class HotelInfoSeeder extends Seeder
     {
         $this->seedAmenities();
         $this->seedHotelInfo();
-        $this->seedRoomTypes();
     }
 
     private function seedAmenities(): void
@@ -65,63 +66,5 @@ class HotelInfoSeeder extends Seeder
                 'Điều hòa', 'Thang máy',
             ])->pluck('id')
         );
-    }
-
-    private function seedRoomTypes(): void
-    {
-        $rooms = [
-            [
-                'name'            => 'Phòng Standard',
-                'description'     => 'Phòng tiêu chuẩn, đầy đủ tiện nghi cơ bản.',
-                'price_per_night' => 650000,
-                'capacity'        => 2,
-                'bed_type'        => '1 giường đôi',
-                'area'            => 25,
-                'total_rooms'     => 10,
-            ],
-            [
-                'name'            => 'Phòng Superior',
-                'description'     => 'Phòng tiện nghi, phù hợp cho khách lưu trú ngắn ngày.',
-                'price_per_night' => 800000,
-                'capacity'        => 2,
-                'bed_type'        => '2 giường đơn',
-                'area'            => 28,
-                'total_rooms'     => 12,
-            ],
-            [
-                'name'            => 'Phòng Deluxe',
-                'description'     => 'Phòng rộng, view thành phố, phù hợp cho cặp đôi hoặc khách công tác.',
-                'price_per_night' => 950000,
-                'capacity'        => 2,
-                'bed_type'        => '1 giường đôi lớn',
-                'area'            => 32,
-                'total_rooms'     => 8,
-            ],
-            [
-                'name'            => 'Phòng Family',
-                'description'     => 'Phòng gia đình rộng rãi, phù hợp cho nhóm nhỏ.',
-                'price_per_night' => 1400000,
-                'capacity'        => 4,
-                'bed_type'        => '2 giường đôi',
-                'area'            => 45,
-                'total_rooms'     => 6,
-            ],
-            [
-                'name'            => 'Phòng Suite',
-                'description'     => 'Suite cao cấp với phòng khách riêng và bồn tắm.',
-                'price_per_night' => 2800000,
-                'capacity'        => 2,
-                'bed_type'        => '1 giường đôi lớn',
-                'area'            => 60,
-                'total_rooms'     => 4,
-            ],
-        ];
-
-        foreach ($rooms as $room) {
-            RoomType::firstOrCreate(
-                ['slug' => Str::slug($room['name'])],
-                [...$room, 'slug' => Str::slug($room['name']), 'status' => 'active'],
-            );
-        }
     }
 }

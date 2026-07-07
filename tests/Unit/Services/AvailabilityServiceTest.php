@@ -16,6 +16,11 @@ use Tests\TestCase;
  * Tuần 9 - Sprint 5: Test AvailabilityService — toàn bộ ca overlap ngày và
  * các điều kiện giữ phòng (holding statuses).
  *
+ * Tất cả ngày dùng offset tương đối so với "hôm nay" (qua helper d()) thay vì
+ * hardcode một mốc tuyệt đối — tránh test tự hết hạn/FAIL khi ngày hệ thống
+ * trôi qua mốc đó (đã từng xảy ra thật với '2026-07-05' khi chạy vào ngày
+ * 07/07/2026, vì DateRangeService chặn check_in ở quá khứ).
+ *
  * Test case ID | Chức năng                                    | Kết quả mong đợi
  * TC-AVA-001   | Không có booking nào giao nhau                | available_quantity = total_rooms
  * TC-AVA-002   | Trùng hoàn toàn (exact match)                 | Trừ đúng quantity đã đặt
@@ -43,6 +48,12 @@ class AvailabilityServiceTest extends TestCase
         parent::setUp();
 
         $this->service = new AvailabilityService(new DateRangeService());
+    }
+
+    /** Ngày tương đối "hôm nay + $days" — giữ mọi mốc luôn ở tương lai. */
+    private function d(int $days): string
+    {
+        return now()->addDays($days)->toDateString();
     }
 
     private function createBooking(
@@ -79,7 +90,7 @@ class AvailabilityServiceTest extends TestCase
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(5, $result['available_quantity']);
         $this->assertTrue($result['can_book']);
@@ -88,64 +99,64 @@ class AvailabilityServiceTest extends TestCase
     public function test_exact_match_overlap_reduces_availability(): void
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 2);
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 2);
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(3, $result['available_quantity']);
     }
 
     public function test_overlap_at_start_of_new_range(): void
     {
-        // Existing: 07-08 -> 07-11, New: 07-10 -> 07-14 (existing kết thúc trong khoảng mới)
+        // Existing: +8 -> +11, New: +10 -> +14 (existing kết thúc trong khoảng mới)
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-08', '2026-07-11', 2);
+        $this->createBooking($roomType, $this->d(8), $this->d(11), 2);
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-14', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(14), 1);
 
         $this->assertSame(3, $result['available_quantity']);
     }
 
     public function test_overlap_at_end_of_new_range(): void
     {
-        // Existing: 07-13 -> 07-16, New: 07-10 -> 07-14 (existing bắt đầu trong khoảng mới)
+        // Existing: +13 -> +16, New: +10 -> +14 (existing bắt đầu trong khoảng mới)
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-13', '2026-07-16', 2);
+        $this->createBooking($roomType, $this->d(13), $this->d(16), 2);
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-14', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(14), 1);
 
         $this->assertSame(3, $result['available_quantity']);
     }
 
     public function test_new_range_contained_within_existing_booking(): void
     {
-        // Existing: 07-05 -> 07-20, New: 07-10 -> 07-12 (nằm trong)
+        // Existing: +5 -> +20, New: +10 -> +12 (nằm trong)
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-05', '2026-07-20', 2);
+        $this->createBooking($roomType, $this->d(5), $this->d(20), 2);
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(3, $result['available_quantity']);
     }
 
     public function test_new_range_encompasses_existing_booking(): void
     {
-        // Existing: 07-10 -> 07-12, New: 07-05 -> 07-20 (bao ngoài)
+        // Existing: +10 -> +12, New: +5 -> +20 (bao ngoài)
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 2);
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 2);
 
-        $result = $this->service->check($roomType->id, '2026-07-05', '2026-07-20', 1);
+        $result = $this->service->check($roomType->id, $this->d(5), $this->d(20), 1);
 
         $this->assertSame(3, $result['available_quantity']);
     }
 
     public function test_adjacent_ranges_do_not_overlap(): void
     {
-        // Existing: 07-05 -> 07-10 (trả phòng), New: 07-10 -> 07-15 (nhận phòng cùng ngày)
+        // Existing: +5 -> +10 (trả phòng), New: +10 -> +15 (nhận phòng cùng ngày)
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-05', '2026-07-10', 5);
+        $this->createBooking($roomType, $this->d(5), $this->d(10), 5);
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-15', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(15), 1);
 
         $this->assertSame(5, $result['available_quantity']);
     }
@@ -153,11 +164,11 @@ class AvailabilityServiceTest extends TestCase
     public function test_pending_confirmed_and_checked_in_bookings_all_hold_rooms(): void
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 1, 'pending');
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 1, 'confirmed');
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 1, 'checked_in');
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 1, 'pending');
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 1, 'confirmed');
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 1, 'checked_in');
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(2, $result['available_quantity']);
     }
@@ -165,9 +176,9 @@ class AvailabilityServiceTest extends TestCase
     public function test_cancelled_booking_does_not_hold_room(): void
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 3, 'cancelled');
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 3, 'cancelled');
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(5, $result['available_quantity']);
     }
@@ -175,9 +186,9 @@ class AvailabilityServiceTest extends TestCase
     public function test_sold_out_when_booked_quantity_equals_total_rooms(): void
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 3]);
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 3, 'confirmed');
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 3, 'confirmed');
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(0, $result['available_quantity']);
         $this->assertFalse($result['can_book']);
@@ -186,11 +197,11 @@ class AvailabilityServiceTest extends TestCase
     public function test_multiple_overlapping_bookings_accumulate_quantity(): void
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($roomType, '2026-07-08', '2026-07-11', 1, 'pending');
-        $this->createBooking($roomType, '2026-07-09', '2026-07-13', 1, 'confirmed');
-        $this->createBooking($roomType, '2026-07-05', '2026-07-20', 1, 'checked_in');
+        $this->createBooking($roomType, $this->d(8), $this->d(11), 1, 'pending');
+        $this->createBooking($roomType, $this->d(9), $this->d(13), 1, 'confirmed');
+        $this->createBooking($roomType, $this->d(5), $this->d(20), 1, 'checked_in');
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(2, $result['available_quantity']);
     }
@@ -199,9 +210,9 @@ class AvailabilityServiceTest extends TestCase
     {
         $roomType      = RoomType::factory()->create(['total_rooms' => 5]);
         $otherRoomType = RoomType::factory()->create(['total_rooms' => 5]);
-        $this->createBooking($otherRoomType, '2026-07-10', '2026-07-12', 5, 'confirmed');
+        $this->createBooking($otherRoomType, $this->d(10), $this->d(12), 5, 'confirmed');
 
-        $result = $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $result = $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
 
         $this->assertSame(5, $result['available_quantity']);
     }
@@ -211,13 +222,13 @@ class AvailabilityServiceTest extends TestCase
         $roomType = RoomType::factory()->hidden()->create();
 
         $this->expectException(ModelNotFoundException::class);
-        $this->service->check($roomType->id, '2026-07-10', '2026-07-12', 1);
+        $this->service->check($roomType->id, $this->d(10), $this->d(12), 1);
     }
 
     public function test_nonexistent_room_type_throws_not_found_exception(): void
     {
         $this->expectException(ModelNotFoundException::class);
-        $this->service->check(999999, '2026-07-10', '2026-07-12', 1);
+        $this->service->check(999999, $this->d(10), $this->d(12), 1);
     }
 
     public function test_invalid_date_range_throws_validation_exception(): void
@@ -225,15 +236,15 @@ class AvailabilityServiceTest extends TestCase
         $roomType = RoomType::factory()->create();
 
         $this->expectException(ValidationException::class);
-        $this->service->check($roomType->id, '2026-07-12', '2026-07-10', 1);
+        $this->service->check($roomType->id, $this->d(12), $this->d(10), 1);
     }
 
     public function test_can_book_returns_false_when_quantity_exceeds_availability(): void
     {
         $roomType = RoomType::factory()->create(['total_rooms' => 2]);
-        $this->createBooking($roomType, '2026-07-10', '2026-07-12', 1, 'confirmed');
+        $this->createBooking($roomType, $this->d(10), $this->d(12), 1, 'confirmed');
 
-        $this->assertFalse($this->service->canBook($roomType->id, '2026-07-10', '2026-07-12', 2));
-        $this->assertTrue($this->service->canBook($roomType->id, '2026-07-10', '2026-07-12', 1));
+        $this->assertFalse($this->service->canBook($roomType->id, $this->d(10), $this->d(12), 2));
+        $this->assertTrue($this->service->canBook($roomType->id, $this->d(10), $this->d(12), 1));
     }
 }

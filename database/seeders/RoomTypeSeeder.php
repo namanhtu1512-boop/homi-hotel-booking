@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Amenity;
 use App\Models\RoomType;
 use App\Services\ImageService;
 use Illuminate\Database\Seeder;
@@ -20,6 +21,7 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '1 giường đôi',
                 'area'            => 28,
                 'total_rooms'     => 15,
+                'amenities'       => ['Wifi miễn phí', 'Điều hòa'],
                 'images'          => [
                     'https://picsum.photos/seed/homi-std-1/900/600',
                     'https://picsum.photos/seed/homi-std-2/900/600',
@@ -34,6 +36,7 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '2 giường đơn',
                 'area'            => 30,
                 'total_rooms'     => 12,
+                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Bãi đỗ xe'],
                 'images'          => [
                     'https://picsum.photos/seed/homi-sup-1/900/600',
                     'https://picsum.photos/seed/homi-sup-2/900/600',
@@ -48,6 +51,7 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '1 giường đôi lớn',
                 'area'            => 35,
                 'total_rooms'     => 10,
+                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Hồ bơi', 'Dịch vụ phòng 24/7'],
                 'images'          => [
                     'https://picsum.photos/seed/homi-dlx-1/900/600',
                     'https://picsum.photos/seed/homi-dlx-2/900/600',
@@ -62,6 +66,7 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '2 giường đôi',
                 'area'            => 45,
                 'total_rooms'     => 6,
+                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Bãi đỗ xe'],
                 'images'          => [
                     'https://picsum.photos/seed/homi-fam-1/900/600',
                     'https://picsum.photos/seed/homi-fam-2/900/600',
@@ -76,6 +81,7 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '1 giường đôi king',
                 'area'            => 65,
                 'total_rooms'     => 3,
+                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Hồ bơi', 'Spa', 'Dịch vụ phòng 24/7'],
                 'images'          => [
                     'https://picsum.photos/seed/homi-suite-1/900/600',
                     'https://picsum.photos/seed/homi-suite-2/900/600',
@@ -85,8 +91,9 @@ class RoomTypeSeeder extends Seeder
         ];
 
         foreach ($rooms as $room) {
-            $imagePaths = $room['images'];
-            unset($room['images']);
+            $imagePaths     = $room['images'];
+            $amenityNames   = $room['amenities'];
+            unset($room['images'], $room['amenities']);
 
             $roomType = RoomType::firstOrCreate(
                 ['slug' => Str::slug($room['name'])],
@@ -95,6 +102,12 @@ class RoomTypeSeeder extends Seeder
 
             if ($roomType->images()->count() === 0) {
                 $imageService->syncRoomTypeImages($roomType, $imagePaths);
+            }
+
+            if ($roomType->amenities()->count() === 0) {
+                $roomType->amenities()->sync(
+                    Amenity::whereIn('name', $amenityNames)->pluck('id')
+                );
             }
         }
     }

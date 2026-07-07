@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
             HotelInfoSeeder::class,
             RoomTypeSeeder::class,
             BookingSeeder::class,
+            PromotionSeeder::class,
+            BannerSeeder::class,
         ]);
     }
 }

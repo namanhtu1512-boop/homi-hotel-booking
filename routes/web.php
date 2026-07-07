@@ -9,6 +9,7 @@ use App\Http\Controllers\Web\Admin\DatabaseController;
 use App\Http\Controllers\Web\Admin\HotelInfoController;
 use App\Http\Controllers\Web\Admin\RoomTypeController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
 use App\Http\Controllers\Web\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Web\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Web\PromotionController;
 use App\Http\Controllers\Web\NewsController;
 use App\Http\Controllers\Web\ContactController;
@@ -130,11 +132,18 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::put('/{id}',           [RoomTypeController::class, 'update'])->name('update');
         Route::delete('/{id}',        [RoomTypeController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/restore',  [RoomTypeController::class, 'restore'])->name('restore');
+        Route::patch('/{id}/toggle-status', [RoomTypeController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/',                     [UserController::class, 'index'])->name('index');
         Route::patch('/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/',                     [AdminCustomerController::class, 'index'])->name('index');
+        Route::get('/{id}',                 [AdminCustomerController::class, 'show'])->name('show');
+        Route::patch('/{id}/toggle-status', [AdminCustomerController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
@@ -190,6 +199,8 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::patch('/{id}/read',    [AdminContactMessageController::class, 'markRead'])->name('mark-read');
         Route::delete('/{id}',        [AdminContactMessageController::class, 'destroy'])->name('destroy');
     });
+
+    Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('audit-logs.index');
 });
 
 // ---------------------------------------------------------------

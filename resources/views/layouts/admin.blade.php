@@ -27,11 +27,13 @@
                         ['route' => 'admin.bookings.index', 'pattern' => 'admin.bookings.*', 'label' => 'Đơn đặt phòng'],
                         ['route' => 'admin.payments.index', 'pattern' => 'admin.payments.*', 'label' => 'Thanh toán'],
                         ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Người dùng'],
+                        ['route' => 'admin.customers.index', 'pattern' => 'admin.customers.*', 'label' => 'Khách hàng'],
                         ['route' => 'admin.promotions.index', 'pattern' => 'admin.promotions.*', 'label' => 'Khuyến mãi'],
                         ['route' => 'admin.news.index', 'pattern' => 'admin.news.*', 'label' => 'Tin tức'],
                         ['route' => 'admin.banners.index', 'pattern' => 'admin.banners.*', 'label' => 'Banner'],
                         ['route' => 'admin.reviews.index', 'pattern' => 'admin.reviews.*', 'label' => 'Đánh giá'],
                         ['route' => 'admin.contact-messages.index', 'pattern' => 'admin.contact-messages.*', 'label' => 'Liên hệ'],
+                        ['route' => 'admin.audit-logs.index', 'pattern' => 'admin.audit-logs.*', 'label' => 'Nhật ký hoạt động'],
                         ['route' => 'admin.database', 'pattern' => 'admin.database', 'label' => 'Database'],
                     ];
                 @endphp

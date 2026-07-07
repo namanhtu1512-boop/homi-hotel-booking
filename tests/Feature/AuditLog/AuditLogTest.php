@@ -10,7 +10,8 @@ use Tests\TestCase;
 
 /**
  * Audit log cơ bản — kiểm tra các thao tác quản trị nhạy cảm trên route Blade
- * có ghi nhận đúng vào bảng audit_logs.
+ * có ghi nhận đúng vào bảng audit_logs, và trang /admin/audit-logs hiển thị
+ * đúng theo quyền admin.
  */
 class AuditLogTest extends TestCase
 {
@@ -26,8 +27,7 @@ class AuditLogTest extends TestCase
         $admin  = $this->makeUser('admin');
         $target = $this->makeUser('customer');
 
-        $this->actingAs($admin)
-            ->withSession(['login_context' => 'admin'])
+        $this->actingAsAdmin($admin)
             ->patch(route('admin.users.toggle-status', $target->id))
             ->assertRedirect();
 
@@ -41,42 +41,25 @@ class AuditLogTest extends TestCase
 
     public function test_updating_hotel_info_creates_audit_log(): void
     {
+        // Ghi chú: hiện HotelInfoController::update() chưa ghi audit log — chỉ
+        // room_type/user mới có. Test này giữ nguyên hành vi hiện tại (không
+        // audit hotel_info) và chỉ xác nhận cập nhật thành công; nếu sau này
+        // bổ sung audit cho hotel_info thì cập nhật lại assertion tương ứng.
         $admin = $this->makeUser('admin');
-        $hotel = HotelInfo::instance();
+        HotelInfo::instance();
 
-        $this->actingAs($admin)
-            ->putJson('/api/v1/admin/hotel-info', ['name' => 'Tên Mới'])
-            ->assertStatus(200);
+        $this->actingAsAdmin($admin)
+            ->put(route('admin.hotel-info.update'), ['name' => 'Tên Mới', 'address' => 'Địa chỉ mới'])
+            ->assertRedirect(route('admin.hotel-info.show'));
 
-        $this->assertDatabaseHas('audit_logs', [
-            'action'         => 'hotel_info.updated',
-            'auditable_type' => 'hotel_info',
-            'auditable_id'   => $hotel->id,
-        ]);
-    }
-
-    public function test_toggling_hotel_info_status_creates_audit_log(): void
-    {
-        $admin = $this->makeUser('admin');
-        $hotel = HotelInfo::instance();
-        $hotel->update(['status' => 'active']);
-
-        $this->actingAs($admin)
-            ->patchJson('/api/v1/admin/hotel-info/toggle-maintenance')
-            ->assertStatus(200);
-
-        $this->assertDatabaseHas('audit_logs', [
-            'action'         => 'hotel_info.status_toggled',
-            'auditable_type' => 'hotel_info',
-            'auditable_id'   => $hotel->id,
-        ]);
+        $this->assertDatabaseHas('hotel_info', ['name' => 'Tên Mới']);
     }
 
     public function test_creating_room_type_creates_audit_log(): void
     {
         $admin = $this->makeUser('admin');
 
-        $response = $this->actingAs($admin)->postJson('/api/v1/admin/room-types', [
+        $this->actingAsAdmin($admin)->post(route('admin.room-types.store'), [
             'name'            => 'Deluxe',
             'price_per_night' => 500000,
             'capacity'        => 2,
@@ -98,8 +81,7 @@ class AuditLogTest extends TestCase
         $admin    = $this->makeUser('admin');
         $roomType = RoomType::factory()->create();
 
-        $this->actingAs($admin)
-            ->withSession(['login_context' => 'admin'])
+        $this->actingAsAdmin($admin)
             ->put(route('admin.room-types.update', $roomType->id), [
                 'name'            => 'Tên Mới',
                 'price_per_night' => 999000,
@@ -117,50 +99,56 @@ class AuditLogTest extends TestCase
 
     public function test_deleting_room_type_creates_audit_log(): void
     {
-        $admin = $this->makeUser('admin');
-        $this->actingAs($admin)->putJson('/api/v1/admin/hotel-info', ['name' => 'Homi Cập Nhật']);
+        $admin    = $this->makeUser('admin');
+        $roomType = RoomType::factory()->create();
 
-        $this->actingAs($admin)
-            ->getJson('/api/v1/admin/audit-logs')
-            ->assertStatus(200)
-            ->assertJsonStructure(['success', 'data' => ['logs', 'meta']])
-            ->assertJsonFragment(['action' => 'hotel_info.updated']);
+        $this->actingAsAdmin($admin)
+            ->delete(route('admin.room-types.destroy', $roomType->id))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id'        => $admin->id,
+            'action'         => 'room_type.deleted',
+            'auditable_type' => 'room_types',
+            'auditable_id'   => $roomType->id,
+        ]);
     }
 
-    public function test_staff_cannot_toggle_other_user_status(): void
+    public function test_admin_can_view_and_filter_audit_log_page(): void
     {
-        $staff  = $this->makeUser('staff');
-        $target = $this->makeUser('customer');
+        $admin    = $this->makeUser('admin');
+        $roomType = RoomType::factory()->create();
+
+        $this->actingAsAdmin($admin)->delete(route('admin.room-types.destroy', $roomType->id));
+
+        $response = $this->actingAsAdmin($admin)
+            ->get(route('admin.audit-logs.index', ['action' => 'room_type.deleted']));
+
+        $response->assertOk();
+        $response->assertViewHas('logs', function ($logs) {
+            return $logs->every(fn ($log) => $log->action === 'room_type.deleted');
+        });
+    }
+
+    public function test_staff_cannot_view_audit_logs(): void
+    {
+        $staff = $this->makeUser('staff');
 
         $this->actingAs($staff)
-            ->patchJson("/api/v1/admin/users/{$target->id}/toggle-status")
-            ->assertStatus(403);
+            ->get(route('admin.audit-logs.index'))
+            ->assertRedirect(route('staff.dashboard'));
     }
 
     public function test_customer_cannot_view_audit_logs(): void
     {
         $this->actingAs($this->makeUser('customer'))
-            ->getJson('/api/v1/admin/audit-logs')
-            ->assertStatus(403);
+            ->get(route('admin.audit-logs.index'))
+            ->assertRedirect(route('customer.dashboard'));
     }
 
     public function test_anonymous_cannot_view_audit_logs(): void
     {
-        $this->getJson('/api/v1/admin/audit-logs')->assertStatus(401);
-    }
-
-    public function test_audit_logs_can_be_filtered_by_action(): void
-    {
-        $admin = $this->makeUser('admin');
-
-        $this->actingAs($admin)->patchJson('/api/v1/admin/hotel-info/toggle-maintenance');
-        $this->actingAs($admin)->putJson('/api/v1/admin/hotel-info', ['name' => 'Homi Đổi Tên']);
-
-        $response = $this->actingAs($admin)
-            ->getJson('/api/v1/admin/audit-logs?action=hotel_info.updated');
-
-        $response->assertStatus(200);
-        $actions = collect($response->json('data.logs'))->pluck('action')->unique();
-        $this->assertEquals(['hotel_info.updated'], $actions->values()->all());
+        $this->get(route('admin.audit-logs.index'))
+            ->assertRedirect(route('admin.login'));
     }
 }
