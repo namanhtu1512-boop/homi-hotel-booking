@@ -48,10 +48,7 @@
         <div class="stat-note">Tỷ lệ hủy: {{ $stats['cancellation_rate'] }}%</div>
     </div>
 
-    <div class="stat-card">
-        <div class="stat-label">Tỷ lệ hủy đơn</div>
-        <div class="stat-value">{{ $stats['cancellation_rate'] }}%</div>
-    </div>
+
 
     <div class="stat-card">
         <div class="stat-label">Tỷ lệ lấp đầy hôm nay</div>
