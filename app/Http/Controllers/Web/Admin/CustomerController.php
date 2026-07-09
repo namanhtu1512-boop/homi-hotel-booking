@@ -4,24 +4,18 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\AuditLogService;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 /**
  * Màn quản lý khách hàng riêng biệt với /admin/users (quản lý tài khoản
  * admin/staff/customer nói chung) — US09: admin tìm kiếm, lọc khách hàng và
- * xem lịch sử đặt phòng của từng khách. Khóa/mở khóa tài khoản cũng được
- * xử lý trực tiếp tại đây.
+ * xem lịch sử đặt phòng của từng khách. Khóa/mở khóa tài khoản vẫn dùng
+ * chung route/logic của UserController (admin.users.toggle-status) để
+ * tránh trùng lặp nghiệp vụ.
  */
 class CustomerController extends Controller
 {
-    public function __construct(
-        private readonly AuditLogService $auditLog,
-    ) {}
-
     public function index(Request $request): View
     {
         $query = User::where('role', 'customer')
@@ -61,24 +55,5 @@ class CustomerController extends Controller
             'customer' => $customer,
             'bookings' => $bookings,
         ]);
-    }
-
-    public function toggleStatus(int $id): RedirectResponse
-    {
-        $customer = User::where('role', 'customer')->findOrFail($id);
-
-        if ($customer->id === Auth::id()) {
-            return back()->with('error', 'Không thể khóa tài khoản của chính mình.');
-        }
-
-        $customer->update([
-            'status' => $customer->status === 'active' ? 'locked' : 'active',
-        ]);
-
-        $this->auditLog->log('customer.status_toggled', $customer, "Đổi trạng thái khách hàng \"{$customer->name}\" thành \"{$customer->status}\".");
-
-        return redirect()
-            ->route('admin.customers.show', $customer->id)
-            ->with('success', "Đã chuyển khách hàng \"{$customer->name}\" sang trạng thái \"{$customer->status}\".");
     }
 }

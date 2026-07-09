@@ -19,7 +19,6 @@ use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
 use App\Http\Controllers\Web\Admin\ContactMessageController as AdminContactMessageController;
-use App\Http\Controllers\Web\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Web\PromotionController;
 use App\Http\Controllers\Web\NewsController;
 use App\Http\Controllers\Web\ContactController;
@@ -148,7 +147,6 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::put('/{id}',           [RoomTypeController::class, 'update'])->name('update');
         Route::delete('/{id}',        [RoomTypeController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/restore',  [RoomTypeController::class, 'restore'])->name('restore');
-        Route::patch('/{id}/toggle-status', [RoomTypeController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     Route::prefix('rooms')->name('rooms.')->group(function () {
@@ -167,9 +165,8 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
     });
 
     Route::prefix('customers')->name('customers.')->group(function () {
-        Route::get('/',                     [AdminCustomerController::class, 'index'])->name('index');
-        Route::get('/{id}',                 [AdminCustomerController::class, 'show'])->name('show');
-        Route::patch('/{id}/toggle-status', [AdminCustomerController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/',     [AdminCustomerController::class, 'index'])->name('index');
+        Route::get('/{id}', [AdminCustomerController::class, 'show'])->name('show');
     });
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
@@ -261,8 +258,6 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{customerId}',    [AdminChatController::class, 'store'])->name('store')->middleware('throttle:30,1');
         Route::get('/{customerId}/poll', [AdminChatController::class, 'poll'])->name('poll');
     });
-
-    Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('audit-logs.index');
 });
 
 // ---------------------------------------------------------------

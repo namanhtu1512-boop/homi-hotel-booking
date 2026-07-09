@@ -49,11 +49,6 @@ class RoomType extends Model
         return $this->hasMany(Review::class);
     }
 
-    public function amenities()
-    {
-        return $this->belongsToMany(Amenity::class, 'room_type_amenity');
-    }
-
     // --- Scopes ---
 
     public function scopeActive($query)

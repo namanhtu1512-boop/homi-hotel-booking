@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Amenity;
 use App\Models\RoomType;
 use App\Services\ImageService;
 use Illuminate\Database\Seeder;
@@ -21,7 +20,6 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '1 giường đôi',
                 'area'            => 28,
                 'total_rooms'     => 15,
-                'amenities'       => ['Wifi miễn phí', 'Điều hòa'],
                 'images'          => [
                     'https://images.unsplash.com/photo-1746549855427-57e6da7040db?w=900&h=600&fit=crop&auto=format',
                     'https://images.unsplash.com/photo-1731336478850-6bce7235e320?w=900&h=600&fit=crop&auto=format',
@@ -38,7 +36,6 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '2 giường đơn',
                 'area'            => 30,
                 'total_rooms'     => 12,
-                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Bãi đỗ xe'],
                 'images'          => [
                     'https://images.unsplash.com/photo-1737517302831-e7b8a8eaa97c?w=900&h=600&fit=crop&auto=format',
                     'https://images.unsplash.com/photo-1741506131058-533fcf894483?w=900&h=600&fit=crop&auto=format',
@@ -55,7 +52,6 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '1 giường đôi lớn',
                 'area'            => 35,
                 'total_rooms'     => 10,
-                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Hồ bơi', 'Dịch vụ phòng 24/7'],
                 'images'          => [
                     'https://images.unsplash.com/photo-1777016844282-46fa8713cdae?w=900&h=600&fit=crop&auto=format',
                     'https://images.unsplash.com/photo-1667125095636-dce94dcbdd96?w=900&h=600&fit=crop&auto=format',
@@ -72,7 +68,6 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '2 giường đôi',
                 'area'            => 45,
                 'total_rooms'     => 6,
-                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Bãi đỗ xe'],
                 'images'          => [
                     'https://images.unsplash.com/photo-1771775529138-a7a20ba7e032?w=900&h=600&fit=crop&auto=format',
                     'https://images.unsplash.com/photo-1629140727571-9b5c6f6267b4?w=900&h=600&fit=crop&auto=format',
@@ -89,7 +84,6 @@ class RoomTypeSeeder extends Seeder
                 'bed_type'        => '1 giường đôi king',
                 'area'            => 65,
                 'total_rooms'     => 3,
-                'amenities'       => ['Wifi miễn phí', 'Điều hòa', 'Hồ bơi', 'Spa', 'Dịch vụ phòng 24/7'],
                 'images'          => [
                     'https://images.unsplash.com/photo-1776763018972-588e27bf6511?w=900&h=600&fit=crop&auto=format',
                     'https://images.unsplash.com/photo-1631049307379-e96858bda538?w=900&h=600&fit=crop&auto=format',
@@ -101,9 +95,8 @@ class RoomTypeSeeder extends Seeder
         ];
 
         foreach ($rooms as $room) {
-            $imagePaths     = $room['images'];
-            $amenityNames   = $room['amenities'];
-            unset($room['images'], $room['amenities']);
+            $imagePaths = $room['images'];
+            unset($room['images']);
 
             $roomType = RoomType::firstOrCreate(
                 ['slug' => Str::slug($room['name'])],
@@ -112,12 +105,6 @@ class RoomTypeSeeder extends Seeder
 
             if ($roomType->images()->count() === 0) {
                 $imageService->syncRoomTypeImages($roomType, $imagePaths);
-            }
-
-            if ($roomType->amenities()->count() === 0) {
-                $roomType->amenities()->sync(
-                    Amenity::whereIn('name', $amenityNames)->pluck('id')
-                );
             }
         }
     }

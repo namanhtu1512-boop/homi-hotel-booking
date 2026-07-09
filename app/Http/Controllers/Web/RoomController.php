@@ -27,24 +27,21 @@ class RoomController extends Controller
             'keyword'   => $request->keyword(),
             'min_price' => $request->input('min_price'),
             'max_price' => $request->input('max_price'),
-            'amenities' => $request->amenityIds(),
             'capacity'  => $request->input('capacity'),
             'bed_type'  => $request->input('bed_type'),
             'sort'      => $request->input('sort'),
             'quantity'  => $request->input('quantity'),
             'check_in'  => $request->input('check_in'),
             'check_out' => $request->input('check_out'),
-        ], fn ($value) => $value !== null && $value !== '' && $value !== []);
+        ], fn ($value) => $value !== null && $value !== '');
 
         $roomTypes = $this->roomTypeService->search($filters);
 
         return view('rooms.index', [
-            'roomTypes'    => $roomTypes,
-            'filters'      => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
-            'selectedAmenityIds' => $request->amenityIds(),
-            'amenities'    => \App\Models\Amenity::orderBy('name')->get(),
-            'hotel'        => $this->hotelInfoService->current(),
-            'ratings'      => $this->reviewService->summaryForMany($roomTypes->pluck('id')->all()),
+            'roomTypes' => $roomTypes,
+            'filters'   => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
+            'hotel'     => $this->hotelInfoService->current(),
+            'ratings'   => $this->reviewService->summaryForMany($roomTypes->pluck('id')->all()),
         ]);
     }
 

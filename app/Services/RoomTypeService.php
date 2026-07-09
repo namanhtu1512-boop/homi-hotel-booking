@@ -64,11 +64,6 @@ class RoomTypeService
             $query->where('bed_type', $filters['bed_type']);
         }
 
-        if (! empty($filters['amenities'])) {
-            $amenityIds = $filters['amenities'];
-            $query->whereHas('amenities', fn ($q) => $q->whereIn('amenities.id', $amenityIds), '=', count($amenityIds));
-        }
-
         $this->applySort($query, $filters['sort'] ?? null);
 
         $hasDateRange = ! empty($filters['check_in']) && ! empty($filters['check_out']);
@@ -192,11 +187,7 @@ class RoomTypeService
             $this->imageService->syncRoomTypeImages($roomType, $data['images']);
         }
 
-        if (isset($data['amenity_ids'])) {
-            $roomType->amenities()->sync($data['amenity_ids']);
-        }
-
-        return $roomType->load('images', 'amenities');
+        return $roomType->load('images');
     }
 
     public function update(RoomType $roomType, array $data): RoomType
@@ -221,11 +212,7 @@ class RoomTypeService
             $this->imageService->syncRoomTypeImages($roomType, $data['images'], replace: true);
         }
 
-        if (isset($data['amenity_ids'])) {
-            $roomType->amenities()->sync($data['amenity_ids']);
-        }
-
-        return $roomType->fresh(['images', 'amenities']);
+        return $roomType->fresh('images');
     }
 
     public function updatePrice(RoomType $roomType, float $pricePerNight): RoomType
