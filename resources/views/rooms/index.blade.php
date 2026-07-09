@@ -71,6 +71,21 @@
                 </select>
             </div>
 
+            @if (isset($amenities) && $amenities->isNotEmpty())
+                <div>
+                    <div class="form-label">Tiện ích</div>
+                    <div class="space-y-1">
+                        @foreach ($amenities as $amenity)
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox" name="amenities[]" value="{{ $amenity->id }}"
+                                    @checked(in_array($amenity->id, $selectedAmenityIds ?? []))>
+                                {{ $amenity->name }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <input type="hidden" name="sort" value="{{ $filters['sort'] ?? '' }}">
 
             <div class="flex gap-2">
@@ -94,6 +109,9 @@
                     @if ($key !== 'sort' && $value !== null && $value !== '')
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                     @endif
+                @endforeach
+                @foreach ($selectedAmenityIds ?? [] as $amenityId)
+                    <input type="hidden" name="amenities[]" value="{{ $amenityId }}">
                 @endforeach
                 <label class="text-sm font-semibold text-slate-500 dark:text-slate-400" for="sort">Sắp xếp</label>
                 <select id="sort" name="sort" class="input" onchange="this.form.submit()">

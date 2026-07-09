@@ -20,14 +20,24 @@ class AvailabilityService
      * này không bị tính là "đã bị chiếm" bởi hold của chính nó — chỉ hold từ
      * session khác mới làm giảm availability.
      *
+     * @param bool $lock Khóa hàng room_type (SELECT ... FOR UPDATE) — bắt buộc khi
+     *   gọi bên trong transaction tạo booking, để 2 request đặt cùng room_type cùng
+     *   lúc không thể cùng đọc "còn chỗ" rồi cùng ghi thành công (race condition).
+     *
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException nếu room_type không tồn tại/không active
      */
-    public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1, ?string $excludeSessionId = null): array
+    public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1, ?string $excludeSessionId = null, bool $lock = false): array
     {
         $this->dateRange->validate($checkIn, $checkOut);
 
-        $roomType = RoomType::where('status', 'active')->findOrFail($roomTypeId);
+        $query = RoomType::where('status', 'active');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $roomType = $query->findOrFail($roomTypeId);
 
         $bookedQuantity    = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut, $excludeSessionId);
         $availableQuantity = $roomType->total_rooms - $bookedQuantity;
@@ -81,11 +91,16 @@ class AvailabilityService
     /**
      * Dùng bên trong DB transaction để re-check trước khi insert.
      *
+     * Khóa hàng room_type (FOR UPDATE) trong lúc kiểm tra: nếu 2 khách đặt cùng
+     * room_type cùng lúc, transaction thứ hai phải đợi transaction thứ nhất
+     * commit (hoặc rollback) rồi mới được đọc số lượng đã đặt — nên không thể
+     * cả hai cùng thấy "còn chỗ" và cùng tạo booking vượt total_rooms.
+     *
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      */
     public function canBook(int $roomTypeId, string $checkIn, string $checkOut, int $quantity, ?string $excludeSessionId = null): bool
     {
-        return $this->check($roomTypeId, $checkIn, $checkOut, $quantity, $excludeSessionId)['can_book'];
+        return $this->check($roomTypeId, $checkIn, $checkOut, $quantity, $excludeSessionId, lock: true)['can_book'];
     }
 
     /**

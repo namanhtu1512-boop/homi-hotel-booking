@@ -6,12 +6,45 @@
 
 @section('content')
 <div class="card" style="margin-bottom: 20px;">
-    <div class="section-kicker">Thông tin khách hàng</div>
-    <div class="table-wrapper">
+    @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if (session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+
+    <div class="page-actions">
+        <div>
+            <div class="section-kicker">Thông tin khách hàng</div>
+            <h2 class="section-title">
+                @if ($customer->status === 'active')
+                    <span class="badge badge-green">Đang hoạt động</span>
+                @else
+                    <span class="badge badge-red">Đã khóa</span>
+                @endif
+            </h2>
+        </div>
+
+        @if ($customer->id !== auth()->id())
+            <form method="POST" action="{{ route('admin.customers.toggle-status', $customer->id) }}">
+                @csrf
+                @method('PATCH')
+                <button type="submit" class="btn btn-outline">
+                    {{ $customer->status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản' }}
+                </button>
+            </form>
+        @endif
+    </div>
+
+    <div class="table-wrapper" style="margin-top: 8px;">
         <table>
             <tbody>
                 <tr>
-                    <th style="width: 200px;">Email</th>
+                    <th style="width: 200px;">Họ tên</th>
+                    <td>{{ $customer->name }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
                     <td>{{ $customer->email }}</td>
                 </tr>
                 <tr>
@@ -26,32 +59,12 @@
                     <th>Ngày tạo tài khoản</th>
                     <td>{{ $customer->created_at->format('d/m/Y') }}</td>
                 </tr>
-                <tr>
-                    <th>Trạng thái</th>
-                    <td>
-                        @if ($customer->status === 'active')
-                            <span class="badge badge-green">Đang hoạt động</span>
-                        @else
-                            <span class="badge badge-red">Đã khóa</span>
-                        @endif
-                    </td>
-                </tr>
             </tbody>
         </table>
     </div>
 
     <div class="action-row" style="margin-top: 16px;">
         <a href="{{ route('admin.customers.index') }}" class="btn btn-outline">Quay lại danh sách</a>
-
-        @if ($customer->id !== auth()->id())
-            <form method="POST" action="{{ route('admin.users.toggle-status', $customer->id) }}">
-                @csrf
-                @method('PATCH')
-                <button type="submit" class="btn btn-outline">
-                    {{ $customer->status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản' }}
-                </button>
-            </form>
-        @endif
     </div>
 </div>
 

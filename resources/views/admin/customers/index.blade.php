@@ -2,7 +2,7 @@
 
 @section('title', 'Khách hàng · Homi Admin')
 @section('page_title', 'Quản lý khách hàng')
-@section('page_subtitle', 'Tìm kiếm khách hàng và xem lịch sử đặt phòng của từng người.')
+@section('page_subtitle', 'Tìm kiếm, lọc và xem lịch sử đặt phòng của từng khách hàng.')
 
 @section('content')
 <div class="card">
@@ -47,7 +47,7 @@
                 <tbody>
                     @foreach ($customers as $customer)
                         <tr>
-                            <td>{{ $customer->name }}</td>
+                            <td><a href="{{ route('admin.customers.show', $customer->id) }}">{{ $customer->name }}</a></td>
                             <td>{{ $customer->email }}</td>
                             <td>{{ $customer->phone ?: '—' }}</td>
                             <td>{{ $customer->bookings_count }}</td>
@@ -59,7 +59,7 @@
                                 @endif
                             </td>
                             <td>
-                                <a href="{{ route('admin.customers.show', $customer->id) }}" class="btn btn-outline btn-sm">Xem lịch sử</a>
+                                <a href="{{ route('admin.customers.show', $customer->id) }}" class="btn btn-outline btn-sm">Xem chi tiết</a>
                             </td>
                         </tr>
                     @endforeach
@@ -68,7 +68,7 @@
         </div>
 
         <div class="action-row" style="margin-top: 16px;">
-            {{ $customers->links() }}
+            {{ $customers->appends(request()->query())->links() }}
         </div>
     @endif
 </div>

@@ -38,6 +38,8 @@
                         ['route' => 'admin.contact-messages.index', 'pattern' => 'admin.contact-messages.*', 'label' => 'Liên hệ'],
                         ['route' => 'admin.group-bookings.index', 'pattern' => 'admin.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
                         ['route' => 'admin.chat.index', 'pattern' => 'admin.chat.*', 'label' => 'Chat khách hàng'],
+                        ['route' => 'admin.audit-logs.index', 'pattern' => 'admin.audit-logs.*', 'label' => 'Nhật ký hoạt động'],
+                        ['route' => 'admin.database', 'pattern' => 'admin.database', 'label' => 'Database'],
                     ];
                 @endphp
 

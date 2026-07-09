@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\Concerns\ValidatesImageText;
+use App\Models\Amenity;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\RoomTypeService;
@@ -36,7 +37,11 @@ class RoomTypeController extends Controller
 
     public function create(): View
     {
-        return view('admin.room-types.form', ['roomType' => null]);
+        return view('admin.room-types.form', [
+            'roomType'           => null,
+            'amenities'          => Amenity::orderBy('name')->get(),
+            'selectedAmenityIds' => [],
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -44,6 +49,8 @@ class RoomTypeController extends Controller
         $data = $this->validateRoomType($request);
 
         $roomType = $this->roomTypeService->create($data);
+
+        $this->auditLog->log('room_type.created', $roomType, "Tạo loại phòng \"{$roomType->name}\".");
 
         return redirect()
             ->route('admin.room-types.index')
@@ -54,7 +61,11 @@ class RoomTypeController extends Controller
     {
         $roomType = $this->roomTypeService->find($id);
 
-        return view('admin.room-types.form', ['roomType' => $roomType]);
+        return view('admin.room-types.form', [
+            'roomType'           => $roomType,
+            'amenities'          => Amenity::orderBy('name')->get(),
+            'selectedAmenityIds' => $roomType->amenities->pluck('id')->all(),
+        ]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -79,6 +90,8 @@ class RoomTypeController extends Controller
 
         $this->roomTypeService->softDeleteOrDeactivate($roomType);
 
+        $this->auditLog->log('room_type.deleted', $roomType, "Xóa loại phòng \"{$name}\".");
+
         return redirect()
             ->route('admin.room-types.index')
             ->with('success', "Đã xóa loại phòng \"{$name}\".");
@@ -90,9 +103,24 @@ class RoomTypeController extends Controller
 
         $this->roomTypeService->restore($roomType);
 
+        $this->auditLog->log('room_type.restored', $roomType, "Khôi phục loại phòng \"{$roomType->name}\".");
+
         return redirect()
             ->route('admin.room-types.index')
             ->with('success', "Đã khôi phục loại phòng \"{$roomType->name}\".");
+    }
+
+    public function toggleStatus(int $id): RedirectResponse
+    {
+        $roomType = RoomType::findOrFail($id);
+
+        $updated = $this->roomTypeService->toggleStatus($roomType);
+
+        $this->auditLog->log('room_type.status_toggled', $updated, "Đổi trạng thái loại phòng \"{$updated->name}\" thành \"{$updated->status}\".");
+
+        return redirect()
+            ->route('admin.room-types.index')
+            ->with('success', "Đã chuyển loại phòng \"{$updated->name}\" sang trạng thái \"{$updated->status}\".");
     }
 
     private function validateRoomType(Request $request): array
@@ -107,6 +135,8 @@ class RoomTypeController extends Controller
             'total_rooms'     => ['required', 'integer', 'min:1'],
             'is_featured'     => ['nullable', 'boolean'],
             'images_text'     => ['nullable', 'string', $this->eachImageLineMax500()],
+            'amenity_ids'     => ['nullable', 'array'],
+            'amenity_ids.*'   => ['integer', 'exists:amenities,id'],
         ], [], [
             'name'            => 'tên loại phòng',
             'description'     => 'mô tả',
@@ -116,6 +146,7 @@ class RoomTypeController extends Controller
             'area'            => 'diện tích',
             'total_rooms'     => 'tổng số phòng',
             'is_featured'     => 'phòng nổi bật',
+            'amenity_ids'     => 'tiện ích',
         ]);
 
         $data['images'] = collect(explode("\n", $data['images_text'] ?? ''))
@@ -125,6 +156,7 @@ class RoomTypeController extends Controller
             ->all();
 
         $data['is_featured'] = $request->boolean('is_featured');
+        $data['amenity_ids'] = $data['amenity_ids'] ?? [];
 
         unset($data['images_text']);
 

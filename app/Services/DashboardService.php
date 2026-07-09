@@ -20,7 +20,7 @@ class DashboardService
 {
     public function stats(): array
     {
-        $totalBookings    = Booking::count();
+        $totalBookings     = Booking::count();
         $cancelledBookings = Booking::where('status', 'cancelled')->count();
 
         return [

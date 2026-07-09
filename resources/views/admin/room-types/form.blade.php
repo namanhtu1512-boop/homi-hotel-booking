@@ -66,6 +66,21 @@
         </div>
 
         <div class="form-group">
+            <label>Tiện ích</label>
+            <div class="checkbox-grid">
+                @forelse ($amenities as $amenity)
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="amenity_ids[]" value="{{ $amenity->id }}"
+                            @checked(in_array($amenity->id, old('amenity_ids', $selectedAmenityIds ?? [])))>
+                        {{ $amenity->name }}
+                    </label>
+                @empty
+                    <span class="section-desc">Chưa có tiện ích nào trong hệ thống.</span>
+                @endforelse
+            </div>
+        </div>
+
+        <div class="form-group">
             <label for="images_text">Ảnh phòng (mỗi dòng 1 đường dẫn/URL)</label>
             <textarea id="images_text" name="images_text" rows="3"
                 placeholder="rooms/anh1.jpg&#10;rooms/anh2.jpg">{{ old('images_text', $isEdit ? $roomType->images->pluck('path')->implode("\n") : '') }}</textarea>
