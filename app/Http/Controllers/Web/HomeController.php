@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\FilterRoomTypeRequest;
 use App\Services\BannerService;
 use App\Services\HotelInfoService;
+use App\Services\NewsService;
 use App\Services\PromotionService;
 use App\Services\ReviewService;
 use App\Services\RoomTypeService;
@@ -18,6 +19,7 @@ class HomeController extends Controller
         private readonly PromotionService $promotionService,
         private readonly ReviewService $reviewService,
         private readonly BannerService $bannerService,
+        private readonly NewsService $newsService,
     ) {}
 
     public function index(FilterRoomTypeRequest $request)
@@ -31,9 +33,10 @@ class HomeController extends Controller
         $promotions    = $this->promotionService->activePublic()->take(3);
         $reviews       = $this->reviewService->latestVisible(6);
         $banners       = $this->bannerService->activeOrdered();
+        $news          = $this->newsService->latestPublished(3);
 
         return view('client.home', compact(
-            'hotel', 'roomTypes', 'filters', 'isSearching', 'featuredRooms', 'promotions', 'reviews', 'banners'
+            'hotel', 'roomTypes', 'filters', 'isSearching', 'featuredRooms', 'promotions', 'reviews', 'banners', 'news'
         ));
     }
 }

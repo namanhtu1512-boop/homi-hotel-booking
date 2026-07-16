@@ -47,6 +47,13 @@ class GroupBookingController extends Controller
     {
         $groupRequest = GroupBookingRequest::findOrFail($id);
 
+        // Yêu cầu đã được chuyển thành đơn trước đó — chặn tạo đơn trùng lần 2
+        // (form "Tạo đơn đặt phòng" vẫn hiển thị nếu admin quay lại trang cũ).
+        if ($groupRequest->status === 'converted') {
+            return redirect()->route('admin.group-bookings.show', $id)
+                ->with('error', 'Yêu cầu này đã được chuyển thành đơn đặt phòng trước đó, không thể tạo thêm.');
+        }
+
         $data = $request->validate([
             'check_in'        => ['required', 'date', 'after_or_equal:today'],
             'check_out'       => ['required', 'date', 'after:check_in'],
@@ -63,8 +70,9 @@ class GroupBookingController extends Controller
 
         $booking = $this->bookingService->createByAdmin($data);
 
-        // Đánh dấu yêu cầu đoàn đã được xử lý
-        $this->groupBookingRequestService->markContacted($groupRequest);
+        // Đánh dấu yêu cầu đoàn đã được chuyển thành đơn — trạng thái cuối,
+        // chặn tạo đơn trùng nếu admin submit lại form.
+        $this->groupBookingRequestService->markConverted($groupRequest);
 
         $this->auditLog->log('group_booking_request.booking_created', $booking, "Tạo đơn {$booking->booking_code} từ yêu cầu đoàn #{$groupRequest->id}.");
 

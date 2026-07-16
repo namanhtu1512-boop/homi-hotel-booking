@@ -50,6 +50,13 @@ class GroupBookingController extends Controller
     {
         $groupRequest = GroupBookingRequest::findOrFail($id);
 
+        // Yêu cầu đã được chuyển thành đơn trước đó — chặn tạo đơn trùng lần 2
+        // (form "Tạo đơn đặt phòng" vẫn hiển thị nếu staff quay lại trang cũ).
+        if ($groupRequest->status === 'converted') {
+            return redirect()->route('staff.group-bookings.show', $id)
+                ->with('error', 'Yêu cầu này đã được chuyển thành đơn đặt phòng trước đó, không thể tạo thêm.');
+        }
+
         $data = $request->validate([
             'check_in'             => ['required', 'date', 'after_or_equal:today'],
             'check_out'            => ['required', 'date', 'after:check_in'],
@@ -66,7 +73,9 @@ class GroupBookingController extends Controller
 
         $booking = $this->bookingService->createByAdmin($data);
 
-        $this->groupBookingRequestService->markContacted($groupRequest);
+        // Đánh dấu yêu cầu đoàn đã được chuyển thành đơn — trạng thái cuối,
+        // chặn tạo đơn trùng nếu staff submit lại form.
+        $this->groupBookingRequestService->markConverted($groupRequest);
 
         $this->auditLog->log('group_booking_request.booking_created', $booking, "Tạo đơn {$booking->booking_code} từ yêu cầu đoàn #{$groupRequest->id}.");
 
@@ -105,8 +114,10 @@ class GroupBookingController extends Controller
 
         $roomTypes = RoomType::whereIn('id', array_column($data['quote_items'], 'room_type_id'))->get()->keyBy('id');
 
+        // max(1, ...) — nếu khách chọn check_in = check_out (0 đêm theo diffInDays)
+        // vẫn tính tối thiểu 1 đêm, tránh báo giá 0đ vô nghĩa.
         $nights = ($groupRequest->check_in && $groupRequest->check_out)
-            ? $groupRequest->check_in->diffInDays($groupRequest->check_out)
+            ? max(1, $groupRequest->check_in->diffInDays($groupRequest->check_out))
             : null;
 
         $lines = ["**Báo giá đặt phòng đoàn/nhóm** (Yêu cầu #{$groupRequest->id})"];

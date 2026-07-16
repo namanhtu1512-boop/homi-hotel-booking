@@ -89,7 +89,17 @@ class SeasonalRateController extends Controller
             'start_date'       => ['required', 'date'],
             'end_date'         => ['required', 'date', 'after_or_equal:start_date'],
             'adjustment_type'  => ['required', 'in:percent,fixed_per_night'],
-            'adjustment_value' => ['required', 'numeric', 'min:0'],
+            // Cho phép âm (giảm giá mùa thấp điểm) lẫn dương (tăng giá cao
+            // điểm) — chặn giảm quá -100% vì sẽ tạo giá đêm âm.
+            'adjustment_value' => [
+                'required',
+                'numeric',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($request->input('adjustment_type') === 'percent' && $value < -100) {
+                        $fail('Phần trăm điều chỉnh không được nhỏ hơn -100% (sẽ tạo giá âm).');
+                    }
+                },
+            ],
             'status'           => ['required', 'in:active,hidden'],
         ], [], [
             'room_type_id'     => 'loại phòng áp dụng',

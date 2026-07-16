@@ -11,9 +11,11 @@
         <div class="section-kicker">Thông tin yêu cầu #{{ $groupRequest->id }}</div>
         <div class="info-list mt-3">
             <div class="info-item"><span class="label">Trạng thái</span>
-                <span class="badge {{ $groupRequest->status === 'new' ? 'badge-orange' : 'badge-green' }}">
-                    {{ $groupRequest->status === 'new' ? 'Mới' : 'Đã liên hệ' }}
-                </span>
+                @php
+                    $statusBadge = ['new' => 'badge-orange', 'contacted' => 'badge-green', 'converted' => 'badge-blue'][$groupRequest->status] ?? 'badge-green';
+                    $statusLabel = ['new' => 'Mới', 'contacted' => 'Đã liên hệ', 'converted' => 'Đã tạo đơn'][$groupRequest->status] ?? $groupRequest->status;
+                @endphp
+                <span class="badge {{ $statusBadge }}">{{ $statusLabel }}</span>
             </div>
             <div class="info-item"><span class="label">Người liên hệ</span><span class="value">{{ $groupRequest->contact_name }}</span></div>
             @if ($groupRequest->company_name)
@@ -63,6 +65,9 @@
 
     <div class="card">
         <div class="section-kicker">Tạo đơn đặt phòng</div>
+        @if ($groupRequest->status === 'converted')
+            <div class="alert alert-success">Yêu cầu này đã được chuyển thành đơn đặt phòng — không thể tạo thêm đơn từ yêu cầu này.</div>
+        @else
         <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Điền thông tin bên dưới để tạo đơn đặt phòng thủ công cho đoàn này.</p>
 
         <form method="POST" action="{{ route('staff.group-bookings.create-booking', $groupRequest->id) }}" class="space-y-4">
@@ -125,6 +130,7 @@
 
             <button type="submit" class="btn-primary w-full">Tạo đơn đặt phòng</button>
         </form>
+        @endif
     </div>
 </div>
 

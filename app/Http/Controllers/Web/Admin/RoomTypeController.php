@@ -72,6 +72,19 @@ class RoomTypeController extends Controller
             ->with('success', "Đã cập nhật loại phòng \"{$roomType->name}\".");
     }
 
+    public function toggleStatus(int $id): RedirectResponse
+    {
+        $roomType = RoomType::findOrFail($id);
+
+        $roomType = $this->roomTypeService->toggleStatus($roomType);
+
+        $this->auditLog->log('room_type.status_toggled', $roomType, "Đổi trạng thái loại phòng \"{$roomType->name}\" thành \"{$roomType->status}\".");
+
+        return redirect()
+            ->route('admin.room-types.index')
+            ->with('success', "Đã đổi trạng thái loại phòng \"{$roomType->name}\".");
+    }
+
     public function destroy(int $id): RedirectResponse
     {
         $roomType = RoomType::findOrFail($id);

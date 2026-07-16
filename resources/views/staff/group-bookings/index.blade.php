@@ -11,6 +11,7 @@
             <option value="">Tất cả trạng thái</option>
             <option value="new" @selected(($filters['status'] ?? '') === 'new')>Mới</option>
             <option value="contacted" @selected(($filters['status'] ?? '') === 'contacted')>Đã liên hệ</option>
+            <option value="converted" @selected(($filters['status'] ?? '') === 'converted')>Đã tạo đơn</option>
         </select>
     </form>
 
@@ -44,7 +45,13 @@
                                     Chưa xác định
                                 @endif
                             </td>
-                            <td><span class="badge {{ $request->status === 'new' ? 'badge-orange' : 'badge-green' }}">{{ $request->status === 'new' ? 'Mới' : 'Đã liên hệ' }}</span></td>
+                            <td>
+                                @php
+                                    $statusBadge = ['new' => 'badge-orange', 'contacted' => 'badge-green', 'converted' => 'badge-blue'][$request->status] ?? 'badge-green';
+                                    $statusLabel = ['new' => 'Mới', 'contacted' => 'Đã liên hệ', 'converted' => 'Đã tạo đơn'][$request->status] ?? $request->status;
+                                @endphp
+                                <span class="badge {{ $statusBadge }}">{{ $statusLabel }}</span>
+                            </td>
                             <td>
                                 <div class="action-row">
                                     <a href="{{ route('staff.group-bookings.show', $request->id) }}" class="btn btn-outline btn-sm">Xem & tạo đơn</a>

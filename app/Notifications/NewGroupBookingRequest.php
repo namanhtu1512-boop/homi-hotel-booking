@@ -14,11 +14,13 @@ class NewGroupBookingRequest extends Notification
         return ['database'];
     }
 
-    public function toArray(): array
+    public function toArray(object $notifiable): array
     {
+        $routePrefix = $notifiable->role === 'staff' ? 'staff' : 'admin';
+
         return [
             'message' => "Yêu cầu đặt đoàn mới từ {$this->groupRequest->contact_name} ({$this->groupRequest->group_size} khách).",
-            'url'     => route('admin.group-bookings.show', $this->groupRequest->id),
+            'url'     => route("{$routePrefix}.group-bookings.show", $this->groupRequest->id),
         ];
     }
 }
