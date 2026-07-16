@@ -25,6 +25,8 @@
         scroll-behavior: smooth;
     }
 
+    [x-cloak] { display: none !important; }
+
     body {
         @apply bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100;
     }

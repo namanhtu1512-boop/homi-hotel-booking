@@ -38,7 +38,11 @@ use App\Http\Controllers\Web\Staff\RoomController as StaffRoomController;
 use App\Http\Controllers\Web\Staff\BookingController as StaffBookingController;
 use App\Http\Controllers\Web\Staff\PaymentController as StaffPaymentController;
 use App\Http\Controllers\Web\Staff\ChatController as StaffChatController;
+use App\Http\Controllers\Web\Staff\GroupBookingController as StaffGroupBookingController;
 use App\Http\Controllers\Web\AboutController;
+use App\Http\Controllers\Web\NotificationPollController;
+use App\Http\Controllers\Web\Customer\NotificationController as CustomerNotificationController;
+use App\Http\Controllers\Web\Admin\NotificationController as AdminNotificationController;
 
 // ---------------------------------------------------------------
 // Public
@@ -53,7 +57,13 @@ Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
 Route::get('/group-bookings', [GroupBookingController::class, 'show'])->name('group-bookings.show');
-Route::post('/group-bookings', [GroupBookingController::class, 'store'])->middleware('throttle:5,1')->name('group-bookings.store');
+Route::post('/group-bookings', [GroupBookingController::class, 'store'])->middleware(['auth', 'role:customer', 'throttle:5,1'])->name('group-bookings.store');
+
+// Notification polling — dùng chung cho mọi role đã đăng nhập
+Route::middleware('auth')->group(function () {
+    Route::get('/notifications/poll', [NotificationPollController::class, 'poll'])->name('notifications.poll');
+    Route::post('/notifications/read', [NotificationPollController::class, 'markRead'])->name('notifications.read.ajax');
+});
 
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
@@ -85,6 +95,8 @@ Route::post('/admin/logout', [AuthWebController::class, 'adminLogout'])
 // CUSTOMER — authenticated customers
 // ---------------------------------------------------------------
 Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer.')->group(function () {
+    Route::post('/notifications/read', [CustomerNotificationController::class, 'markRead'])->name('notifications.read');
+
     Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
 
     // Profile (Week 3 BE1)
@@ -131,6 +143,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
 // ADMIN — chỉ admin (staff dùng khu vực riêng /staff/* bên dưới)
 // ---------------------------------------------------------------
 Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::post('/notifications/read', [AdminNotificationController::class, 'markRead'])->name('notifications.read');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/hotel-info',                 [HotelInfoController::class, 'show'])->name('hotel-info.show');
@@ -247,9 +261,11 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
     });
 
     Route::prefix('group-bookings')->name('group-bookings.')->group(function () {
-        Route::get('/',                    [AdminGroupBookingController::class, 'index'])->name('index');
+        Route::get('/',                      [AdminGroupBookingController::class, 'index'])->name('index');
+        Route::get('/{id}',                  [AdminGroupBookingController::class, 'show'])->name('show');
+        Route::post('/{id}/create-booking',  [AdminGroupBookingController::class, 'createBooking'])->name('create-booking');
         Route::patch('/{id}/mark-contacted', [AdminGroupBookingController::class, 'markContacted'])->name('mark-contacted');
-        Route::delete('/{id}',             [AdminGroupBookingController::class, 'destroy'])->name('destroy');
+        Route::delete('/{id}',               [AdminGroupBookingController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('chat')->name('chat.')->group(function () {
@@ -307,5 +323,13 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/{customerId}',     [StaffChatController::class, 'show'])->name('show');
         Route::post('/{customerId}',    [StaffChatController::class, 'store'])->name('store')->middleware('throttle:30,1');
         Route::get('/{customerId}/poll', [StaffChatController::class, 'poll'])->name('poll');
+    });
+
+    Route::prefix('group-bookings')->name('group-bookings.')->group(function () {
+        Route::get('/',                      [StaffGroupBookingController::class, 'index'])->name('index');
+        Route::get('/{id}',                  [StaffGroupBookingController::class, 'show'])->name('show');
+        Route::post('/{id}/create-booking',  [StaffGroupBookingController::class, 'createBooking'])->name('create-booking');
+        Route::patch('/{id}/mark-contacted', [StaffGroupBookingController::class, 'markContacted'])->name('mark-contacted');
+        Route::post('/{id}/send-quote',      [StaffGroupBookingController::class, 'sendQuote'])->name('send-quote');
     });
 });

@@ -10,6 +10,7 @@ class ChatMessage extends Model
         'customer_id',
         'sender_id',
         'body',
+        'image_path',
     ];
 
     protected $casts = [

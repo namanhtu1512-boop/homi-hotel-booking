@@ -24,13 +24,37 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): \Illuminate\Http\JsonResponse|RedirectResponse
     {
         $data = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
+            'body'  => ['nullable', 'string', 'max:2000'],
+            'image' => ['nullable', 'image', 'max:4096'],
         ], [], ['body' => 'nội dung tin nhắn']);
 
-        $this->chatService->send($request->user()->id, $request->user(), $data['body']);
+        if (empty($data['body']) && ! $request->hasFile('image')) {
+            $err = ['body' => 'Vui lòng nhập tin nhắn hoặc chọn ảnh.'];
+            return $request->wantsJson()
+                ? response()->json(['error' => $err['body']], 422)
+                : back()->withErrors($err);
+        }
+
+        $imagePath = $request->hasFile('image')
+            ? $request->file('image')->store('chat', 'public')
+            : null;
+
+        $msg = $this->chatService->send($request->user()->id, $request->user(), $data['body'] ?? '', $imagePath);
+        $msg->load('sender');
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'id'         => $msg->id,
+                'body'       => $msg->body,
+                'image_url'  => $msg->image_path ? asset('storage/' . $msg->image_path) : null,
+                'is_mine'    => true,
+                'sender'     => $msg->sender?->name,
+                'created_at' => $msg->created_at->format('H:i d/m'),
+            ]);
+        }
 
         return redirect()->route('customer.chat.index');
     }
@@ -47,6 +71,7 @@ class ChatController extends Controller
             'messages' => $messages->map(fn ($m) => [
                 'id'         => $m->id,
                 'body'       => $m->body,
+                'image_url'  => $m->image_path ? asset('storage/' . $m->image_path) : null,
                 'is_mine'    => $m->sender_id === $customerId,
                 'sender'     => $m->sender?->name,
                 'created_at' => $m->created_at->format('H:i d/m'),

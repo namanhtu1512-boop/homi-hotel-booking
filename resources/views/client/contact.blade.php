@@ -48,8 +48,18 @@
         </form>
     </div>
 
-    <div class="card h-fit">
-        <span class="section-kicker">Thông tin liên hệ</span>
+    <div class="space-y-5">
+        <div class="card">
+            <span class="section-kicker">Form này dùng để làm gì?</span>
+            <ul class="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                <li>Gửi câu hỏi, yêu cầu đặc biệt hoặc phản hồi tới Homi.</li>
+                <li>Nhân viên sẽ đọc và phản hồi qua email hoặc điện thoại bạn để lại.</li>
+                <li>Không dùng để đặt phòng — hãy vào <a href="{{ route('rooms.index') }}" class="text-primary underline">trang phòng</a> để đặt trực tiếp.</li>
+            </ul>
+        </div>
+
+        <div class="card h-fit">
+            <span class="section-kicker">Thông tin liên hệ</span>
         <div class="info-list mt-2.5">
             <div class="info-item">
                 <span class="label">Địa chỉ</span>
@@ -71,6 +81,7 @@
 
         <div class="mt-4">
             @include('partials._map-embed', ['hotel' => $hotel])
+        </div>
         </div>
     </div>
 </div>

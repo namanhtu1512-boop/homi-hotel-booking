@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Khu vực nhân viên · Homi')</title>
     @include('partials._theme-script')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -28,6 +29,7 @@
                         ['route' => 'staff.bookings.index', 'pattern' => 'staff.bookings.*', 'label' => 'Đơn đặt phòng'],
                         ['route' => 'staff.payments.index', 'pattern' => 'staff.payments.*', 'label' => 'Thanh toán'],
                         ['route' => 'staff.chat.index', 'pattern' => 'staff.chat.*', 'label' => 'Chat khách hàng'],
+                        ['route' => 'staff.group-bookings.index', 'pattern' => 'staff.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
                     ];
                 @endphp
 
@@ -58,6 +60,8 @@
                     <div class="text-sm text-slate-500 dark:text-slate-400">@yield('page_subtitle', '')</div>
                 </div>
                 <div class="flex items-center gap-3">
+                    @include('partials._notification-bell')
+
                     <button type="button" onclick="homiToggleTheme()" aria-label="Đổi giao diện sáng/tối"
                         class="grid h-10 w-10 place-items-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
                         <svg class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1.5m0 15V21m9-9h-1.5M4.5 12H3m15.36 6.36-1.06-1.06M6.7 6.7 5.64 5.64m12.72 0-1.06 1.06M6.7 17.3l-1.06 1.06M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>

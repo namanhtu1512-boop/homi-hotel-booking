@@ -39,15 +39,35 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request, int $customerId): RedirectResponse
+    public function store(Request $request, int $customerId): JsonResponse|RedirectResponse
     {
         User::where('role', 'customer')->findOrFail($customerId);
 
         $data = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
+            'body'  => ['nullable', 'string', 'max:2000'],
+            'image' => ['nullable', 'image', 'max:4096'],
         ], [], ['body' => 'nội dung tin nhắn']);
 
-        $this->chatService->send($customerId, $request->user(), $data['body']);
+        if (empty($data['body']) && ! $request->hasFile('image')) {
+            return $request->wantsJson()
+                ? response()->json(['error' => 'Vui lòng nhập tin nhắn hoặc chọn ảnh.'], 422)
+                : back()->withErrors(['body' => 'Vui lòng nhập tin nhắn hoặc chọn ảnh.']);
+        }
+
+        $imagePath = $request->hasFile('image') ? $request->file('image')->store('chat', 'public') : null;
+        $msg = $this->chatService->send($customerId, $request->user(), $data['body'] ?? '', $imagePath);
+        $msg->load('sender');
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'id'         => $msg->id,
+                'body'       => $msg->body,
+                'image_url'  => $msg->image_path ? asset('storage/' . $msg->image_path) : null,
+                'is_mine'    => true,
+                'sender'     => $msg->sender?->name,
+                'created_at' => $msg->created_at->format('H:i d/m'),
+            ]);
+        }
 
         return redirect()->route('staff.chat.show', $customerId);
     }
@@ -64,6 +84,7 @@ class ChatController extends Controller
             'messages' => $messages->map(fn ($m) => [
                 'id'         => $m->id,
                 'body'       => $m->body,
+                'image_url'  => $m->image_path ? asset('storage/' . $m->image_path) : null,
                 'is_mine'    => $m->sender_id !== $customerId,
                 'sender'     => $m->sender?->name,
                 'created_at' => $m->created_at->format('H:i d/m'),

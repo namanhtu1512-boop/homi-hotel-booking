@@ -24,12 +24,13 @@ class ChatService
             ->get();
     }
 
-    public function send(int $customerId, User $sender, string $body): ChatMessage
+    public function send(int $customerId, User $sender, string $body, ?string $imagePath = null): ChatMessage
     {
         return ChatMessage::create([
             'customer_id' => $customerId,
             'sender_id'   => $sender->id,
             'body'        => $body,
+            'image_path'  => $imagePath,
         ]);
     }
 

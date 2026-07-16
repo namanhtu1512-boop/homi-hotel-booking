@@ -14,6 +14,8 @@ use App\Models\PaymentStatusLog;
 use App\Models\RoomType;
 use App\Models\Service;
 use App\Models\User;
+use App\Notifications\BookingStatusChanged;
+use App\Notifications\NewBookingReceived;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +35,86 @@ class BookingService
     // ----------------------------------------------------------------
     // CUSTOMER
     // ----------------------------------------------------------------
+
+    /**
+     * Admin/staff tạo booking thủ công (không cần user account — dùng cho đoàn/nhóm
+     * liên hệ qua form group-booking hoặc điện thoại).
+     */
+    public function createByAdmin(array $data): Booking
+    {
+        $this->availabilityService->validateDates($data['check_in'], $data['check_out']);
+
+        $roomTypes = collect($data['items'])
+            ->mapWithKeys(fn (array $item) => [
+                (int) $item['room_type_id'] => RoomType::where('status', 'active')->findOrFail($item['room_type_id']),
+            ]);
+
+        return DB::transaction(function () use ($data, $roomTypes) {
+            RoomType::whereIn('id', $roomTypes->keys()->sort()->values())->lockForUpdate()->get();
+
+            $nights = null;
+            $total  = 0;
+            $lines  = [];
+
+            foreach ($data['items'] as $item) {
+                $roomType = $roomTypes[(int) $item['room_type_id']];
+                $quantity = (int) $item['quantity'];
+
+                if (! $this->availabilityService->canBook($roomType->id, $data['check_in'], $data['check_out'], $quantity)) {
+                    throw ValidationException::withMessages([
+                        'items' => ["Phòng \"{$roomType->name}\" đã hết trong khoảng thời gian này."],
+                    ]);
+                }
+
+                $pricing = $this->pricingService->calculate($roomType, $data['check_in'], $data['check_out'], $quantity, (int) ($item['children'] ?? 0));
+                $nights ??= $pricing['nights'];
+                $total  += $pricing['total_price'];
+
+                $lines[] = [
+                    'room_type_id'    => $roomType->id,
+                    'quantity'        => $quantity,
+                    'adults'          => (int) ($item['adults'] ?? 1),
+                    'children'        => (int) ($item['children'] ?? 0),
+                    'price_per_night' => $pricing['unit_price'],
+                    'nights'          => $pricing['nights'],
+                    'subtotal'        => $pricing['room_subtotal'],
+                    'child_surcharge' => $pricing['child_surcharge'],
+                    'price_breakdown' => $pricing['nightly_breakdown'],
+                ];
+            }
+
+            $booking = Booking::create([
+                'user_id'        => null,
+                'booking_code'   => $this->generateCode(),
+                'check_in'       => $data['check_in'],
+                'check_out'      => $data['check_out'],
+                'nights'         => $nights,
+                'adults'         => array_sum(array_column($data['items'], 'adults')),
+                'children'       => array_sum(array_column($data['items'], 'children')),
+                'customer_name'  => $data['customer_name'],
+                'customer_phone' => $data['customer_phone'],
+                'customer_email' => $data['customer_email'] ?? null,
+                'note'           => $data['note'] ?? null,
+                'total_amount'   => $total,
+                'discount_amount'=> 0,
+                'status'         => BookingStatus::PENDING,
+            ]);
+
+            $this->logStatus($booking, null, BookingStatus::PENDING, Auth::id(), 'Admin/staff tạo đơn thủ công.');
+
+            foreach ($lines as $line) {
+                $booking->bookingItems()->create($line);
+            }
+
+            $booking->payment()->create([
+                'amount' => $total,
+                'status' => PaymentStatus::UNPAID,
+                'method' => PaymentMethod::PAY_AT_HOTEL,
+            ]);
+
+            return $booking->load(['bookingItems.roomType', 'payment']);
+        });
+    }
 
     public function create(User $customer, array $data): Booking
     {
@@ -197,6 +279,11 @@ class BookingService
 
             $this->logStatus($booking, null, BookingStatus::PENDING, $customer->id, 'Khách tạo đơn đặt phòng.');
 
+            // Thông báo cho admin/staff về đơn mới
+            User::whereIn('role', ['admin', 'staff'])->each(
+                fn (User $u) => $u->notify(new NewBookingReceived($booking))
+            );
+
             foreach ($lines as $line) {
                 $booking->bookingItems()->create($line);
             }
@@ -263,6 +350,8 @@ class BookingService
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CANCELLED]);
         $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, 'Khách hủy đơn.');
+
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy."));
 
         return $booking->fresh(['payment']);
     }
@@ -484,6 +573,8 @@ class BookingService
         $booking->update(['status' => BookingStatus::CONFIRMED]);
         $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, Auth::id(), 'Admin/staff xác nhận đơn.');
 
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được xác nhận."));
+
         return $booking->fresh();
     }
 
@@ -538,6 +629,8 @@ class BookingService
             $booking->update(['status' => BookingStatus::CHECKED_IN]);
             $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_IN, Auth::id(), 'Khách nhận phòng.');
 
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã check-in."));
+
             return $booking->fresh(['bookingItems.rooms']);
         });
     }
@@ -578,6 +671,8 @@ class BookingService
         $booking->update(['status' => BookingStatus::COMPLETED]);
         $this->logStatus($booking, $oldStatus, BookingStatus::COMPLETED, Auth::id(), 'Admin/staff đánh dấu đơn hoàn thành.');
 
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã hoàn thành. Cảm ơn bạn đã lưu trú!"));
+
         return $booking->fresh();
     }
 
@@ -592,6 +687,8 @@ class BookingService
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CANCELLED]);
         $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, Auth::id(), 'Admin/staff hủy đơn.');
+
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã bị hủy bởi khách sạn."));
 
         if ($booking->payment && $booking->payment->canRefund()) {
             $oldPaymentStatus = $booking->payment->status;

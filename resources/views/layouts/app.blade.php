@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Homi · Đặt phòng khách sạn')</title>
     <meta name="description" content="@yield('meta_description', 'Homi Hotel — đặt phòng trực tiếp, xem phòng trống theo ngày, giá minh bạch, xác nhận nhanh.')">
     <meta property="og:type" content="website">
@@ -49,6 +51,7 @@
                             <a href="{{ route('customer.wishlist.index') }}" class="btn-outline btn-sm">Yêu thích ({{ auth()->user()->wishlistItems()->count() }})</a>
                             <a href="{{ route('customer.bookings.index') }}" class="btn-outline btn-sm">Đơn của tôi</a>
                             <a href="{{ route('customer.chat.index') }}" class="btn-outline btn-sm">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
+                            @include('partials._notification-bell')
                             <a href="{{ route('customer.profile.show') }}" class="btn-outline btn-sm">Tài khoản</a>
                             <a href="{{ route('customer.bookings.create') }}" class="btn-primary btn-sm">Đặt phòng</a>
                         @endif

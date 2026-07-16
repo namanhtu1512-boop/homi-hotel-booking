@@ -1,8 +1,8 @@
-@extends('layouts.admin')
+@extends('layouts.staff')
 
-@section('title', 'Đặt đoàn/nhóm · Homi Admin')
+@section('title', 'Đặt đoàn/nhóm · Homi Staff')
 @section('page_title', 'Yêu cầu đặt đoàn/nhóm')
-@section('page_subtitle', 'Yêu cầu báo giá gửi từ trang /group-bookings — liên hệ khách rồi đánh dấu đã liên hệ.')
+@section('page_subtitle', 'Yêu cầu báo giá gửi từ trang /group-bookings — liên hệ khách rồi tạo đơn.')
 
 @section('content')
 <div class="card">
@@ -47,19 +47,13 @@
                             <td><span class="badge {{ $request->status === 'new' ? 'badge-orange' : 'badge-green' }}">{{ $request->status === 'new' ? 'Mới' : 'Đã liên hệ' }}</span></td>
                             <td>
                                 <div class="action-row">
-                                    <a href="{{ route('admin.group-bookings.show', $request->id) }}" class="btn btn-outline btn-sm">Xem & tạo đơn</a>
+                                    <a href="{{ route('staff.group-bookings.show', $request->id) }}" class="btn btn-outline btn-sm">Xem & tạo đơn</a>
                                     @if ($request->status === 'new')
-                                        <form method="POST" action="{{ route('admin.group-bookings.mark-contacted', $request->id) }}">
-                                            @csrf
-                                            @method('PATCH')
+                                        <form method="POST" action="{{ route('staff.group-bookings.mark-contacted', $request->id) }}">
+                                            @csrf @method('PATCH')
                                             <button type="submit" class="btn btn-outline btn-sm">Đánh dấu đã liên hệ</button>
                                         </form>
                                     @endif
-                                    <form method="POST" action="{{ route('admin.group-bookings.destroy', $request->id) }}" onsubmit="return confirm('Xóa yêu cầu này?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-sm">Xóa</button>
-                                    </form>
                                 </div>
                             </td>
                         </tr>

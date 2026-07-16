@@ -20,7 +20,15 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('group-bookings.store') }}" class="space-y-4">
+        @guest
+            <div class="alert alert-warning">
+                Bạn cần <a href="{{ route('login') }}?redirect={{ urlencode(route('group-bookings.show')) }}" class="font-semibold underline">đăng nhập</a>
+                hoặc <a href="{{ route('register') }}" class="font-semibold underline">đăng ký</a>
+                để gửi yêu cầu đặt đoàn — nhờ đó Homi có thể liên hệ lại qua chat trực tiếp.
+            </div>
+        @endguest
+
+        <form method="POST" action="{{ route('group-bookings.store') }}" class="space-y-4" @guest aria-disabled="true" @endguest>
             @csrf
 
             <div>
@@ -31,18 +39,24 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="form-label" for="contact_name">Họ tên người liên hệ *</label>
-                    <input class="input" type="text" id="contact_name" name="contact_name" value="{{ old('contact_name') }}" required>
+                    <input class="input" type="text" id="contact_name" name="contact_name" value="{{ old('contact_name', auth()->user()?->name) }}" required>
                 </div>
+            <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="form-label" for="group_size">Số lượng khách *</label>
-                    <input class="input" type="number" id="group_size" name="group_size" min="5" value="{{ old('group_size', 5) }}" required>
+                    <input class="input" type="number" id="group_size" name="group_size" min="1" value="{{ old('group_size', 5) }}" required>
                 </div>
+                <div>
+                    <label class="form-label" for="room_count">Số phòng *</label>
+                    <input class="input" type="number" id="room_count" name="room_count" min="5" value="{{ old('room_count', 5) }}" required>
+                </div>
+            </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="form-label" for="email">Email *</label>
-                    <input class="input" type="email" id="email" name="email" value="{{ old('email') }}" required>
+                    <input class="input" type="email" id="email" name="email" value="{{ old('email', auth()->user()?->email) }}" required>
                 </div>
                 <div>
                     <label class="form-label" for="phone">Số điện thoại</label>
@@ -81,7 +95,7 @@
                 <textarea class="input" id="message" name="message" rows="4" placeholder="Mục đích chuyến đi, ngân sách dự kiến, yêu cầu đặc biệt...">{{ old('message') }}</textarea>
             </div>
 
-            <button type="submit" class="btn-primary w-full">Gửi yêu cầu báo giá</button>
+            <button type="submit" class="btn-primary w-full" @guest disabled @endguest>Gửi yêu cầu báo giá</button>
         </form>
     </div>
 

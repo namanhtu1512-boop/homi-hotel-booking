@@ -15,6 +15,7 @@ use App\Models\RoomType;
 use App\Models\SeasonalRate;
 use App\Models\Service;
 use App\Models\User;
+use App\Notifications\NewGroupBookingRequest;
 use App\Services\ChatService;
 use App\Services\HotelInfoService;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -61,22 +62,29 @@ class AppServiceProvider extends ServiceProvider
             $view->with('footerHotel', $this->app->make(HotelInfoService::class)->current());
         });
 
-        // Badge số tin chat chưa đọc trên nav admin/staff — mirror đúng
-        // cách chia sẻ dữ liệu qua composer như footer ở trên.
+        // Badge số tin chat chưa đọc trên nav admin/staff
         View::composer(['layouts.admin', 'layouts.staff'], function ($view) {
             $view->with('chatUnreadCount', $this->app->make(ChatService::class)->unreadCountForStaff());
+            $view->with('contactNewCount', ContactMessage::where('status', 'new')->count());
+            $view->with('groupBookingNewCount', GroupBookingRequest::where('status', 'new')->count());
+            $user = Auth::user();
+            $view->with('adminNotifUnread', $user ? $user->unreadNotifications()->latest()->take(10)->get() : collect());
         });
 
-        // Badge số tin chat chưa đọc trên nav customer (chỉ có ý nghĩa khi
-        // đã đăng nhập với vai trò customer).
+        // Badge số tin chat chưa đọc trên nav customer
         View::composer('layouts.app', function ($view) {
             $user = Auth::user();
-
             $view->with(
                 'customerChatUnreadCount',
                 $user && $user->role === 'customer'
                     ? $this->app->make(ChatService::class)->unreadCountForCustomer($user->id)
                     : 0
+            );
+            $view->with(
+                'customerNotifUnread',
+                $user && $user->role === 'customer'
+                    ? $user->unreadNotifications()->latest()->take(10)->get()
+                    : collect()
             );
         });
     }

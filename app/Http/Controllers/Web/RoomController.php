@@ -70,7 +70,7 @@ class RoomController extends Controller
 
         return view('rooms.show', [
             'roomType'          => $roomType,
-            'hotel'             => $this->hotelInfoService->get(),
+            'hotel'             => $this->hotelInfoService->current(),
             'availability'      => $availability,
             'availabilityError' => $availabilityError,
             'checkIn'           => $checkIn,
