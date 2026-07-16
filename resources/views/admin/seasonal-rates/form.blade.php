@@ -59,10 +59,10 @@
             </div>
             <div class="form-group">
                 <label for="adjustment_value">Giá trị điều chỉnh *</label>
-                <input id="adjustment_value" type="number" min="0" step="0.01" name="adjustment_value" value="{{ old('adjustment_value', $seasonalRate->adjustment_value ?? '') }}" required>
+                <input id="adjustment_value" type="number" step="0.01" name="adjustment_value" value="{{ old('adjustment_value', $seasonalRate->adjustment_value ?? '') }}" required>
             </div>
         </div>
-        <p class="section-desc">Điều chỉnh luôn là mức TĂNG so với giá gốc (không hỗ trợ giảm giá theo mùa).</p>
+        <p class="section-desc">Nhập số dương để TĂNG giá (mùa cao điểm), số âm để GIẢM giá (mùa thấp điểm). VD: 20 = tăng 20%/+20.000đ, -20 = giảm 20%/-20.000đ.</p>
 
         <div class="form-group">
             <label for="status">Trạng thái *</label>

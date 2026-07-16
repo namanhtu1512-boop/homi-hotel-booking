@@ -19,6 +19,11 @@ class NewsService
         return News::published()->orderByDesc('published_at')->paginate($perPage);
     }
 
+    public function latestPublished(int $limit = 3): Collection
+    {
+        return News::published()->orderByDesc('published_at')->limit($limit)->get();
+    }
+
     public function find(int $id): News
     {
         return News::findOrFail($id);

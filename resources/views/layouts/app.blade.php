@@ -26,6 +26,9 @@
                 @if (Route::has('promotions.index'))
                     <a href="{{ route('promotions.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Khuyến mãi</a>
                 @endif
+                @if (Route::has('news.index'))
+                    <a href="{{ route('news.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Tin tức</a>
+                @endif
                 @if (Route::has('contact.show'))
                     <a href="{{ route('contact.show') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Liên hệ</a>
                 @endif
@@ -78,6 +81,9 @@
                 <a href="{{ route('rooms.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khách sạn</a>
                 @if (Route::has('promotions.index'))
                     <a href="{{ route('promotions.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khuyến mãi</a>
+                @endif
+                @if (Route::has('news.index'))
+                    <a href="{{ route('news.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Tin tức</a>
                 @endif
                 @if (Route::has('contact.show'))
                     <a href="{{ route('contact.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Liên hệ</a>

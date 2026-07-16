@@ -49,6 +49,22 @@ class BookingService
                 (int) $item['room_type_id'] => RoomType::where('status', 'active')->findOrFail($item['room_type_id']),
             ]);
 
+        // Cùng rule sức chứa như create() của khách — admin/staff tạo đơn hộ
+        // không được phép bỏ qua giới hạn số khách/phòng.
+        foreach ($data['items'] as $index => $item) {
+            $roomType = $roomTypes[(int) $item['room_type_id']];
+            $quantity = (int) $item['quantity'];
+            $adults   = (int) ($item['adults'] ?? 1);
+            $children = (int) ($item['children'] ?? 0);
+            $capacity = $roomType->capacity * $quantity;
+
+            if ($adults + $children > $capacity) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn + {$children} trẻ em."],
+                ]);
+            }
+        }
+
         return DB::transaction(function () use ($data, $roomTypes) {
             RoomType::whereIn('id', $roomTypes->keys()->sort()->values())->lockForUpdate()->get();
 
@@ -552,11 +568,29 @@ class BookingService
             ]);
         }
 
+        // Hoàn tiền thủ công chỉ hợp lệ cho đơn ĐÃ HỦY — tránh trường hợp đơn
+        // đã hoàn thành (đã ở, đã trả phòng) vẫn bị đánh dấu hoàn tiền nhầm
+        // (canTransitionTo() ở enum chỉ biết PAID->REFUNDED, không biết gì
+        // về trạng thái đơn).
+        if ($newStatus === PaymentStatus::REFUNDED && $booking->status !== BookingStatus::CANCELLED) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể hoàn tiền cho đơn đã hủy.'],
+            ]);
+        }
+
         $booking->payment->update([
             'status'  => $newStatus,
             'paid_at' => $newStatus === PaymentStatus::PAID ? now() : $booking->payment->paid_at,
         ]);
         $this->logPaymentStatus($booking->payment, $oldStatus, $newStatus, Auth::id(), 'Admin/staff cập nhật trạng thái thanh toán.');
+
+        // Trước đây khách không được báo gì khi admin/staff xác nhận thanh
+        // toán hoặc xử lý hoàn tiền thủ công — chỉ đổi trạng thái âm thầm.
+        if ($newStatus === PaymentStatus::PAID) {
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được xác nhận thanh toán."));
+        } elseif ($newStatus === PaymentStatus::REFUNDED) {
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hoàn tiền."));
+        }
 
         return $booking->fresh('payment');
     }
@@ -607,7 +641,10 @@ class BookingService
                 }
 
                 foreach ($roomIds as $roomId) {
-                    $room = Room::where('room_type_id', $item->room_type_id)->find($roomId);
+                    // lockForUpdate() để chặn 2 giao dịch check-in cùng lúc
+                    // đọc cùng phòng trước khi ai commit — nếu không, cả hai
+                    // đều có thể pass isOccupied() và gán trùng 1 phòng vật lý.
+                    $room = Room::where('room_type_id', $item->room_type_id)->lockForUpdate()->find($roomId);
 
                     if (! $room) {
                         throw ValidationException::withMessages([
@@ -655,6 +692,8 @@ class BookingService
             $roomIds = BookingItemRoom::whereIn('booking_item_id', $booking->bookingItems->pluck('id'))->pluck('room_id');
             Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
 
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
+
             return $booking->fresh();
         });
     }
@@ -663,7 +702,7 @@ class BookingService
     {
         if (! $booking->canComplete()) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể đánh dấu hoàn thành đơn ở trạng thái đã xác nhận.'],
+                'status' => ['Chỉ có thể đánh dấu hoàn thành đơn ở trạng thái phù hợp và đã thanh toán đủ.'],
             ]);
         }
 
@@ -684,19 +723,31 @@ class BookingService
             ]);
         }
 
-        $oldStatus = $booking->status;
-        $booking->update(['status' => BookingStatus::CANCELLED]);
-        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, Auth::id(), 'Admin/staff hủy đơn.');
+        return DB::transaction(function () use ($booking) {
+            $oldStatus = $booking->status;
+            $wasCheckedIn = $oldStatus === BookingStatus::CHECKED_IN;
 
-        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã bị hủy bởi khách sạn."));
+            $booking->update(['status' => BookingStatus::CANCELLED]);
+            $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, Auth::id(), 'Admin/staff hủy đơn.');
 
-        if ($booking->payment && $booking->payment->canRefund()) {
-            $oldPaymentStatus = $booking->payment->status;
-            $booking->payment->update(['status' => PaymentStatus::REFUNDED]);
-            $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::REFUNDED, Auth::id(), 'Tự động hoàn tiền khi hủy đơn.');
-        }
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã bị hủy bởi khách sạn."));
 
-        return $booking->fresh(['payment']);
+            if ($booking->payment && $booking->payment->canRefund()) {
+                $oldPaymentStatus = $booking->payment->status;
+                $booking->payment->update(['status' => PaymentStatus::REFUNDED]);
+                $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::REFUNDED, Auth::id(), 'Tự động hoàn tiền khi hủy đơn.');
+            }
+
+            // Hủy khi đang lưu trú (CHECKED_IN) — khách rời phòng giữa chừng,
+            // cần giải phóng phòng vật lý để buồng phòng biết cần dọn trước
+            // khi nhận khách kế tiếp (cùng hành vi với checkOut()).
+            if ($wasCheckedIn) {
+                $roomIds = BookingItemRoom::whereIn('booking_item_id', $booking->bookingItems->pluck('id'))->pluck('room_id');
+                Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
+            }
+
+            return $booking->fresh(['payment']);
+        });
     }
 
     // ----------------------------------------------------------------

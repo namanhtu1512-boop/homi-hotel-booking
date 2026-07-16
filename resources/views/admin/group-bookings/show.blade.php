@@ -5,6 +5,14 @@
 @section('page_subtitle', 'Xem thông tin và tạo đơn đặt phòng thủ công từ yêu cầu này.')
 
 @section('content')
+@php
+    // Tính trước ở top-level (không nằm trong form) để script cuối trang
+    // (đếm số dòng item ban đầu) luôn có $prefillItems, kể cả khi form tạo
+    // đơn bị ẩn do yêu cầu đã converted.
+    $prefillItems = old('items', $groupRequest->room_type_ids
+        ? array_map(fn($id) => ['room_type_id' => $id, 'quantity' => 1, 'adults' => 2, 'children' => 0], $groupRequest->room_type_ids)
+        : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0]]);
+@endphp
 <div class="grid gap-5 md:grid-cols-[1fr_1fr]">
 
     {{-- Thông tin yêu cầu --}}
@@ -12,9 +20,11 @@
         <div class="section-kicker">Thông tin yêu cầu #{{ $groupRequest->id }}</div>
         <div class="info-list mt-3">
             <div class="info-item"><span class="label">Trạng thái</span>
-                <span class="badge {{ $groupRequest->status === 'new' ? 'badge-orange' : 'badge-green' }}">
-                    {{ $groupRequest->status === 'new' ? 'Mới' : 'Đã liên hệ' }}
-                </span>
+                @php
+                    $statusBadge = ['new' => 'badge-orange', 'contacted' => 'badge-green', 'converted' => 'badge-blue'][$groupRequest->status] ?? 'badge-green';
+                    $statusLabel = ['new' => 'Mới', 'contacted' => 'Đã liên hệ', 'converted' => 'Đã tạo đơn'][$groupRequest->status] ?? $groupRequest->status;
+                @endphp
+                <span class="badge {{ $statusBadge }}">{{ $statusLabel }}</span>
             </div>
             <div class="info-item"><span class="label">Người liên hệ</span><span class="value">{{ $groupRequest->contact_name }}</span></div>
             @if ($groupRequest->company_name)
@@ -60,6 +70,9 @@
     {{-- Form tạo đơn thủ công --}}
     <div class="card">
         <div class="section-kicker">Tạo đơn đặt phòng</div>
+        @if ($groupRequest->status === 'converted')
+            <div class="alert alert-success">Yêu cầu này đã được chuyển thành đơn đặt phòng — không thể tạo thêm đơn từ yêu cầu này.</div>
+        @else
         <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Điền thông tin bên dưới để tạo đơn đặt phòng thủ công cho đoàn này.</p>
 
         <form method="POST" action="{{ route('admin.group-bookings.create-booking', $groupRequest->id) }}" class="space-y-4">
@@ -81,11 +94,6 @@
             <div>
                 <label class="form-label">Loại phòng & số lượng *</label>
                 <div id="items-container" class="space-y-2">
-                    @php
-                        $prefillItems = old('items', $groupRequest->room_type_ids
-                            ? array_map(fn($id) => ['room_type_id' => $id, 'quantity' => 1, 'adults' => 2, 'children' => 0], $groupRequest->room_type_ids)
-                            : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0]]);
-                    @endphp
                     @foreach ($prefillItems as $i => $row)
                         <div class="item-row flex flex-wrap gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                             <select name="items[{{ $i }}][room_type_id]" class="input flex-1" required>
@@ -127,6 +135,7 @@
 
             <button type="submit" class="btn-primary w-full">Tạo đơn đặt phòng</button>
         </form>
+        @endif
     </div>
 </div>
 

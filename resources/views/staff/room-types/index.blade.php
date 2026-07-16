@@ -59,6 +59,13 @@
                             <td>
                                 <div class="action-row">
                                     <a href="{{ route('staff.room-types.edit', $room->id) }}" class="btn btn-outline btn-sm">Sửa</a>
+                                    <form method="POST" action="{{ route('staff.room-types.toggle-status', $room->id) }}">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-outline btn-sm">
+                                            {{ $room->status === 'active' ? 'Ẩn' : 'Hiện' }}
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

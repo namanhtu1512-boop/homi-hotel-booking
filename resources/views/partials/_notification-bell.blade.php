@@ -60,12 +60,22 @@
         }
     }
 
+    // Badge "Chat khách hàng" ở sidebar admin/staff — không có trên layout
+    // customer nên chỉ cập nhật khi phần tử tồn tại trên trang.
+    function updateChatBadge(count) {
+        const chatBadge = document.getElementById('chat-badge');
+        if (!chatBadge || count === null || count === undefined) return;
+        chatBadge.textContent = count;
+        chatBadge.classList.toggle('hidden', count <= 0);
+    }
+
     async function poll() {
         try {
             const res  = await fetch(POLL_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const data = await res.json();
             items = data.items ?? [];
             updateBadge(data.count ?? 0);
+            updateChatBadge(data.chat_unread);
             renderList();
         } catch (_) {}
     }

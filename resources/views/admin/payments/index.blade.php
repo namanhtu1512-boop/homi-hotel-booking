@@ -72,7 +72,7 @@
                                         </form>
                                     @endif
 
-                                    @if ($payment->status->canTransitionTo(\App\Enums\PaymentStatus::REFUNDED))
+                                    @if ($payment->booking->status === \App\Enums\BookingStatus::CANCELLED && $payment->status->canTransitionTo(\App\Enums\PaymentStatus::REFUNDED))
                                         <form method="POST" action="{{ route('admin.payments.update-status', $payment->id) }}">
                                             @csrf
                                             @method('PATCH')

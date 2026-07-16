@@ -88,7 +88,10 @@ class Booking extends Model
 
     public function canCancelByCustomer(): bool
     {
-        return $this->status->canCancelByCustomer() && $this->check_in->isAfter(today());
+        // >= hôm nay (không chỉ isAfter) — hệ thống cho phép đặt phòng cùng
+        // ngày (DateRangeService::validate), nên khách đặt hôm nay vẫn phải
+        // hủy được trước khi thực sự nhận phòng, không bị khóa ngay lập tức.
+        return $this->status->canCancelByCustomer() && $this->check_in->gte(today());
     }
 
     public function canCancelByAdmin(): bool
@@ -101,9 +104,15 @@ class Booking extends Model
         return $this->status->canConfirm();
     }
 
+    /**
+     * Chỉ đánh dấu hoàn thành được khi đơn đã thanh toán đủ (PAID) — tránh
+     * đơn kết thúc lưu trú mà khách sạn chưa thu đủ tiền vẫn bị chốt sổ.
+     */
     public function canComplete(): bool
     {
-        return $this->status->canComplete();
+        return $this->status->canComplete()
+            && $this->payment
+            && $this->payment->status === PaymentStatus::PAID;
     }
 
     public function canCheckIn(): bool

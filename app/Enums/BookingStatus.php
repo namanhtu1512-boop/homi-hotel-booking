@@ -56,7 +56,10 @@ enum BookingStatus: string
 
     public function canCancelByAdmin(): bool
     {
-        return in_array($this, [self::PENDING, self::CONFIRMED], true);
+        // Bao gồm cả CHECKED_IN — khách đã nhận phòng nhưng cần hủy giữa
+        // chừng (rời sớm, sự cố...) vẫn phải hủy được, kèm hoàn tiền nếu đã
+        // thanh toán đủ (xem BookingService::cancelByAdmin()).
+        return in_array($this, [self::PENDING, self::CONFIRMED, self::CHECKED_IN], true);
     }
 
     public function canConfirm(): bool

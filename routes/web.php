@@ -159,6 +159,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::get('/{id}/edit',      [RoomTypeController::class, 'edit'])->name('edit');
         Route::get('/{id}',           [RoomTypeController::class, 'show'])->name('show');
         Route::put('/{id}',           [RoomTypeController::class, 'update'])->name('update');
+        Route::patch('/{id}/toggle-status', [RoomTypeController::class, 'toggleStatus'])->name('toggle-status');
         Route::delete('/{id}',        [RoomTypeController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/restore',  [RoomTypeController::class, 'restore'])->name('restore');
     });
@@ -293,6 +294,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/{id}/edit', [StaffRoomTypeController::class, 'edit'])->name('edit');
         Route::get('/{id}',      [StaffRoomTypeController::class, 'show'])->name('show');
         Route::put('/{id}',      [StaffRoomTypeController::class, 'update'])->name('update');
+        Route::patch('/{id}/toggle-status', [StaffRoomTypeController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     Route::prefix('rooms')->name('rooms.')->group(function () {

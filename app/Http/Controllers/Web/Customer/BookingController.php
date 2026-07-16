@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Services\AvailabilityService;
 use App\Services\BookingService;
+use App\Services\PricingService;
 use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
 use App\Services\ServiceService;
@@ -22,6 +23,7 @@ class BookingController extends Controller
         private readonly AvailabilityService $availabilityService,
         private readonly RoomHoldService $roomHoldService,
         private readonly ServiceService $serviceService,
+        private readonly PricingService $pricingService,
     ) {}
 
     public function create(Request $request): View
@@ -62,16 +64,28 @@ class BookingController extends Controller
                     $result = $this->availabilityService->check(
                         (int) $item['room_type_id'], $checkIn, $checkOut, $quantity, $sessionId
                     );
+
+                    // Tính giá thật (gồm điều chỉnh theo mùa, tăng lẫn giảm) để
+                    // hiển thị ngay khi khách kiểm tra phòng trống — tránh giá
+                    // tạm tính phía JS (chỉ dựa trên giá gốc) làm khách hiểu nhầm.
+                    $pricing = $roomType
+                        ? $this->pricingService->calculate(
+                            $roomType, $checkIn, $checkOut, $quantity, max(0, (int) ($item['children'] ?? 0))
+                        )
+                        : null;
+
                     $availabilities[] = [
-                        'name'   => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
-                        'result' => $result,
-                        'error'  => null,
+                        'name'    => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
+                        'result'  => $result,
+                        'error'   => null,
+                        'pricing' => $pricing,
                     ];
                 } catch (ValidationException $e) {
                     $availabilities[] = [
-                        'name'   => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
-                        'result' => null,
-                        'error'  => collect($e->errors())->flatten()->first(),
+                        'name'    => $roomType?->name ?? "Loại phòng #{$item['room_type_id']}",
+                        'result'  => null,
+                        'error'   => collect($e->errors())->flatten()->first(),
+                        'pricing' => null,
                     ];
                 }
             }

@@ -36,11 +36,11 @@
                 <input class="input" type="text" id="company_name" name="company_name" value="{{ old('company_name') }}">
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="form-label" for="contact_name">Họ tên người liên hệ *</label>
-                    <input class="input" type="text" id="contact_name" name="contact_name" value="{{ old('contact_name', auth()->user()?->name) }}" required>
-                </div>
+            <div>
+                <label class="form-label" for="contact_name">Họ tên người liên hệ *</label>
+                <input class="input" type="text" id="contact_name" name="contact_name" value="{{ old('contact_name', auth()->user()?->name) }}" required>
+            </div>
+
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="form-label" for="group_size">Số lượng khách *</label>
@@ -50,7 +50,6 @@
                     <label class="form-label" for="room_count">Số phòng *</label>
                     <input class="input" type="number" id="room_count" name="room_count" min="5" value="{{ old('room_count', 5) }}" required>
                 </div>
-            </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">

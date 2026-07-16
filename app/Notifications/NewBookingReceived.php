@@ -14,13 +14,15 @@ class NewBookingReceived extends Notification
         return ['database'];
     }
 
-    public function toArray(): array
+    public function toArray(object $notifiable): array
     {
+        $routePrefix = $notifiable->role === 'staff' ? 'staff' : 'admin';
+
         return [
             'booking_id'   => $this->booking->id,
             'booking_code' => $this->booking->booking_code,
             'message'      => "Đơn đặt phòng mới #{$this->booking->booking_code} từ {$this->booking->customer_name}.",
-            'url'          => route('admin.bookings.show', $this->booking->id),
+            'url'          => route("{$routePrefix}.bookings.show", $this->booking->id),
         ];
     }
 }

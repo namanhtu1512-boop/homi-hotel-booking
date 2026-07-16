@@ -33,11 +33,14 @@
                             <td>{{ $rate->roomType?->name ?? 'Tất cả loại phòng' }}</td>
                             <td>{{ $rate->start_date->format('d/m/Y') }} - {{ $rate->end_date->format('d/m/Y') }}</td>
                             <td>
-                                @if ($rate->adjustment_type === 'percent')
-                                    +{{ (float) $rate->adjustment_value }}%
-                                @else
-                                    +{{ number_format($rate->adjustment_value, 0, ',', '.') }}đ/đêm
-                                @endif
+                                @php $isIncrease = (float) $rate->adjustment_value >= 0; @endphp
+                                <span class="{{ $isIncrease ? 'text-red-600' : 'text-green-600' }}">
+                                    @if ($rate->adjustment_type === 'percent')
+                                        {{ $isIncrease ? '+' : '' }}{{ (float) $rate->adjustment_value }}%
+                                    @else
+                                        {{ $isIncrease ? '+' : '' }}{{ number_format($rate->adjustment_value, 0, ',', '.') }}đ/đêm
+                                    @endif
+                                </span>
                             </td>
                             <td>
                                 <span class="badge {{ $rate->status === 'active' ? 'badge-green' : 'badge-orange' }}">{{ $rate->status === 'active' ? 'Đang áp dụng' : 'Ẩn' }}</span>

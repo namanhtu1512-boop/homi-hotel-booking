@@ -59,6 +59,13 @@
                             <td>
                                 <div class="action-row">
                                     <a href="{{ route('admin.room-types.edit', $room->id) }}" class="btn btn-outline btn-sm">Sửa</a>
+                                    <form method="POST" action="{{ route('admin.room-types.toggle-status', $room->id) }}">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-outline btn-sm">
+                                            {{ $room->status === 'active' ? 'Ẩn' : 'Hiện' }}
+                                        </button>
+                                    </form>
                                     <form method="POST" action="{{ route('admin.room-types.destroy', $room->id) }}"
                                         onsubmit="return confirm('Xóa loại phòng &quot;{{ $room->name }}&quot;?');">
                                         @csrf

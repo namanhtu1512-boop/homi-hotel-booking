@@ -37,8 +37,8 @@
                     <a href="{{ route($link['route']) }}"
                         class="rounded-lg px-3 py-2.5 text-sm font-semibold transition {{ request()->routeIs($link['pattern']) ? 'bg-teal-600 text-white' : 'hover:bg-white/5 hover:text-white' }}">
                         {{ $link['label'] }}
-                        @if ($link['route'] === 'staff.chat.index' && ($chatUnreadCount ?? 0) > 0)
-                            <span class="badge badge-orange">{{ $chatUnreadCount }}</span>
+                        @if ($link['route'] === 'staff.chat.index')
+                            <span id="chat-badge" class="badge badge-orange {{ ($chatUnreadCount ?? 0) > 0 ? '' : 'hidden' }}">{{ $chatUnreadCount ?? 0 }}</span>
                         @endif
                     </a>
                 @endforeach

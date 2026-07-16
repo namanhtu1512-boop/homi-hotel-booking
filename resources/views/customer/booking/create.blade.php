@@ -95,6 +95,22 @@
                             @else
                                 ❌ Chỉ còn {{ $a['result']['available_quantity'] }} phòng trống, không đủ cho {{ $a['result']['requested_quantity'] }} phòng yêu cầu.
                             @endif
+
+                            @if ($a['pricing'])
+                                @php
+                                    $seasonalNights = collect($a['pricing']['nightly_breakdown'])->filter(fn ($n) => (float) $n['seasonal_adjustment'] !== 0.0);
+                                @endphp
+                                @if ($seasonalNights->isNotEmpty())
+                                    <div class="mt-1 text-xs">
+                                        @foreach ($seasonalNights as $n)
+                                            <span class="{{ $n['seasonal_adjustment'] > 0 ? 'text-red-600' : 'text-green-600' }}">
+                                                {{ \Carbon\Carbon::parse($n['date'])->format('d/m') }}: giá theo mùa {{ $n['seasonal_adjustment'] > 0 ? '+' : '' }}{{ number_format($n['seasonal_adjustment'], 0, ',', '.') }}đ/đêm
+                                            </span>@if (!$loop->last), @endif
+                                        @endforeach
+                                    </div>
+                                @endif
+                                <div class="mt-1 text-sm font-semibold">Tạm tính (đã gồm điều chỉnh mùa/cuối tuần): {{ number_format($a['pricing']['total_price'], 0, ',', '.') }}đ</div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
