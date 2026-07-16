@@ -49,10 +49,16 @@
       "Bash(xargs grep -n \"enum\\\\|status\")",
       "Bash(xargs cat)",
       "Bash(cd /c/laragon/www/homi-hotel-booking && grep -rln \"AuthService\" app/ routes/ tests/ 2>/dev/null)",
-      "Read(//c/c/laragon/www/homi-hotel-booking/**)"
+      "Read(//c/c/laragon/www/homi-hotel-booking/**)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)",
+      "Bash(cp \"C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--laragon-www-DATN-homi-hotel-booking\\\\8dead61e-5424-4f40-851d-41474e7185da\\\\scratchpad\\\\homi-demo-guide.html\" \"c:\\\\laragon\\\\www\\\\DATN\\\\homi-hotel-booking\\\\docs\\\\demo-scripts\\\\Kich_Ban_Demo_Tuan10-16.html\" *)"
     ],
     "additionalDirectories": [
-      "\\tmp"
+      "\\tmp",
+      "c:\\laragon\\www\\DATN\\homi-hotel-booking\\docs\\demo-scripts"
     ]
   }
 }
