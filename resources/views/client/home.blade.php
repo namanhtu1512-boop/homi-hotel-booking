@@ -57,11 +57,27 @@
 
 @section('content')
     @if ($banners->isNotEmpty())
-        <section>
-            <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2">
+        <section
+            x-data="{
+                active: 0,
+                total: {{ $banners->count() }},
+                timer: null,
+                start() { this.timer = setInterval(() => this.next(), 5000); },
+                stop() { clearInterval(this.timer); },
+                next() { this.goTo((this.active + 1) % this.total); },
+                goTo(i) {
+                    this.active = i;
+                    const slide = this.$refs.track.children[i];
+                    if (slide) this.$refs.track.scrollTo({ left: slide.offsetLeft, behavior: 'smooth' });
+                },
+            }"
+            x-init="start()"
+            @mouseenter="stop()" @mouseleave="start()"
+        >
+            <div x-ref="track" class="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 @foreach ($banners as $banner)
                     <a href="{{ $banner->link_url ?: '#' }}"
-                        class="group relative block aspect-[16/7] w-full shrink-0 snap-start overflow-hidden rounded-2xl bg-slate-100 sm:w-[min(100%,960px)] dark:bg-slate-800">
+                        class="group relative block h-[200px] w-full shrink-0 snap-start overflow-hidden rounded-2xl bg-slate-100 sm:h-[280px] lg:h-[360px] dark:bg-slate-800">
                         <img src="{{ $banner->image_url }}" alt="{{ $banner->title }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy">
                         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
                         <div class="absolute inset-x-0 bottom-0 p-4 text-white sm:p-6">
@@ -73,6 +89,16 @@
                     </a>
                 @endforeach
             </div>
+
+            @if ($banners->count() > 1)
+                <div class="mt-3 flex justify-center gap-2">
+                    @foreach ($banners as $i => $banner)
+                        <button type="button" @click="goTo({{ $i }})"
+                            :class="active === {{ $i }} ? 'w-6 bg-primary' : 'w-2 bg-slate-300 dark:bg-slate-700'"
+                            class="h-2 rounded-full transition-all" aria-label="Xem banner {{ $i + 1 }}"></button>
+                    @endforeach
+                </div>
+            @endif
         </section>
     @endif
 

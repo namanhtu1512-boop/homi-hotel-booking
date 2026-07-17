@@ -59,6 +59,10 @@
         </div>
     </div>
 
+    @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED && ! $booking->canCheckIn())
+        <div class="alert alert-warning" style="margin-top: 16px;">Khách cần đặt cọc hoặc thanh toán trước khi có thể check-in.</div>
+    @endif
+
     <div class="section-kicker" style="margin-top: 22px;">Phòng đã đặt</div>
     <div class="table-wrapper" style="margin-top: 10px;">
         <table>

@@ -78,12 +78,14 @@ enum BookingStatus: string
     }
 
     /**
-     * Admin đánh dấu đơn đã hoàn thành — hợp lệ từ confirmed (luồng rút gọn
-     * pending->confirmed->completed, không qua check-in/check-out vật lý)
-     * hoặc từ checked_out (luồng đầy đủ có check-in/check-out phòng thật).
+     * Admin đánh dấu đơn đã hoàn thành — chỉ hợp lệ từ checked_out, bắt buộc
+     * phải qua check-in/check-out phòng thật trước. Trước đây cho phép cả
+     * confirmed->completed (luồng rút gọn) nhưng gây lỗi: đơn hoàn thành mà
+     * không có số phòng nào được gán (staff bấm nhầm "hoàn thành" thay vì
+     * "check-in").
      */
     public function canComplete(): bool
     {
-        return in_array($this, [self::CONFIRMED, self::CHECKED_OUT], true);
+        return $this === self::CHECKED_OUT;
     }
 }
