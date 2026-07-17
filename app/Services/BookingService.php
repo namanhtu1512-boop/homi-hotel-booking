@@ -100,7 +100,7 @@ class BookingService
             }
 
             $booking = Booking::create([
-                'user_id'        => null,
+                'user_id'        => $data['user_id'] ?? null,
                 'booking_code'   => $this->generateCode(),
                 'check_in'       => $data['check_in'],
                 'check_out'      => $data['check_out'],
@@ -562,9 +562,9 @@ class BookingService
             ]);
         }
 
-        if ($newStatus === PaymentStatus::PAID && $booking->status !== BookingStatus::CONFIRMED) {
+        if ($newStatus === PaymentStatus::PAID && ! in_array($booking->status, [BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể đánh dấu đã thanh toán khi đơn ở trạng thái đã xác nhận.'],
+                'status' => ['Chỉ có thể đánh dấu đã thanh toán khi đơn ở trạng thái đã xác nhận hoặc đã check-in.'],
             ]);
         }
 
@@ -626,7 +626,7 @@ class BookingService
     {
         if (! $booking->canCheckIn()) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể check-in đơn ở trạng thái đã xác nhận.'],
+                'status' => ['Chỉ có thể check-in đơn ở trạng thái đã xác nhận và đã đặt cọc/thanh toán.'],
             ]);
         }
 

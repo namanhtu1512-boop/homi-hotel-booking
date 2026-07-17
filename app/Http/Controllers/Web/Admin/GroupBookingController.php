@@ -68,6 +68,11 @@ class GroupBookingController extends Controller
             'note'            => ['nullable', 'string', 'max:2000'],
         ]);
 
+        // Gắn đơn vào tài khoản khách (nếu yêu cầu đoàn được gửi khi đã đăng
+        // nhập) — thiếu dòng này khiến đơn bị tạo với user_id = null, không
+        // hiện trong "đơn của tôi" dù khách đã tự gửi yêu cầu.
+        $data['user_id'] = $groupRequest->user_id;
+
         $booking = $this->bookingService->createByAdmin($data);
 
         // Đánh dấu yêu cầu đoàn đã được chuyển thành đơn — trạng thái cuối,

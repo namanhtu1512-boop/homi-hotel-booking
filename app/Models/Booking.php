@@ -115,9 +115,16 @@ class Booking extends Model
             && $this->payment->status === PaymentStatus::PAID;
     }
 
+    /**
+     * Chỉ check-in được khi đơn đã xác nhận VÀ đã cọc/thanh toán — tránh
+     * khách vào phòng mà chưa trả bất kỳ khoản nào (xem báo cáo lỗi:
+     * check-in xong là vào phòng luôn không cần thanh toán).
+     */
     public function canCheckIn(): bool
     {
-        return $this->status->canCheckIn();
+        return $this->status->canCheckIn()
+            && $this->payment
+            && in_array($this->payment->status, [PaymentStatus::DEPOSIT_PAID, PaymentStatus::PAID], true);
     }
 
     public function canCheckOut(): bool
@@ -127,11 +134,13 @@ class Booking extends Model
 
     /**
      * Chỉ được đánh dấu "đã thanh toán" khi đơn đã được admin/staff xác nhận
-     * (confirmed) — tránh thu tiền cho đơn còn đang chờ duyệt.
+     * (confirmed) hoặc khách đã nhận phòng (checked_in) — tránh thu tiền cho
+     * đơn còn đang chờ duyệt, nhưng vẫn cho phép thu nốt tiền mặt còn lại
+     * (deposit_paid -> paid) sau khi khách đã check-in.
      */
     public function canMarkPaymentAsPaid(): bool
     {
-        return $this->status === BookingStatus::CONFIRMED
+        return in_array($this->status, [BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)
             && $this->payment
             && $this->payment->status->canTransitionTo(PaymentStatus::PAID);
     }
