@@ -341,7 +341,7 @@
     }
 
     .room-card-image {
-        @apply grid h-40 place-items-center bg-primary-light bg-cover bg-center text-sm font-bold text-primary;
+        @apply relative grid h-40 place-items-center bg-primary-light bg-cover bg-center text-sm font-bold text-primary;
     }
 
     .room-card-body {

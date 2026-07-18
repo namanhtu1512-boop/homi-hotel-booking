@@ -1,18 +1,10 @@
 @extends('layouts.app')
 
 @php
-    $heroImage = optional($banners->first())->image_url ?? optional($hotel->images->first())->image_url ?? null;
     $hasFilters = ! empty(array_filter($filters));
 @endphp
 
 @section('title', $hotel->name . ' · Homi')
-@section('banner_tag', $hotel->star_rating ? $hotel->star_rating . ' sao · Homi Hotel Booking' : 'Homi Hotel Booking')
-@section('banner_title', $hotel->name)
-@section('banner_subtitle', $hotel->description ?: 'Khám phá các loại phòng, kiểm tra thời gian lưu trú và đặt phòng trực tuyến ngay trên Homi.')
-
-@if ($heroImage)
-    @section('hero_bg_image', $heroImage)
-@endif
 
 @section('hero_extra')
     <form method="GET" action="{{ route('home') }}" class="grid gap-3 rounded-2xl bg-white p-4 shadow-xl sm:grid-cols-2 lg:grid-cols-6 dark:bg-slate-900">
@@ -55,9 +47,9 @@
     </form>
 @endsection
 
-@section('content')
-    @if ($banners->isNotEmpty())
-        <section
+@section('hero_custom')
+    <div
+        @if ($banners->count() > 1)
             x-data="{
                 active: 0,
                 total: {{ $banners->count() }},
@@ -65,43 +57,68 @@
                 start() { this.timer = setInterval(() => this.next(), 5000); },
                 stop() { clearInterval(this.timer); },
                 next() { this.goTo((this.active + 1) % this.total); },
-                goTo(i) {
-                    this.active = i;
-                    const slide = this.$refs.track.children[i];
-                    if (slide) this.$refs.track.scrollTo({ left: slide.offsetLeft, behavior: 'smooth' });
-                },
+                goTo(i) { this.active = i; },
             }"
             x-init="start()"
             @mouseenter="stop()" @mouseleave="start()"
-        >
-            <div x-ref="track" class="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                @foreach ($banners as $banner)
-                    <a href="{{ $banner->link_url ?: '#' }}"
-                        class="group relative block h-[200px] w-full shrink-0 snap-start overflow-hidden rounded-2xl bg-slate-100 sm:h-[280px] lg:h-[360px] dark:bg-slate-800">
-                        <img src="{{ $banner->image_url }}" alt="{{ $banner->title }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
-                        <div class="absolute inset-x-0 bottom-0 p-4 text-white sm:p-6">
-                            <h3 class="text-lg font-bold sm:text-2xl">{{ $banner->title }}</h3>
-                            @if ($banner->subtitle)
-                                <p class="mt-1 max-w-lg text-sm text-white/90 sm:text-base">{{ $banner->subtitle }}</p>
-                            @endif
-                        </div>
-                    </a>
-                @endforeach
+        @else
+            x-data="{ active: 0 }"
+        @endif
+        class="contents"
+    >
+        @forelse ($banners as $i => $banner)
+            <img
+                @if ($banners->count() > 1) x-show="active === {{ $i }}" x-transition.opacity.duration.700ms @endif
+                src="{{ $banner->image_url }}" alt="{{ $banner->title }}"
+                class="absolute inset-0 h-full w-full object-cover">
+        @empty
+            <img src="{{ optional($hotel->images->first())->image_url }}" alt="" class="absolute inset-0 h-full w-full object-cover">
+        @endforelse
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+
+        <div class="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-white/10"></div>
+        <div class="absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-white/10"></div>
+
+        <div class="relative mx-auto w-[min(1180px,calc(100%-32px))] py-8 sm:py-10">
+            <div class="grid">
+                @forelse ($banners as $i => $banner)
+                    <div class="col-start-1 row-start-1 transition-opacity duration-500"
+                        @if ($banners->count() > 1) :class="active === {{ $i }} ? 'opacity-100' : 'opacity-0 pointer-events-none'" @endif>
+                        <span class="mb-4 inline-block rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold tracking-wide uppercase">{{ $hotel->star_rating ? $hotel->star_rating . ' sao · Homi Hotel Booking' : 'Homi Hotel Booking' }}</span>
+                        <h1 class="max-w-2xl text-3xl leading-tight font-extrabold sm:text-4xl">
+                            <a href="{{ $banner->link_url ?: '#' }}" class="hover:underline">{{ $banner->title }}</a>
+                        </h1>
+                        @if ($banner->subtitle)
+                            <p class="mt-3 max-w-xl text-sm leading-relaxed text-white/90 sm:text-base">{{ $banner->subtitle }}</p>
+                        @endif
+                    </div>
+                @empty
+                    <div class="col-start-1 row-start-1">
+                        <span class="mb-4 inline-block rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold tracking-wide uppercase">{{ $hotel->star_rating ? $hotel->star_rating . ' sao · Homi Hotel Booking' : 'Homi Hotel Booking' }}</span>
+                        <h1 class="max-w-2xl text-3xl leading-tight font-extrabold sm:text-4xl">{{ $hotel->name }}</h1>
+                        <p class="mt-3 max-w-xl text-sm leading-relaxed text-white/90 sm:text-base">{{ $hotel->description ?: 'Khám phá các loại phòng, kiểm tra thời gian lưu trú và đặt phòng trực tuyến ngay trên Homi.' }}</p>
+                    </div>
+                @endforelse
             </div>
 
             @if ($banners->count() > 1)
-                <div class="mt-3 flex justify-center gap-2">
+                <div class="mt-4 flex gap-2">
                     @foreach ($banners as $i => $banner)
                         <button type="button" @click="goTo({{ $i }})"
-                            :class="active === {{ $i }} ? 'w-6 bg-primary' : 'w-2 bg-slate-300 dark:bg-slate-700'"
+                            :class="active === {{ $i }} ? 'w-6 bg-white' : 'w-2 bg-white/40'"
                             class="h-2 rounded-full transition-all" aria-label="Xem banner {{ $i + 1 }}"></button>
                     @endforeach
                 </div>
             @endif
-        </section>
-    @endif
 
+            <div class="mt-6">
+                @yield('hero_extra')
+            </div>
+        </div>
+    </div>
+@endsection
+
+@section('content')
     <section>
         <span class="section-kicker">Giới thiệu</span>
         <h2 class="section-title">Vì sao chọn {{ $hotel->name }}</h2>
@@ -144,6 +161,7 @@
                 @foreach ($featuredRooms as $room)
                     <article class="room-card">
                         <a href="{{ route('rooms.show', $room->id) }}" class="room-card-image" @if ($room->images->first()) style="background-image:url('{{ $room->images->first()->image_url }}')" @endif>
+                            @include('partials._seasonal-ribbon', ['room' => $room, 'seasonalRates' => $seasonalRates])
                             @if (! $room->images->first())
                                 {{ $room->name }}
                             @endif
@@ -158,7 +176,7 @@
                                 @endif
                             </div>
                             <div class="room-card-footer">
-                                <span class="room-card-price">{{ number_format($room->price_per_night, 0, ',', '.') }}đ<span class="text-xs font-medium text-slate-400">/đêm</span></span>
+                                @include('partials._room-price', ['room' => $room, 'seasonalRates' => $seasonalRates])
                                 <a href="{{ route('rooms.show', $room->id) }}" class="btn-outline btn-sm">Xem chi tiết</a>
                             </div>
                         </div>
@@ -192,6 +210,7 @@
                 @foreach ($roomTypes as $room)
                     <article class="room-card">
                         <a href="{{ route('rooms.show', $room->id) }}" class="room-card-image" @if ($room->images->first()) style="background-image:url('{{ $room->images->first()->image_url }}')" @endif>
+                            @include('partials._seasonal-ribbon', ['room' => $room, 'seasonalRates' => $seasonalRates])
                             @if (! $room->images->first())
                                 {{ $room->name }}
                             @endif
@@ -206,7 +225,7 @@
                                 @endif
                             </div>
                             <div class="room-card-footer">
-                                <span class="room-card-price">{{ number_format($room->price_per_night, 0, ',', '.') }}đ<span class="text-xs font-medium text-slate-400">/đêm</span></span>
+                                @include('partials._room-price', ['room' => $room, 'seasonalRates' => $seasonalRates])
                                 <a href="{{ route('rooms.show', $room->id) }}" class="btn-outline btn-sm">Xem chi tiết</a>
                             </div>
                         </div>

@@ -10,6 +10,7 @@ use App\Services\NewsService;
 use App\Services\PromotionService;
 use App\Services\ReviewService;
 use App\Services\RoomTypeService;
+use App\Services\SeasonalRateService;
 
 class HomeController extends Controller
 {
@@ -20,6 +21,7 @@ class HomeController extends Controller
         private readonly ReviewService $reviewService,
         private readonly BannerService $bannerService,
         private readonly NewsService $newsService,
+        private readonly SeasonalRateService $seasonalRateService,
     ) {}
 
     public function index(FilterRoomTypeRequest $request)
@@ -35,8 +37,13 @@ class HomeController extends Controller
         $banners       = $this->bannerService->activeOrdered();
         $news          = $this->newsService->latestPublished(3);
 
+        $seasonalRates = $this->seasonalRateService->activeForDate(
+            $featuredRooms->pluck('id')->merge($roomTypes->pluck('id'))->unique()->all(),
+            $filters['check_in'] ?? null
+        );
+
         return view('client.home', compact(
-            'hotel', 'roomTypes', 'filters', 'isSearching', 'featuredRooms', 'promotions', 'reviews', 'banners', 'news'
+            'hotel', 'roomTypes', 'filters', 'isSearching', 'featuredRooms', 'promotions', 'reviews', 'banners', 'news', 'seasonalRates'
         ));
     }
 }

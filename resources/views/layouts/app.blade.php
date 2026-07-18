@@ -116,32 +116,66 @@
         </div>
     </header>
 
-    <section class="relative overflow-hidden text-white">
-        @hasSection('hero_bg_image')
-            <img src="@yield('hero_bg_image')" alt="" class="absolute inset-0 h-full w-full object-cover">
-            <div class="absolute inset-0 bg-gradient-to-br from-blue-900/90 via-primary/80 to-blue-600/70"></div>
-        @else
-            <div class="absolute inset-0 bg-gradient-to-br from-blue-700 via-primary to-blue-400"></div>
-        @endif
-        <div class="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-white/10"></div>
-        <div class="absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-white/10"></div>
+    @php
+        $__heroBanners = ($banners ?? null) instanceof \Illuminate\Support\Collection
+            ? $banners
+            : app(\App\Services\BannerService::class)->activeOrdered();
+    @endphp
 
-        <div class="relative mx-auto w-[min(1180px,calc(100%-32px))] py-8 sm:py-10">
-            <span class="mb-4 inline-block rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold tracking-wide uppercase">@yield('banner_tag', 'Homi Hotel Booking')</span>
-            <h1 class="max-w-2xl text-3xl leading-tight font-extrabold sm:text-4xl">@yield('banner_title', 'Hệ thống quản lý đặt phòng Homi')</h1>
-            <div class="mt-3 flex flex-wrap items-center gap-3">
-                <p class="max-w-xl text-sm leading-relaxed text-white/90 sm:text-base">@yield('banner_subtitle', 'Giao diện hiện đại, rõ ràng, dễ thao tác để quản lý tài khoản, khách sạn, loại phòng và dữ liệu đặt phòng.')</p>
-                @hasSection('banner_badge')
-                    <span class="badge @yield('banner_badge_class', 'badge-blue')">@yield('banner_badge')</span>
+    <section class="relative min-h-[320px] overflow-hidden text-white sm:min-h-[360px] lg:min-h-[400px]">
+        @hasSection('hero_custom')
+            @yield('hero_custom')
+        @else
+            @if ($__heroBanners->isNotEmpty())
+                <div
+                    @if ($__heroBanners->count() > 1)
+                        x-data="{
+                            active: 0,
+                            total: {{ $__heroBanners->count() }},
+                            timer: null,
+                            start() { this.timer = setInterval(() => this.active = (this.active + 1) % this.total, 5000); },
+                            stop() { clearInterval(this.timer); },
+                        }"
+                        x-init="start()"
+                        @mouseenter="stop()" @mouseleave="start()"
+                    @else
+                        x-data="{ active: 0 }"
+                    @endif
+                    class="contents"
+                >
+                    @foreach ($__heroBanners as $i => $banner)
+                        <img
+                            @if ($__heroBanners->count() > 1) x-show="active === {{ $i }}" x-transition.opacity.duration.700ms @endif
+                            src="{{ $banner->image_url }}" alt="" class="absolute inset-0 h-full w-full object-cover">
+                    @endforeach
+                </div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+            @elseif (View::hasSection('hero_bg_image'))
+                <img src="@yield('hero_bg_image')" alt="" class="absolute inset-0 h-full w-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+            @else
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-700 via-primary to-blue-400"></div>
+            @endif
+            <div class="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-white/10"></div>
+            <div class="absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-white/10"></div>
+
+            <div class="relative mx-auto w-[min(1180px,calc(100%-32px))] py-8 sm:py-10">
+                <span class="mb-4 inline-block rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold tracking-wide uppercase">@yield('banner_tag', 'Homi Hotel Booking')</span>
+                <h1 class="max-w-2xl text-3xl leading-tight font-extrabold sm:text-4xl">@yield('banner_title', 'Hệ thống quản lý đặt phòng Homi')</h1>
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                    <p class="max-w-xl text-sm leading-relaxed text-white/90 sm:text-base">@yield('banner_subtitle', 'Giao diện hiện đại, rõ ràng, dễ thao tác để quản lý tài khoản, khách sạn, loại phòng và dữ liệu đặt phòng.')</p>
+                    @hasSection('banner_badge')
+                        <span class="badge @yield('banner_badge_class', 'badge-blue')">@yield('banner_badge')</span>
+                    @endif
+                </div>
+
+                @hasSection('hero_extra')
+                    <div class="mt-6">
+                        @yield('hero_extra')
+                    </div>
                 @endif
             </div>
-
-            @hasSection('hero_extra')
-                <div class="mt-6">
-                    @yield('hero_extra')
-                </div>
-            @endif
-        </div>
+        @endif
     </section>
 
     <main class="relative -mt-6 pb-16">

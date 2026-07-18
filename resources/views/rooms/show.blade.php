@@ -8,6 +8,15 @@
 
 @section('content')
 
+@php
+    $seasonalRateJs = $seasonalRate ? [
+        'start' => $seasonalRate->start_date->toDateString(),
+        'end'   => $seasonalRate->end_date->toDateString(),
+        'type'  => $seasonalRate->adjustment_type,
+        'value' => (float) $seasonalRate->adjustment_value,
+    ] : null;
+@endphp
+
 <nav class="text-sm text-slate-500 dark:text-slate-400">
     <a href="{{ route('home') }}" class="text-primary hover:underline">Trang chủ</a>
     <span class="mx-2">›</span>
@@ -150,12 +159,33 @@
     </div>
 
     <div class="flex flex-col gap-5">
-        <div id="price-sidebar" class="card sticky top-20">
+        <div id="price-sidebar" class="card sticky top-20 {{ $seasonalRate ? 'ring-2 ring-offset-2 dark:ring-offset-slate-950 ' . ($seasonalRate->adjustment_value < 0 ? 'ring-red-500' : 'ring-amber-500') : '' }}">
             <span class="section-kicker">Giá phòng</span>
-            <div class="mb-1 text-3xl font-extrabold text-primary">
-                {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ
-            </div>
-            <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng</div>
+
+            @php
+                $seasonalPrice = $seasonalRate
+                    ? $roomType->price_per_night + ($seasonalRate->adjustment_type === 'percent'
+                        ? round($roomType->price_per_night * ((float) $seasonalRate->adjustment_value / 100))
+                        : (float) $seasonalRate->adjustment_value)
+                    : null;
+            @endphp
+
+            @if ($seasonalRate)
+                <span class="mb-2 inline-flex animate-pulse items-center gap-1 rounded-full bg-gradient-to-r {{ $seasonalRate->adjustment_value < 0 ? 'from-red-600 to-orange-500' : 'from-amber-600 to-amber-500' }} px-3 py-1.5 text-sm font-extrabold text-white shadow-md">
+                    {{ $seasonalRate->adjustment_value < 0 ? '🔥 Giảm giá mùa' : '📈 Phụ thu mùa' }} · {{ $seasonalRate->label }}
+                    ({{ $seasonalRate->adjustment_type === 'percent' ? number_format($seasonalRate->adjustment_value, 0) . '%' : number_format($seasonalRate->adjustment_value, 0, ',', '.') . 'đ' }})
+                </span>
+                <div class="mb-1 text-sm text-slate-400 line-through">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ</div>
+                <div class="mb-1 text-4xl font-extrabold {{ $seasonalRate->adjustment_value < 0 ? 'text-green-600' : 'text-red-600' }}">
+                    {{ number_format($seasonalPrice, 0, ',', '.') }}đ
+                </div>
+                <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng · áp dụng {{ $seasonalRate->start_date->format('d/m') }} – {{ $seasonalRate->end_date->format('d/m/Y') }}</div>
+            @else
+                <div class="mb-1 text-3xl font-extrabold text-primary">
+                    {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ
+                </div>
+                <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng</div>
+            @endif
 
             <form method="GET" action="{{ route('rooms.show', $roomType->id) }}" class="space-y-3">
                 <div>
@@ -293,6 +323,7 @@
 <script>
 (function () {
     const pricePerNight = {{ (float) $roomType->price_per_night }};
+    const seasonalRate  = @json($seasonalRateJs);
     const checkInInput  = document.getElementById('check_in');
     const checkOutInput = document.getElementById('check_out');
     const quantityInput = document.getElementById('quantity');
@@ -300,7 +331,17 @@
     const totalEl       = document.getElementById('price-total');
     const detailEl      = document.getElementById('price-detail');
 
-    function formatVnd(n) { return n.toLocaleString('vi-VN') + 'đ'; }
+    function formatVnd(n) { return Math.round(n).toLocaleString('vi-VN') + 'đ'; }
+
+    function nightlyPrice(dateStr) {
+        if (!seasonalRate || dateStr < seasonalRate.start || dateStr > seasonalRate.end) {
+            return pricePerNight;
+        }
+
+        return seasonalRate.type === 'percent'
+            ? pricePerNight + Math.round(pricePerNight * seasonalRate.value / 100)
+            : pricePerNight + seasonalRate.value;
+    }
 
     function updateEstimate() {
         const ci  = checkInInput.value;
@@ -312,8 +353,16 @@
         const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
         if (nights <= 0) { estimateBox.classList.add('hidden'); return; }
 
-        totalEl.textContent  = formatVnd(pricePerNight * nights * qty);
-        detailEl.textContent = formatVnd(pricePerNight) + ' × ' + nights + ' đêm × ' + qty + ' phòng';
+        let roomSubtotal = 0;
+        const cursor = new Date(ci);
+        for (let i = 0; i < nights; i++) {
+            roomSubtotal += nightlyPrice(cursor.toISOString().slice(0, 10));
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        roomSubtotal *= qty;
+
+        totalEl.textContent  = formatVnd(roomSubtotal);
+        detailEl.textContent = nights + ' đêm × ' + qty + ' phòng (giá tạm tính, có thể lệch nhẹ nếu áp dụng phụ thu cuối tuần)';
         estimateBox.classList.remove('hidden');
     }
 

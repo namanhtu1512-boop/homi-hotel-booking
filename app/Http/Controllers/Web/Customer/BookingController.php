@@ -9,6 +9,7 @@ use App\Services\BookingService;
 use App\Services\PricingService;
 use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
+use App\Services\SeasonalRateService;
 use App\Services\ServiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class BookingController extends Controller
         private readonly RoomHoldService $roomHoldService,
         private readonly ServiceService $serviceService,
         private readonly PricingService $pricingService,
+        private readonly SeasonalRateService $seasonalRateService,
     ) {}
 
     public function create(Request $request): View
@@ -103,6 +105,7 @@ class BookingController extends Controller
             'availabilities' => $availabilities,
             'holdExpiresAt'  => $holdExpiresAt,
             'services'       => $this->serviceService->activePublic(),
+            'seasonalRates'  => $this->seasonalRateService->allActive(),
         ]);
     }
 

@@ -116,6 +116,7 @@
                     @endphp
                     <div class="room-card">
                         <a href="{{ route('rooms.show', $roomType->id) }}" class="room-card-image" @if ($cover) style="background-image: url('{{ $cover->image_url }}');" @endif>
+                            @include('partials._seasonal-ribbon', ['room' => $roomType, 'seasonalRates' => $seasonalRates])
                             @unless ($cover)
                                 Chưa có ảnh
                             @endunless
@@ -142,11 +143,11 @@
                                 @if ($roomType->area)
                                     <span class="badge badge-blue">{{ $roomType->area }} m²</span>
                                 @endif
-                                <span class="badge badge-green">Còn {{ $roomType->total_rooms }} phòng</span>
+                                <span class="badge badge-green">Còn {{ $roomType->available_quantity }} phòng</span>
                             </div>
 
                             <div class="room-card-footer">
-                                <span class="room-card-price">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ / đêm</span>
+                                @include('partials._room-price', ['room' => $roomType, 'seasonalRates' => $seasonalRates])
                                 <div class="action-row">
                                     @auth
                                         @if (auth()->user()->role === 'customer')

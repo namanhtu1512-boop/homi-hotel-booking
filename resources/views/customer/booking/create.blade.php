@@ -12,6 +12,17 @@
     $rows = is_array($rows) && $rows !== []
         ? array_values($rows)
         : [['room_type_id' => null, 'quantity' => 1, 'adults' => 1, 'children' => 0]];
+
+    // Gửi xuống JS để giá tạm tính client-side tự tra theo từng đêm/loại
+    // phòng — tránh chỉ nhân giá gốc và hiện con số khác với box chính xác
+    // (đã tính server-side) phía trên khi khách bấm "Kiểm tra phòng trống".
+    $seasonalRatesJs = $seasonalRates->map(fn ($rate) => [
+        'room_type_id' => $rate->room_type_id,
+        'start'        => $rate->start_date->toDateString(),
+        'end'          => $rate->end_date->toDateString(),
+        'type'         => $rate->adjustment_type,
+        'value'        => (float) $rate->adjustment_value,
+    ])->values();
 @endphp
 
 <div class="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
@@ -99,17 +110,20 @@
                             @if ($a['pricing'])
                                 @php
                                     $seasonalNights = collect($a['pricing']['nightly_breakdown'])->filter(fn ($n) => (float) $n['seasonal_adjustment'] !== 0.0);
+                                    $hasDiscount = $seasonalNights->contains(fn ($n) => $n['seasonal_adjustment'] < 0);
+                                    $hasSurcharge = $seasonalNights->contains(fn ($n) => $n['seasonal_adjustment'] > 0);
                                 @endphp
                                 @if ($seasonalNights->isNotEmpty())
-                                    <div class="mt-1 text-xs">
+                                    <div class="mt-2 flex flex-wrap gap-1.5">
                                         @foreach ($seasonalNights as $n)
-                                            <span class="{{ $n['seasonal_adjustment'] > 0 ? 'text-red-600' : 'text-green-600' }}">
-                                                {{ \Carbon\Carbon::parse($n['date'])->format('d/m') }}: giá theo mùa {{ $n['seasonal_adjustment'] > 0 ? '+' : '' }}{{ number_format($n['seasonal_adjustment'], 0, ',', '.') }}đ/đêm
-                                            </span>@if (!$loop->last), @endif
+                                            <span class="inline-flex animate-pulse items-center gap-1 rounded-full bg-gradient-to-r {{ $n['seasonal_adjustment'] < 0 ? 'from-red-600 to-orange-500' : 'from-amber-600 to-amber-500' }} px-2.5 py-1 text-xs font-extrabold text-white shadow-md">
+                                                {{ $n['seasonal_adjustment'] < 0 ? '🔥' : '📈' }}
+                                                {{ \Carbon\Carbon::parse($n['date'])->format('d/m') }}: {{ $n['seasonal_adjustment'] > 0 ? '+' : '' }}{{ number_format($n['seasonal_adjustment'], 0, ',', '.') }}đ/đêm
+                                            </span>
                                         @endforeach
                                     </div>
                                 @endif
-                                <div class="mt-1 text-sm font-semibold">Tạm tính (đã gồm điều chỉnh mùa/cuối tuần): {{ number_format($a['pricing']['total_price'], 0, ',', '.') }}đ</div>
+                                <div class="mt-2 text-base font-extrabold {{ $hasDiscount && ! $hasSurcharge ? 'text-green-600' : ($hasSurcharge && ! $hasDiscount ? 'text-red-600' : '') }}">Tạm tính (đã gồm điều chỉnh mùa/cuối tuần): {{ number_format($a['pricing']['total_price'], 0, ',', '.') }}đ</div>
                             @endif
                         </div>
                     @endforeach
@@ -236,17 +250,32 @@
     const template  = document.getElementById('item-row-template');
     let nextIndex = {{ count($rows) }};
 
+    const seasonalRates = @json($seasonalRatesJs);
+
     const checkInEl  = document.getElementById('check_in');
     const checkOutEl = document.getElementById('check_out');
     const boxEl      = document.getElementById('price-estimate');
     const totalEl    = document.getElementById('price-total');
     const detailEl   = document.getElementById('price-detail');
 
-    function fmt(n) { return n.toLocaleString('vi-VN') + 'đ'; }
+    function fmt(n) { return Math.round(n).toLocaleString('vi-VN') + 'đ'; }
 
     function nightsBetween() {
         if (!checkInEl.value || !checkOutEl.value) return 0;
         return Math.round((new Date(checkOutEl.value) - new Date(checkInEl.value)) / 86400000);
+    }
+
+    function nightlyPrice(basePrice, roomTypeId, dateStr) {
+        const rate = seasonalRates.find(r =>
+            (r.room_type_id === null || r.room_type_id === roomTypeId) &&
+            dateStr >= r.start && dateStr <= r.end
+        );
+
+        if (!rate) return basePrice;
+
+        return rate.type === 'percent'
+            ? basePrice + Math.round(basePrice * rate.value / 100)
+            : basePrice + rate.value;
     }
 
     window.addItemRow = function () {
@@ -274,11 +303,20 @@
             const children = parseInt(row.querySelector('.item-children').value) || 0;
             const opt      = sel.options[sel.selectedIndex];
             const price    = opt ? (parseFloat(opt.dataset.price) || 0) : 0;
+            const roomTypeId = opt && opt.value ? parseInt(opt.value) : null;
             const capacityPerRoom = opt ? (parseInt(opt.dataset.capacity) || 0) : 0;
             const capacity = capacityPerRoom * qty;
             const guests   = adults + children;
 
-            total += price * nights * qty;
+            if (nights > 0 && price > 0 && checkInEl.value) {
+                let roomSubtotal = 0;
+                const cursor = new Date(checkInEl.value);
+                for (let i = 0; i < nights; i++) {
+                    roomSubtotal += nightlyPrice(price, roomTypeId, cursor.toISOString().slice(0, 10));
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                total += roomSubtotal * qty;
+            }
 
             const hintEl = row.querySelector('.item-capacity-hint');
             const warnEl = row.querySelector('.item-capacity-warning');
@@ -306,7 +344,7 @@
 
         if (nights > 0 && total > 0) {
             totalEl.textContent  = fmt(total);
-            detailEl.textContent = nights + ' đêm (giá tạm tính, có thể lệch nhẹ so với giá cuối cùng nếu áp dụng giá theo mùa/cuối tuần)';
+            detailEl.textContent = nights + ' đêm (đã gồm điều chỉnh giá theo mùa, có thể lệch nhẹ nếu áp dụng phụ thu cuối tuần)';
             boxEl.classList.remove('hidden');
         } else {
             boxEl.classList.add('hidden');

@@ -46,4 +46,30 @@ class SeasonalRateService
             ->where('end_date', '>=', $checkIn)
             ->get();
     }
+
+    /**
+     * Rate active áp dụng cho 1 ngày cụ thể (mặc định hôm nay) trên danh sách
+     * room type — dùng hiển thị badge giá theo mùa ở trang danh sách/chi
+     * tiết phòng, để khách biết trước khi vào bước đặt phòng.
+     */
+    public function activeForDate(array $roomTypeIds, ?string $date = null): Collection
+    {
+        $date = $date ?? now()->toDateString();
+
+        return SeasonalRate::active()
+            ->where(fn ($q) => $q->whereNull('room_type_id')->orWhereIn('room_type_id', $roomTypeIds))
+            ->where('start_date', '<=', $date)
+            ->where('end_date', '>=', $date)
+            ->get();
+    }
+
+    /**
+     * Toàn bộ rate đang active (không lọc theo ngày) — dùng gửi xuống JS phía
+     * form đặt phòng để giá tạm tính client-side tự tra theo từng đêm/loại
+     * phòng khách chọn, thay vì chỉ nhân giá gốc như trước.
+     */
+    public function allActive(): Collection
+    {
+        return SeasonalRate::active()->get();
+    }
 }

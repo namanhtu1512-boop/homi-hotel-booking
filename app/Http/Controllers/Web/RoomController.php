@@ -8,6 +8,7 @@ use App\Services\AvailabilityService;
 use App\Services\HotelInfoService;
 use App\Services\ReviewService;
 use App\Services\RoomTypeService;
+use App\Services\SeasonalRateService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -19,6 +20,7 @@ class RoomController extends Controller
         private readonly AvailabilityService $availabilityService,
         private readonly HotelInfoService $hotelInfoService,
         private readonly ReviewService $reviewService,
+        private readonly SeasonalRateService $seasonalRateService,
     ) {}
 
     public function index(FilterRoomRequest $request): View
@@ -37,11 +39,17 @@ class RoomController extends Controller
 
         $roomTypes = $this->roomTypeService->search($filters);
 
+        $seasonalRates = $this->seasonalRateService->activeForDate(
+            $roomTypes->pluck('id')->all(),
+            $filters['check_in'] ?? null
+        );
+
         return view('rooms.index', [
-            'roomTypes' => $roomTypes,
-            'filters'   => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
-            'hotel'     => $this->hotelInfoService->current(),
-            'ratings'   => $this->reviewService->summaryForMany($roomTypes->pluck('id')->all()),
+            'roomTypes'     => $roomTypes,
+            'filters'       => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
+            'hotel'         => $this->hotelInfoService->current(),
+            'ratings'       => $this->reviewService->summaryForMany($roomTypes->pluck('id')->all()),
+            'seasonalRates' => $seasonalRates,
         ]);
     }
 
@@ -68,6 +76,10 @@ class RoomController extends Controller
             ->reject(fn ($room) => $room->id === $roomType->id)
             ->take(3);
 
+        $seasonalRate = $this->seasonalRateService
+            ->activeForDate([$roomType->id], $checkIn)
+            ->first(fn ($rate) => $rate->room_type_id === null || $rate->room_type_id === $roomType->id);
+
         return view('rooms.show', [
             'roomType'          => $roomType,
             'hotel'             => $this->hotelInfoService->current(),
@@ -79,6 +91,7 @@ class RoomController extends Controller
             'relatedRooms'      => $relatedRooms,
             'reviews'           => $this->reviewService->forRoomType($roomType->id),
             'reviewSummary'     => $this->reviewService->summaryFor($roomType->id),
+            'seasonalRate'      => $seasonalRate,
         ]);
     }
 }

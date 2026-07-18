@@ -69,26 +69,21 @@ class RoomTypeService
         $hasDateRange = ! empty($filters['check_in']) && ! empty($filters['check_out']);
 
         if (! $hasDateRange) {
-            return $query->paginate($perPage)->withQueryString();
+            $paginator = $query->paginate($perPage)->withQueryString();
+
+            $this->attachAvailability($paginator->getCollection(), now()->toDateString(), now()->addDay()->toDateString());
+
+            return $paginator;
         }
 
         $quantity = max(1, (int) ($filters['quantity'] ?? 1));
         $roomTypes = $query->get();
 
-        $bookedCounts = DB::table('booking_items')
-            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
-            ->whereIn('bookings.status', BookingStatus::holdingStatuses())
-            ->whereDate('bookings.check_in', '<', $filters['check_out'])
-            ->whereDate('bookings.check_out', '>', $filters['check_in'])
-            ->groupBy('booking_items.room_type_id')
-            ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
-            ->pluck('total_quantity', 'room_type_id');
+        $this->attachAvailability($roomTypes, $filters['check_in'], $filters['check_out']);
 
-        $available = $roomTypes->filter(function (RoomType $room) use ($bookedCounts, $quantity) {
-            $room->available_quantity = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
-
-            return $room->available_quantity >= $quantity;
-        })->values();
+        $available = $roomTypes->filter(
+            fn (RoomType $room) => $room->available_quantity >= $quantity
+        )->values();
 
         $page = (int) request('page', 1);
         $slice = $available->slice(($page - 1) * $perPage, $perPage)->values();
@@ -97,6 +92,35 @@ class RoomTypeService
             'path'  => request()->url(),
             'query' => request()->query(),
         ]));
+    }
+
+    /**
+     * Gắn `available_quantity` (số phòng còn trống thực tế trong khoảng
+     * check_in/check_out cho trước, đã trừ các booking đang giữ chỗ) lên
+     * từng RoomType — dùng chung cho cả nhánh có/không có date range trong
+     * search(), để danh sách công khai luôn khớp với số liệu admin thấy.
+     */
+    private function attachAvailability(iterable $roomTypes, string $checkIn, string $checkOut): void
+    {
+        $roomTypes = collect($roomTypes);
+
+        if ($roomTypes->isEmpty()) {
+            return;
+        }
+
+        $bookedCounts = DB::table('booking_items')
+            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+            ->whereIn('booking_items.room_type_id', $roomTypes->pluck('id'))
+            ->whereIn('bookings.status', BookingStatus::holdingStatuses())
+            ->whereDate('bookings.check_in', '<', $checkOut)
+            ->whereDate('bookings.check_out', '>', $checkIn)
+            ->groupBy('booking_items.room_type_id')
+            ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
+            ->pluck('total_quantity', 'room_type_id');
+
+        foreach ($roomTypes as $room) {
+            $room->available_quantity = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
+        }
     }
 
     private function applySort($query, ?string $sort): void

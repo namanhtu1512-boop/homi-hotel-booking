@@ -54,7 +54,9 @@
       "Bash(npm run *)",
       "Skill(artifact-design)",
       "Skill(artifact-design:*)",
-      "Bash(cp \"C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--laragon-www-DATN-homi-hotel-booking\\\\8dead61e-5424-4f40-851d-41474e7185da\\\\scratchpad\\\\homi-demo-guide.html\" \"c:\\\\laragon\\\\www\\\\DATN\\\\homi-hotel-booking\\\\docs\\\\demo-scripts\\\\Kich_Ban_Demo_Tuan10-16.html\" *)"
+      "Bash(cp \"C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--laragon-www-DATN-homi-hotel-booking\\\\8dead61e-5424-4f40-851d-41474e7185da\\\\scratchpad\\\\homi-demo-guide.html\" \"c:\\\\laragon\\\\www\\\\DATN\\\\homi-hotel-booking\\\\docs\\\\demo-scripts\\\\Kich_Ban_Demo_Tuan10-16.html\" *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(php -r \"echo readlink\\('public/storage'\\);\")"
     ],
     "additionalDirectories": [
       "\\tmp",
