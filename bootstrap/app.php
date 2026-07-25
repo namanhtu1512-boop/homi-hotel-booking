@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role'   => \App\Http\Middleware\RoleMiddleware::class,
             'active' => \App\Http\Middleware\CheckActiveAccount::class,
         ]);
+
+        // MoMo gọi IPN thẳng từ server của họ, không mang CSRF token của ta.
+        $middleware->validateCsrfTokens(except: [
+            'payment/momo/ipn',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -185,6 +185,7 @@
     </main>
 
     @include('partials._footer')
+    @include('partials._ai-assistant-widget')
 </body>
 
 </html>

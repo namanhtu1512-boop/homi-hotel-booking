@@ -22,6 +22,9 @@ class Payment extends Model
         'paid_at',
         'deposit_paid_at',
         'note',
+        'gateway_order_id',
+        'gateway_trans_id',
+        'gateway_payload',
     ];
 
     protected $casts = [

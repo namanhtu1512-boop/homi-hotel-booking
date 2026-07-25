@@ -11,6 +11,10 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
+    @if (session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+
     <form method="GET" action="{{ route('customer.bookings.index') }}" class="filter-bar">
         <select name="status" onchange="this.form.submit()">
             <option value="">Tất cả trạng thái</option>

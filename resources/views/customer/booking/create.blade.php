@@ -95,7 +95,13 @@
             <button type="submit" formmethod="GET" formaction="{{ route('customer.bookings.create') }}" class="btn-outline w-full">🔍 Kiểm tra phòng trống</button>
 
             @if (! empty($availabilities))
-                <div class="alert {{ collect($availabilities)->every(fn ($a) => $a['error'] === null && $a['result']['can_book']) ? 'alert-success' : 'alert-danger' }}">
+                @php
+                    $allAvailable = collect($availabilities)->every(fn ($a) => $a['error'] === null && $a['result']['can_book']);
+                @endphp
+                <div class="alert {{ $allAvailable ? 'alert-success' : 'alert-danger' }}" id="availability-alert" data-all-available="{{ $allAvailable ? '1' : '0' }}">
+                    @unless ($allAvailable)
+                        <div class="mb-2 font-bold">⚠️ Một hoặc nhiều loại phòng bạn chọn đã hết hoặc không đủ số lượng — vui lòng điều chỉnh số phòng/loại phòng bên trên rồi bấm "Kiểm tra phòng trống" lại trước khi đặt.</div>
+                    @endunless
                     @foreach ($availabilities as $a)
                         <div>
                             <strong>{{ $a['name'] }}:</strong>
@@ -192,7 +198,7 @@
                 <textarea class="input" id="note" name="note" rows="3" placeholder="Phòng không hút thuốc, tầng cao, ...">{{ old('note') }}</textarea>
             </div>
 
-            <button type="submit" class="btn-primary w-full">Xác nhận đặt phòng</button>
+            <button type="submit" id="submit-booking-btn" class="btn-primary w-full">Xác nhận đặt phòng</button>
         </form>
     </div>
 
@@ -202,6 +208,7 @@
             <ul class="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 <li>Bạn có thể chọn <strong>nhiều loại phòng</strong> trong cùng một đơn (dùng chung ngày nhận/trả).</li>
                 <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng).</li>
+                <li><strong>Trẻ em</strong> được tính là khách dưới 12 tuổi; tối đa <strong>2 trẻ em/phòng</strong> (ngoài số người lớn).</li>
                 <li>Đơn đặt phòng sẽ ở trạng thái <strong>chờ xác nhận</strong> cho đến khi admin duyệt.</li>
                 <li>Mã giảm giá (nếu có) sẽ được trừ trực tiếp vào tổng tiền đơn.</li>
                 <li>Để hủy đơn, vào <strong>Đơn của tôi</strong> và chọn Hủy đơn trước ngày nhận phòng.</li>
@@ -327,8 +334,13 @@
                 hintEl.textContent = '';
             }
 
+            const maxChildren = 2 * qty; // Chính sách: tối đa 2 trẻ em (dưới 12 tuổi) / phòng — xem BookingService::MAX_CHILDREN_PER_ROOM.
+
             if (capacityPerRoom > 0 && guests > capacity) {
                 warnEl.textContent = `Vượt sức chứa: ${guests} khách > tối đa ${capacity} khách của loại phòng này.`;
+                warnEl.classList.remove('hidden');
+            } else if (children > maxChildren) {
+                warnEl.textContent = `Vượt số trẻ em cho phép: ${children} trẻ > tối đa ${maxChildren} trẻ (2 trẻ/phòng) cho ${qty} phòng này.`;
                 warnEl.classList.remove('hidden');
             } else {
                 warnEl.classList.add('hidden');
@@ -351,8 +363,47 @@
         }
     };
 
+    // Điều kiện: ngày trả phòng luôn phải sau ngày nhận phòng — trước đây
+    // "min" của ô check_out cố định (ngày mai), không theo check_in, nên
+    // khách chọn check_in xa rồi vẫn chọn được check_out sớm hơn (chỉ bị
+    // chặn khi submit lên server). Cập nhật "min" động ngay khi đổi check_in.
+    function syncCheckOutMin() {
+        if (!checkInEl.value) return;
+        const nextDay = new Date(checkInEl.value);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const minStr = nextDay.toISOString().slice(0, 10);
+        checkOutEl.min = minStr;
+        if (checkOutEl.value && checkOutEl.value < minStr) {
+            checkOutEl.value = minStr;
+        }
+    }
+
+    checkInEl.addEventListener('change', syncCheckOutMin);
+    syncCheckOutMin();
+
     [checkInEl, checkOutEl].forEach(el => el.addEventListener('change', updateEstimate));
     updateEstimate();
+
+    // Chặn đặt phòng khi lần kiểm tra gần nhất báo thiếu/hết phòng — trước
+    // đây khách vẫn bấm "Xác nhận đặt phòng" được bình thường dù banner đỏ
+    // đang báo hết phòng, chỉ bị chặn khi server validate lại (UX rối, dễ
+    // hiểu nhầm là bug). Đổi số lượng/loại phòng thì mở khóa lại để khách
+    // kiểm tra phòng trống lần nữa với lựa chọn mới.
+    (function () {
+        const alertEl  = document.getElementById('availability-alert');
+        const submitBtn = document.getElementById('submit-booking-btn');
+        if (!alertEl || !submitBtn) return;
+
+        if (alertEl.dataset.allAvailable === '0') {
+            submitBtn.disabled = true;
+            submitBtn.title = 'Vui lòng điều chỉnh và kiểm tra lại phòng trống trước khi đặt.';
+        }
+
+        container.addEventListener('change', () => {
+            submitBtn.disabled = false;
+            submitBtn.title = '';
+        });
+    })();
 
     @if ($holdExpiresAt)
         (function () {

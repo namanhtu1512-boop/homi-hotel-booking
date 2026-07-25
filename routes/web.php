@@ -43,6 +43,8 @@ use App\Http\Controllers\Web\AboutController;
 use App\Http\Controllers\Web\NotificationPollController;
 use App\Http\Controllers\Web\Customer\NotificationController as CustomerNotificationController;
 use App\Http\Controllers\Web\Admin\NotificationController as AdminNotificationController;
+use App\Http\Controllers\Web\Payment\MomoController;
+use App\Http\Controllers\Web\AiAssistantController;
 
 // ---------------------------------------------------------------
 // Public
@@ -57,6 +59,7 @@ Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
 Route::get('/group-bookings', [GroupBookingController::class, 'show'])->name('group-bookings.show');
+Route::post('/ai-assistant/chat', [AiAssistantController::class, 'chat'])->middleware('throttle:20,1')->name('ai-assistant.chat');
 Route::post('/group-bookings', [GroupBookingController::class, 'store'])->middleware(['auth', 'role:customer', 'throttle:5,1'])->name('group-bookings.store');
 
 // Notification polling — dùng chung cho mọi role đã đăng nhập
@@ -67,6 +70,11 @@ Route::middleware('auth')->group(function () {
 
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
+
+// MoMo gọi lại (return: trình duyệt redirect, ipn: server-to-server) — không
+// đứng sau middleware 'auth' vì IPN không mang session của khách.
+Route::get('/payment/momo/return', [MomoController::class, 'returnUrl'])->name('payment.momo.return');
+Route::post('/payment/momo/ipn', [MomoController::class, 'ipn'])->name('payment.momo.ipn');
 
 // ---------------------------------------------------------------
 // Auth — guest only
@@ -114,7 +122,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::post('/{id}/cancel', [CustomerBookingController::class, 'cancel'])->name('cancel');
 
         // Thanh toán tự phục vụ — chỉ khả dụng khi đơn đã được admin xác nhận
-        // (xem Booking::canMarkPaymentAsPaid()).
+        // (xem Booking::canMarkPaymentAsPaid()). pay-online/pay-deposit redirect
+        // sang MoMo thật, trạng thái chỉ đổi khi MoMo xác nhận qua return/IPN.
         Route::post('/{id}/pay/online',        [CustomerBookingController::class, 'payOnline'])->name('pay-online');
         Route::post('/{id}/pay/bank-transfer', [CustomerBookingController::class, 'payBankTransfer'])->name('pay-bank-transfer');
         Route::post('/{id}/pay/deposit',       [CustomerBookingController::class, 'payDeposit'])->name('pay-deposit');
@@ -192,6 +201,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/cancel',    [AdminBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [AdminBookingController::class, 'complete'])->name('complete');
         Route::patch('/{id}/payment',  [AdminBookingController::class, 'updatePayment'])->name('update-payment');
+        Route::post('/{id}/services',  [AdminBookingController::class, 'addServices'])->name('add-services');
         Route::get('/{id}/check-in',   [AdminBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [AdminBookingController::class, 'checkIn'])->name('check-in');
         Route::post('/{id}/check-out', [AdminBookingController::class, 'checkOut'])->name('check-out');
@@ -310,6 +320,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::post('/{id}/cancel',    [StaffBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [StaffBookingController::class, 'complete'])->name('complete');
         Route::patch('/{id}/payment',  [StaffBookingController::class, 'updatePayment'])->name('update-payment');
+        Route::post('/{id}/services',  [StaffBookingController::class, 'addServices'])->name('add-services');
         Route::get('/{id}/check-in',   [StaffBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [StaffBookingController::class, 'checkIn'])->name('check-in');
         Route::post('/{id}/check-out', [StaffBookingController::class, 'checkOut'])->name('check-out');

@@ -79,7 +79,7 @@ Chi tiết dữ liệu mẫu có sẵn (mã đơn, mã khuyến mãi...) xem [`d
 
 | Vấn đề | Giải thích |
 |---|---|
-| Thanh toán chỉ là mô phỏng | Chưa nối VNPay/Momo thật — `PaymentMethod::ONLINE_DEMO` sinh mã giao dịch giả `DEMO-xxxxx`. Đúng theo phạm vi đồ án ("thanh toán mô phỏng"). |
+| Thanh toán đã nối MoMo thật (sandbox) | `PaymentMethod::MOMO` — redirect khách sang MoMo (test-payment.momo.vn), xác nhận qua return/IPN có verify chữ ký (`MomoPaymentService`, `BookingService::initiateMomoPayment()/confirmMomoPayment()`). Vẫn là môi trường sandbox/test của MoMo (không phát sinh tiền thật) — cần đăng ký business.momo.vn để lên production. |
 | Email không gửi thật | `MAIL_MAILER=log` — mọi email (nếu có) chỉ ghi vào `storage/logs/laravel.log`, không gửi thật. Không có tính năng gửi email nào đang được dùng ở luồng chính hiện tại. |
 | README.md mô tả dự án là "Backend API" | Đã lỗi thời — dự án hiện là Blade monolith, README chưa cập nhật theo. Việc viết lại README đầy đủ (hướng dẫn cài đặt, tài khoản demo, cấu trúc thư mục đúng thực tế) là nhiệm vụ Tuần 15 (BE1), chưa làm ở tuần này để tránh trùng phạm vi. |
 | Có cả `/api/v1/*` (REST API) và route Blade | Kiến trúc song song còn sót từ giai đoạn đầu dự án — quyết định có chủ đích không gỡ bỏ vì rủi ro/lợi ích không tương xứng. Không ảnh hưởng demo Blade chính. |

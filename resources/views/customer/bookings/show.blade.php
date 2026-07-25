@@ -13,6 +13,10 @@
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
 
+@if (session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
+
 @if ($errors->any())
     <div class="alert alert-danger">
         @foreach ($errors->all() as $error)
@@ -28,7 +32,7 @@
             <div class="flex-1">
                 <h2 class="font-heading text-xl font-bold text-emerald-700 dark:text-emerald-300">Đặt phòng thành công!</h2>
                 <p class="mt-1 text-sm text-emerald-700/80 dark:text-emerald-300/80">
-                    Mã đơn <strong>{{ $booking->booking_code }}</strong> đang chờ khách sạn xác nhận. Bạn có thể thanh toán ngay khi đơn được xác nhận.
+                    Mã đơn <strong>{{ $booking->booking_code }}</strong> đang chờ khách sạn xác nhận. Bạn có thể thanh toán ngay bây giờ — không cần chờ xác nhận, nhân viên sẽ đối soát và xác nhận đơn sau khi nhận được thanh toán.
                 </p>
             </div>
             <a href="{{ route('customer.bookings.index') }}" class="btn-primary shrink-0">Xem lịch sử đặt phòng</a>
@@ -224,7 +228,13 @@
 @elseif ($booking->canMarkPaymentAsPaid())
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
-        <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (demo, không phát sinh giao dịch thật).</p>
+        <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
+            @if ($booking->status === \App\Enums\BookingStatus::PENDING)
+                Đơn đang chờ xác nhận — bạn có thể thanh toán ngay, không cần chờ khách sạn duyệt đơn trước.
+            @else
+                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới.
+            @endif
+        </p>
 
         <div class="grid gap-4 sm:grid-cols-2">
             <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -232,16 +242,11 @@
                     <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">▦</span>
                     Chuyển khoản / Quét mã QR
                 </div>
-                <div class="mx-auto mb-3 grid h-28 w-28 grid-cols-6 grid-rows-6 gap-0.5 rounded-lg border border-slate-300 p-1.5 dark:border-slate-700">
-                    @for ($i = 0; $i < 36; $i++)
-                        <span class="{{ in_array($i, [0,1,2,4,5,6,7,10,11,13,16,17,19,20,22,25,28,29,30,31,32,34,35]) ? 'bg-slate-800 dark:bg-slate-200' : '' }}"></span>
-                    @endfor
-                </div>
-                <p class="mb-3 text-center text-xs text-slate-400">Mã QR minh hoạ — vui lòng chuyển khoản theo thông tin bên dưới</p>
+                <img src="{{ asset('image/bank-transfer-qr.jpg') }}" alt="Mã QR chuyển khoản"
+                    class="mx-auto mb-3 w-48 max-w-full rounded-lg border border-slate-300 dark:border-slate-700">
+                <p class="mb-3 text-center text-xs text-slate-400">Quét mã bằng app MoMo/ngân hàng bất kỳ (VietQR)</p>
                 <div class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
-                    <strong>Vietcombank — CN Cần Thơ</strong><br>
-                    STK: 0123456789 — CÔNG TY TNHH HOMI HOTEL<br>
-                    Nội dung: <strong>{{ $booking->booking_code }}</strong>
+                    Nội dung chuyển khoản: <strong>{{ $booking->booking_code }}</strong>
                 </div>
                 <form method="POST" action="{{ route('customer.bookings.pay-bank-transfer', $booking->id) }}" class="mt-3"
                     onsubmit="return confirm('Xác nhận bạn đã chuyển khoản cho đơn {{ $booking->booking_code }}?');">
@@ -256,11 +261,10 @@
                         <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">💳</span>
                         Ví điện tử / Thẻ ngân hàng
                     </div>
-                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Thanh toán ngay bằng ví điện tử hoặc thẻ (mô phỏng demo).</p>
-                    <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}"
-                        onsubmit="return confirm('Đây là thanh toán online mô phỏng (demo), không phát sinh giao dịch thật. Tiếp tục?');">
+                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Thanh toán qua ví MoMo — bạn sẽ được chuyển sang MoMo để hoàn tất.</p>
+                    <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}">
                         @csrf
-                        <button type="submit" class="btn-primary w-full">Thanh toán ngay (demo)</button>
+                        <button type="submit" class="btn-primary w-full">Thanh toán qua MoMo</button>
                     </form>
                 </div>
 
@@ -270,11 +274,11 @@
                             <span class="grid h-9 w-9 place-items-center rounded-lg bg-accent-light text-accent-dark dark:bg-accent/15">🏦</span>
                             Đặt cọc 30%
                         </div>
-                        <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ, trả {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ còn lại bằng tiền mặt khi nhận phòng.</p>
+                        <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ qua MoMo, trả {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ còn lại bằng tiền mặt khi nhận phòng.</p>
                         <form method="POST" action="{{ route('customer.bookings.pay-deposit', $booking->id) }}"
-                            onsubmit="return confirm('Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ (30%, mô phỏng). Còn lại {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ trả bằng tiền mặt khi nhận phòng. Tiếp tục?');">
+                            onsubmit="return confirm('Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ qua MoMo. Còn lại {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ trả bằng tiền mặt khi nhận phòng. Tiếp tục?');">
                             @csrf
-                            <button type="submit" class="btn-outline w-full">Đặt cọc 30%</button>
+                            <button type="submit" class="btn-outline w-full">Đặt cọc 30% qua MoMo</button>
                         </form>
                     </div>
                 @endif
