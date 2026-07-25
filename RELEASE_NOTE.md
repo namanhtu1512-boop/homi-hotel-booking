@@ -20,9 +20,10 @@ Laravel 13 Blade monolith. Đủ 3 khu vực: public (xem/tìm phòng), customer
 - **Booking core**: kiểm tra phòng trống theo overlap ngày, tạo đơn bằng
   transaction có khóa row chống race condition, khách xem/hủy đơn, admin
   xác nhận/hủy/hoàn thành với state machine đầy đủ + log lịch sử.
-- **Payment**: mô phỏng đầy đủ (pay-at-hotel, online demo, báo chuyển
-  khoản, đặt cọc 30%), admin cập nhật trạng thái, tự động hoàn tiền khi hủy
-  đơn đã thanh toán.
+- **Payment**: pay-at-hotel, MoMo thật (sandbox, redirect + verify chữ ký
+  return/IPN), báo chuyển khoản (admin xác nhận thủ công), đặt cọc 30% qua
+  MoMo, admin cập nhật trạng thái, tự động hoàn tiền khi hủy đơn đã thanh
+  toán.
 - **Admin mở rộng**: dashboard thống kê (đơn, doanh thu, tỷ lệ hủy/lấp đầy),
   quản lý khách hàng (tách khỏi quản lý tài khoản), audit log thao tác
   admin, quản lý khuyến mãi/đánh giá/tin tức/banner/liên hệ.

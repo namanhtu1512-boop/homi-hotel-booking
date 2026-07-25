@@ -133,27 +133,38 @@ class Booking extends Model
     }
 
     /**
-     * Chỉ được đánh dấu "đã thanh toán" khi đơn đã được admin/staff xác nhận
-     * (confirmed) hoặc khách đã nhận phòng (checked_in) — tránh thu tiền cho
-     * đơn còn đang chờ duyệt, nhưng vẫn cho phép thu nốt tiền mặt còn lại
-     * (deposit_paid -> paid) sau khi khách đã check-in.
+     * Khách được thanh toán ngay khi vừa đặt (pending), không cần chờ
+     * admin/staff xác nhận trước — nhân viên xác nhận đơn SAU khi khách đã
+     * trả tiền (đối soát), thay vì phải xác nhận trước rồi khách mới trả
+     * được. Vẫn cho phép thu nốt tiền mặt còn lại (deposit_paid -> paid)
+     * sau khi khách đã check-in.
      */
     public function canMarkPaymentAsPaid(): bool
     {
-        return in_array($this->status, [BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)
+        return in_array($this->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)
             && $this->payment
             && $this->payment->status->canTransitionTo(PaymentStatus::PAID);
     }
 
     /**
-     * Đặt cọc 30% chỉ áp dụng khi đơn đã xác nhận và CHƯA thanh toán/báo
-     * chuyển khoản gì cả (chỉ hợp lệ từ UNPAID — xem PaymentStatus::canTransitionTo()).
+     * Đặt cọc 30% áp dụng ngay từ khi đơn còn chờ xác nhận (pending) tới khi
+     * đã xác nhận — miễn CHƯA thanh toán/báo chuyển khoản gì cả (chỉ hợp lệ
+     * từ UNPAID — xem PaymentStatus::canTransitionTo()).
      */
     public function canPayDeposit(): bool
     {
-        return $this->status === BookingStatus::CONFIRMED
+        return in_array($this->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
             && $this->payment
             && $this->payment->status->canTransitionTo(PaymentStatus::DEPOSIT_PAID);
+    }
+
+    /**
+     * Thêm dịch vụ tại chỗ chỉ hợp lệ trong thời gian khách đang lưu trú
+     * (đã check-in, chưa check-out) — xem BookingService::addServices().
+     */
+    public function canAddServices(): bool
+    {
+        return $this->status === BookingStatus::CHECKED_IN;
     }
 
     /**

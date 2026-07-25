@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Booking\AddBookingServicesRequest;
 use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
 use App\Services\RoomService;
+use App\Services\ServiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,6 +20,7 @@ class BookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly AuditLogService $auditLog,
         private readonly RoomService $roomService,
+        private readonly ServiceService $serviceService,
     ) {}
 
     public function index(Request $request): View
@@ -46,7 +49,8 @@ class BookingController extends Controller
     public function show(int $id): View
     {
         return view('admin.bookings.show', [
-            'booking' => $this->bookingService->findForAdmin($id),
+            'booking'  => $this->bookingService->findForAdmin($id),
+            'services' => $this->serviceService->activePublic(),
         ]);
     }
 
@@ -150,5 +154,17 @@ class BookingController extends Controller
         return redirect()
             ->route('admin.bookings.show', $id)
             ->with('success', "Đã cập nhật trạng thái thanh toán đơn {$booking->booking_code}.");
+    }
+
+    public function addServices(int $id, AddBookingServicesRequest $request): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+        $this->bookingService->addServices($booking, $request->validated('services'));
+
+        $this->auditLog->log('booking.services_added', $booking, "Thêm dịch vụ phát sinh cho đơn \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('admin.bookings.show', $id)
+            ->with('success', "Đã thêm dịch vụ vào đơn {$booking->booking_code}.");
     }
 }

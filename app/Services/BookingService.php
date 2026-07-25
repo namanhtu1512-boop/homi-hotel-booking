@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewBookingReceived;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -25,11 +26,18 @@ use Illuminate\Validation\ValidationException;
 
 class BookingService
 {
+    /**
+     * Trẻ em được tính là dưới 12 tuổi (chính sách khách sạn) — tối đa 2 trẻ
+     * em mỗi phòng vật lý, tính thêm vào chứ không thay số người lớn.
+     */
+    private const MAX_CHILDREN_PER_ROOM = 2;
+
     public function __construct(
         private AvailabilityService $availabilityService,
         private PricingService $pricingService,
         private PromotionService $promotionService,
         private RoomHoldService $roomHoldService,
+        private MomoPaymentService $momoPaymentService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -51,19 +59,7 @@ class BookingService
 
         // Cùng rule sức chứa như create() của khách — admin/staff tạo đơn hộ
         // không được phép bỏ qua giới hạn số khách/phòng.
-        foreach ($data['items'] as $index => $item) {
-            $roomType = $roomTypes[(int) $item['room_type_id']];
-            $quantity = (int) $item['quantity'];
-            $adults   = (int) ($item['adults'] ?? 1);
-            $children = (int) ($item['children'] ?? 0);
-            $capacity = $roomType->capacity * $quantity;
-
-            if ($adults + $children > $capacity) {
-                throw ValidationException::withMessages([
-                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn + {$children} trẻ em."],
-                ]);
-            }
-        }
+        $this->assertOccupancyWithinLimits($data['items'], $roomTypes);
 
         return DB::transaction(function () use ($data, $roomTypes) {
             RoomType::whereIn('id', $roomTypes->keys()->sort()->values())->lockForUpdate()->get();
@@ -161,19 +157,7 @@ class BookingService
         // Kiểm tra sức chứa theo TỪNG loại phòng — mỗi dòng có capacity riêng
         // (roomType.capacity × quantity của chính dòng đó), không gộp chung
         // với các dòng khác trong đơn.
-        foreach ($data['items'] as $index => $item) {
-            $roomType  = $roomTypes[(int) $item['room_type_id']];
-            $quantity  = (int) $item['quantity'];
-            $adults    = (int) $item['adults'];
-            $children  = (int) ($item['children'] ?? 0);
-            $capacity  = $roomType->capacity * $quantity;
-
-            if ($adults + $children > $capacity) {
-                throw ValidationException::withMessages([
-                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng bạn khai báo {$adults} người lớn + {$children} trẻ em."],
-                ]);
-            }
-        }
+        $this->assertOccupancyWithinLimits($data['items'], $roomTypes);
 
         return DB::transaction(function () use ($customer, $data, $roomTypes, $services, $holdSessionId) {
             // Khóa các loại phòng liên quan theo thứ tự id tăng dần (tránh
@@ -363,38 +347,125 @@ class BookingService
             ]);
         }
 
-        $oldStatus = $booking->status;
-        $booking->update(['status' => BookingStatus::CANCELLED]);
-        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, 'Khách hủy đơn.');
+        return DB::transaction(function () use ($booking, $customer) {
+            $oldStatus = $booking->status;
+            $booking->update(['status' => BookingStatus::CANCELLED]);
+            $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, 'Khách hủy đơn.');
 
-        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy."));
+            // Đơn đã thanh toán đủ qua MoMo/chuyển khoản mà khách tự hủy vẫn
+            // phải được hoàn tiền — trước đây chỉ cancelByAdmin() làm việc
+            // này, cancelByCustomer() bỏ sót hoàn toàn (khách tự hủy xong
+            // tiền vẫn nằm ở trạng thái "đã thanh toán" mãi mãi).
+            if ($booking->payment && $booking->payment->canRefund()) {
+                $oldPaymentStatus = $booking->payment->status;
+                $booking->payment->update(['status' => PaymentStatus::REFUNDED]);
+                $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::REFUNDED, $customer->id, 'Tự động hoàn tiền khi khách hủy đơn.');
+            }
 
-        return $booking->fresh(['payment']);
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy."));
+
+            return $booking->fresh(['payment']);
+        });
     }
 
     /**
-     * Khách tự thanh toán online (mô phỏng — chưa nối gateway thật vì chưa
-     * có API key VNPay/Momo). Chỉ cho phép khi đơn đã được admin/staff xác
-     * nhận, đúng rule sẵn có ở Booking::canMarkPaymentAsPaid().
+     * Khởi tạo giao dịch MoMo thật (sandbox) cho thanh toán toàn bộ hoặc đặt
+     * cọc 30% — trả về payUrl để controller redirect khách sang MoMo.
+     * Trạng thái payment CHƯA đổi ở bước này, chỉ đổi sau khi MoMo xác nhận
+     * qua return/IPN (xem confirmMomoPayment()), tránh đánh dấu đã thanh
+     * toán trước khi khách thực sự hoàn tất trên MoMo.
      */
-    public function payOnlineDemo(int $bookingId, User $customer): Booking
+    public function initiateMomoPayment(int $bookingId, User $customer, string $type): array
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        if (! $booking->canMarkPaymentAsPaid()) {
-            throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể thanh toán khi đơn đã được xác nhận và chưa thanh toán.'],
-            ]);
+        if ($type === 'deposit') {
+            if (! $booking->canPayDeposit()) {
+                throw ValidationException::withMessages([
+                    'status' => ['Chỉ có thể đặt cọc khi đơn chưa hủy/chưa check-in và chưa thanh toán.'],
+                ]);
+            }
+            $amount    = (int) $booking->depositAmount();
+            $orderInfo = "Dat coc don {$booking->booking_code}";
+        } else {
+            if (! $booking->canMarkPaymentAsPaid()) {
+                throw ValidationException::withMessages([
+                    'status' => ['Chỉ có thể thanh toán khi đơn chưa hủy và chưa thanh toán.'],
+                ]);
+            }
+            $amount    = (int) $booking->total_amount;
+            $orderInfo = "Thanh toan don {$booking->booking_code}";
         }
 
-        $oldStatus = $booking->payment->status;
-        $booking->payment->update([
-            'method'           => PaymentMethod::ONLINE_DEMO,
-            'status'           => PaymentStatus::PAID,
-            'transaction_code' => 'DEMO-' . Str::upper(Str::random(10)),
-            'paid_at'          => now(),
+        $result = $this->momoPaymentService->createPaymentUrl($amount, $orderInfo, [
+            'booking_id' => $booking->id,
+            'payment_id' => $booking->payment->id,
+            'type'       => $type,
         ]);
-        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::PAID, $customer->id, 'Khách thanh toán online (mô phỏng).');
+
+        $booking->payment->update([
+            'gateway_order_id' => $result['orderId'],
+            'gateway_payload'  => json_encode($result['raw']),
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * Áp kết quả MoMo trả về (return redirect hoặc IPN) vào payment tương
+     * ứng. Idempotent — gọi nhiều lần (return + IPN cùng báo) không đổi
+     * trạng thái lần thứ hai. Chữ ký MoMo phải được verify TRƯỚC khi gọi
+     * hàm này (xem MomoPaymentService::verifySignature()).
+     */
+    public function confirmMomoPayment(string $orderId, array $momoData): ?Booking
+    {
+        $payment = Payment::where('gateway_order_id', $orderId)->first();
+
+        if (! $payment) {
+            return null;
+        }
+
+        $booking = $payment->booking;
+        $type    = $this->momoPaymentService->decodeExtraData($momoData['extraData'] ?? null)['type'] ?? 'full';
+        $target  = $type === 'deposit' ? PaymentStatus::DEPOSIT_PAID : PaymentStatus::PAID;
+
+        // Đã xử lý rồi (return + IPN cùng gọi, hoặc khách bấm back rồi F5) — bỏ qua.
+        if (! $payment->status->canTransitionTo($target)) {
+            return $booking;
+        }
+
+        $resultCode = (int) ($momoData['resultCode'] ?? -1);
+        $transId    = $momoData['transId'] ?? null;
+        $oldStatus  = $payment->status;
+
+        if ($resultCode !== 0) {
+            $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $booking->user_id, "Thanh toán MoMo thất bại (resultCode={$resultCode}): " . ($momoData['message'] ?? 'không rõ lý do'));
+
+            return $booking;
+        }
+
+        if ($type === 'deposit') {
+            $payment->update([
+                'method'                   => PaymentMethod::CASH_WITH_DEPOSIT,
+                'status'                   => PaymentStatus::DEPOSIT_PAID,
+                'deposit_amount'           => $booking->depositAmount(),
+                'deposit_transaction_code' => $transId,
+                'deposit_paid_at'          => now(),
+                'gateway_trans_id'         => $transId,
+            ]);
+            $note = 'Khách đặt cọc 30% qua MoMo, phần còn lại trả tiền mặt khi nhận phòng.';
+        } else {
+            $payment->update([
+                'method'           => PaymentMethod::MOMO,
+                'status'           => PaymentStatus::PAID,
+                'transaction_code' => $transId,
+                'paid_at'          => now(),
+                'gateway_trans_id' => $transId,
+            ]);
+            $note = 'Khách thanh toán qua MoMo.';
+        }
+
+        $this->logPaymentStatus($payment, $oldStatus, $target, $booking->user_id, $note);
 
         return $booking->fresh('payment');
     }
@@ -407,13 +478,13 @@ class BookingService
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        $canReportTransfer = $booking->status === BookingStatus::CONFIRMED
+        $canReportTransfer = in_array($booking->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
             && $booking->payment
             && $booking->payment->status->canTransitionTo(PaymentStatus::PENDING);
 
         if (! $canReportTransfer) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể báo chuyển khoản khi đơn đã được xác nhận và chưa thanh toán.'],
+                'status' => ['Chỉ có thể báo chuyển khoản khi đơn chưa hủy và chưa thanh toán.'],
             ]);
         }
 
@@ -423,35 +494,6 @@ class BookingService
             'status' => PaymentStatus::PENDING,
         ]);
         $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::PENDING, $customer->id, 'Khách báo đã chuyển khoản, chờ xác nhận.');
-
-        return $booking->fresh('payment');
-    }
-
-    /**
-     * Khách đặt cọc 30% qua kênh online (mô phỏng) — phần còn lại
-     * (Booking::remainingAfterDeposit()) trả bằng tiền mặt khi nhận phòng.
-     * Chỉ hợp lệ từ trạng thái UNPAID (xem Booking::canPayDeposit()); tiền
-     * cọc không tự động hoàn khi hủy đơn (PaymentStatus::canRefund()).
-     */
-    public function payDepositDemo(int $bookingId, User $customer): Booking
-    {
-        $booking = $this->findForCustomer($bookingId, $customer);
-
-        if (! $booking->canPayDeposit()) {
-            throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể đặt cọc khi đơn đã được xác nhận và chưa thanh toán.'],
-            ]);
-        }
-
-        $oldStatus = $booking->payment->status;
-        $booking->payment->update([
-            'method'                   => PaymentMethod::CASH_WITH_DEPOSIT,
-            'status'                   => PaymentStatus::DEPOSIT_PAID,
-            'deposit_amount'           => $booking->depositAmount(),
-            'deposit_transaction_code' => 'DEPOSIT-' . Str::upper(Str::random(10)),
-            'deposit_paid_at'          => now(),
-        ]);
-        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::DEPOSIT_PAID, $customer->id, 'Khách đặt cọc 30% (mô phỏng), phần còn lại trả tiền mặt khi nhận phòng.');
 
         return $booking->fresh('payment');
     }
@@ -684,6 +726,15 @@ class BookingService
             ]);
         }
 
+        // Bắt buộc thu đủ tiền (gồm cả phụ phí dịch vụ phát sinh trong lúc ở)
+        // trước khi trả phòng — trước đây check-out không đụng gì tới thanh
+        // toán, đơn có thể "trả phòng" xong mà khách chưa trả đồng nào.
+        if (! $booking->payment || ! $booking->payment->isPaid()) {
+            throw ValidationException::withMessages([
+                'status' => ['Cần thu đủ tiền (bấm "Đánh dấu đã thanh toán") trước khi trả phòng cho khách.'],
+            ]);
+        }
+
         return DB::transaction(function () use ($booking) {
             $oldStatus = $booking->status;
             $booking->update(['status' => BookingStatus::CHECKED_OUT]);
@@ -750,9 +801,88 @@ class BookingService
         });
     }
 
+    /**
+     * Khách đang lưu trú (checked_in) gọi thêm dịch vụ tại chỗ (ăn uống, giặt
+     * ủi, spa...) — phụ phí phát sinh cộng thẳng vào total_amount của đơn và
+     * amount của payment, để hóa đơn cuối cùng phản ánh đúng số tiền còn phải
+     * thu khi trả phòng (xem checkOut() bắt buộc payment PAID trước khi
+     * check-out).
+     */
+    public function addServices(Booking $booking, array $services): Booking
+    {
+        if ($booking->status !== BookingStatus::CHECKED_IN) {
+            throw ValidationException::withMessages([
+                'services' => ['Chỉ có thể thêm dịch vụ trong thời gian khách đang lưu trú (đã check-in, chưa check-out).'],
+            ]);
+        }
+
+        $catalog = collect($services)
+            ->mapWithKeys(fn (array $item) => [
+                (int) $item['service_id'] => Service::where('status', 'active')->findOrFail($item['service_id']),
+            ]);
+
+        return DB::transaction(function () use ($booking, $services, $catalog) {
+            $addedTotal = 0;
+
+            foreach ($services as $item) {
+                $service  = $catalog[(int) $item['service_id']];
+                $quantity = max(1, (int) ($item['quantity'] ?? 1));
+                $subtotal = (float) $service->price * $quantity;
+
+                $booking->serviceItems()->create([
+                    'service_id' => $service->id,
+                    'quantity'   => $quantity,
+                    'unit_price' => $service->price,
+                    'subtotal'   => $subtotal,
+                ]);
+
+                $addedTotal += $subtotal;
+            }
+
+            $booking->update(['total_amount' => $booking->total_amount + $addedTotal]);
+
+            if ($booking->payment) {
+                $booking->payment->update(['amount' => $booking->payment->amount + $addedTotal]);
+            }
+
+            return $booking->fresh(['serviceItems.service', 'payment']);
+        });
+    }
+
     // ----------------------------------------------------------------
     // PRIVATE
     // ----------------------------------------------------------------
+
+    /**
+     * Kiểm tra sức chứa (người lớn + trẻ em ≤ capacity × quantity) VÀ giới
+     * hạn số trẻ em mỗi phòng (MAX_CHILDREN_PER_ROOM) cho từng dòng loại
+     * phòng — dùng chung cho create() (khách) và createByAdmin() (admin/
+     * staff tạo hộ), tránh 2 nơi lặp lại cùng 1 rule rồi lệch nhau dần.
+     */
+    private function assertOccupancyWithinLimits(array $items, Collection $roomTypes): void
+    {
+        foreach ($items as $index => $item) {
+            $roomType = $roomTypes[(int) $item['room_type_id']];
+            $quantity = (int) $item['quantity'];
+            $adults   = (int) ($item['adults'] ?? 1);
+            $children = (int) ($item['children'] ?? 0);
+            $capacity = $roomType->capacity * $quantity;
+
+            if ($adults + $children > $capacity) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn + {$children} trẻ em."],
+                ]);
+            }
+
+            $maxChildren = self::MAX_CHILDREN_PER_ROOM * $quantity;
+
+            if ($children > $maxChildren) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.children" => ["Phòng \"{$roomType->name}\" chỉ nhận tối đa " . self::MAX_CHILDREN_PER_ROOM . " trẻ em (dưới 12 tuổi) mỗi phòng — tối đa {$maxChildren} trẻ cho {$quantity} phòng."],
+                ]);
+            }
+        }
+    }
 
     private function logStatus(
         Booking $booking,

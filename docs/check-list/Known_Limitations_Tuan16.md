@@ -22,7 +22,7 @@ vì để thầy tự phát hiện. Không phải bug — đều là quyết đ�
 
 | Giới hạn | Vì sao chấp nhận được |
 |---|---|
-| Thanh toán chỉ mô phỏng (không nối VNPay/Momo/Stripe thật) | Đúng phạm vi đề tài ("thanh toán mô phỏng"), có state machine đầy đủ (unpaid/pending/deposit_paid/paid/refunded) và test kỹ. |
+| Thanh toán đã nối MoMo thật (môi trường sandbox của MoMo) | `PaymentMethod::MOMO`, redirect + verify chữ ký HMAC ở return/IPN (`MomoPaymentService`), state machine đầy đủ (unpaid/pending/deposit_paid/paid/refunded). Vẫn là sandbox — chưa phát sinh tiền thật, cần đăng ký business.momo.vn để lên production. |
 | Email không gửi thật (`MAIL_MAILER=log`) | Không có luồng nghiệp vụ nào phụ thuộc email (xác nhận đơn hiển thị ngay trên web, không qua email). |
 | Không có CAPTCHA ở đăng ký/liên hệ/đánh giá | Đã bù bằng rate-limit (5 lần/phút) ở các form nhạy cảm — giảm rủi ro spam/brute-force ở mức chấp nhận được cho quy mô đồ án. |
 | Route `/admin/reports` (kế hoạch gốc liệt kê riêng) không tồn tại tách biệt | Toàn bộ số liệu báo cáo đã gộp vào `/admin/dashboard` (doanh thu, tỷ lệ hủy, lấp đầy) — không thiếu chức năng, chỉ khác tên route so với bảng route dự kiến ban đầu. |

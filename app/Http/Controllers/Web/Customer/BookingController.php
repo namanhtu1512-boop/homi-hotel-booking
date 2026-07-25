@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use RuntimeException;
 
 class BookingController extends Controller
 {
@@ -182,11 +183,7 @@ class BookingController extends Controller
 
     public function payOnline(int $id, Request $request): RedirectResponse
     {
-        $booking = $this->bookingService->payOnlineDemo($id, $request->user());
-
-        return redirect()
-            ->route('customer.bookings.show', $booking->id)
-            ->with('success', 'Thanh toán online thành công (mô phỏng).');
+        return $this->redirectToMomo($id, $request, 'full');
     }
 
     public function payBankTransfer(int $id, Request $request): RedirectResponse
@@ -200,13 +197,19 @@ class BookingController extends Controller
 
     public function payDeposit(int $id, Request $request): RedirectResponse
     {
-        $booking = $this->bookingService->payDepositDemo($id, $request->user());
+        return $this->redirectToMomo($id, $request, 'deposit');
+    }
 
-        $deposit   = number_format($booking->depositAmount(), 0, ',', '.');
-        $remaining = number_format($booking->remainingAfterDeposit(), 0, ',', '.');
+    private function redirectToMomo(int $id, Request $request, string $type): RedirectResponse
+    {
+        try {
+            $result = $this->bookingService->initiateMomoPayment($id, $request->user(), $type);
+        } catch (RuntimeException $e) {
+            return redirect()
+                ->route('customer.bookings.show', $id)
+                ->with('error', $e->getMessage());
+        }
 
-        return redirect()
-            ->route('customer.bookings.show', $booking->id)
-            ->with('success', "Đã đặt cọc {$deposit}đ. Vui lòng thanh toán {$remaining}đ còn lại bằng tiền mặt khi nhận phòng.");
+        return redirect()->away($result['payUrl']);
     }
 }
