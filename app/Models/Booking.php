@@ -20,6 +20,7 @@ class Booking extends Model
         'nights',
         'adults',
         'children',
+        'infants',
         'customer_name',
         'customer_email',
         'customer_phone',
@@ -34,6 +35,7 @@ class Booking extends Model
         'check_out'       => 'date',
         'adults'          => 'integer',
         'children'        => 'integer',
+        'infants'         => 'integer',
         'total_amount'    => 'decimal:2',
         'discount_amount' => 'integer',
         'status'          => BookingStatus::class,
@@ -127,9 +129,74 @@ class Booking extends Model
             && in_array($this->payment->status, [PaymentStatus::DEPOSIT_PAID, PaymentStatus::PAID], true);
     }
 
+    /**
+     * Chỉ check-out được khi đã thanh toán ĐỦ (PAID) — trước đây trả phòng
+     * được bất kể trạng thái thanh toán, nghĩa là phí phát sinh thêm trong
+     * lúc lưu trú (BookingService::applyExtraCharge(), mở lại về PENDING
+     * khi có phí mới sau khi đã PAID) có thể bị bỏ qua không thu. Bắt buộc
+     * thanh toán xong xuôi (kể cả phần phát sinh) ngay tại bước trả phòng.
+     */
     public function canCheckOut(): bool
     {
-        return $this->status->canCheckOut();
+        return $this->status->canCheckOut()
+            && $this->payment
+            && $this->payment->status === PaymentStatus::PAID;
+    }
+
+    /**
+     * "Hôm nay" theo giờ Việt Nam (khách sạn vận hành UTC+7, app chạy UTC —
+     * xem config/app.php), quy về NGÀY LỊCH thuần túy (không giờ/múi giờ)
+     * để so sánh an toàn với `check_out` (cột date, neo theo giờ UTC của
+     * app). Không được so sánh trực tiếp today('Asia/Ho_Chi_Minh') (một THỜI
+     * ĐIỂM cụ thể — 00:00 giờ VN tương đương 17:00 UTC hôm trước) với cột
+     * check_out bằng lt()/diffInDays() — 2 giá trị neo múi giờ khác nhau vẫn
+     * cho kết quả sai dù đã "quy đổi" sang giờ VN.
+     */
+    private static function todayForCheckoutComparison(): \Carbon\Carbon
+    {
+        return \Carbon\Carbon::createFromFormat('Y-m-d', now('Asia/Ho_Chi_Minh')->toDateString())->startOfDay();
+    }
+
+    /**
+     * Khách đang trả phòng SỚM hơn ngày check_out đã đặt hay không — dùng
+     * chung với hiển thị nút "Trả phòng sớm" ở admin/staff, tránh định nghĩa
+     * "sớm" bị lặp lại và có thể lệch nhau giữa các nơi.
+     */
+    public function isEarlyCheckoutToday(): bool
+    {
+        return self::todayForCheckoutComparison()->lt($this->check_out);
+    }
+
+    /**
+     * Số đêm chưa sử dụng nếu trả phòng ngay hôm nay (chỉ có ý nghĩa khi
+     * isEarlyCheckoutToday() là true).
+     */
+    public function nightsRemainingForEarlyCheckout(): int
+    {
+        return self::todayForCheckoutComparison()->diffInDays($this->check_out);
+    }
+
+    /**
+     * Hôm nay có đúng là ngày check_in đã đặt của đơn hay không — dùng để
+     * phân biệt "khách đến sớm trong ngày nhận phòng" (đúng ngày, chỉ sớm
+     * giờ) với "khách nhận phòng trễ hơn ngày đã đặt" (sai ngày, không phải
+     * đến sớm dù giờ nhận phòng thực tế vẫn trước giờ chuẩn của khách sạn).
+     */
+    public function isCheckInDateToday(): bool
+    {
+        return self::todayForCheckoutComparison()->isSameDay($this->check_in);
+    }
+
+    /**
+     * Hôm nay có đúng là ngày check_out đã đặt của đơn hay không — dùng để
+     * phân biệt "khách trả phòng muộn TRONG ngày trả phòng đã đặt" (đúng
+     * ngày, chỉ trễ giờ, có thể tính phụ phí trả phòng muộn) với "khách trả
+     * phòng sớm hơn ngày đã đặt" (xem isEarlyCheckoutToday(), không tính là
+     * muộn dù giờ trả phòng thực tế có thể đã qua giờ chuẩn).
+     */
+    public function isCheckOutDateToday(): bool
+    {
+        return self::todayForCheckoutComparison()->isSameDay($this->check_out);
     }
 
     /**
@@ -177,9 +244,19 @@ class Booking extends Model
 
     /**
      * Phần còn lại khách trả bằng tiền mặt khi nhận phòng sau khi đã cọc.
+     *
+     * Nếu đã thực sự đặt cọc, dùng đúng số tiền cọc ĐÃ CHỐT tại thời điểm đó
+     * (payment.deposit_amount) thay vì tính lại 30% của total_amount hiện
+     * tại — nếu không, một phụ phí phát sinh SAU khi cọc (applyExtraCharge())
+     * làm total_amount tăng lên sẽ khiến số này bị tính lại sai (hụt hơn số
+     * tiền mặt thực sự còn phải thu). Trước khi đặt cọc (chưa có deposit_amount
+     * lưu), vẫn dùng công thức 30% hiện tại để xem trước.
      */
     public function remainingAfterDeposit(): float
     {
-        return round((float) $this->total_amount - $this->depositAmount());
+        $depositPaid = (float) ($this->payment->deposit_amount ?? 0);
+        $deposit = $depositPaid > 0 ? $depositPaid : $this->depositAmount();
+
+        return round((float) $this->total_amount - $deposit);
     }
 }

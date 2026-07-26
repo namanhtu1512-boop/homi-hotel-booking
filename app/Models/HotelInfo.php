@@ -35,6 +35,8 @@ class HotelInfo extends Model
         'status',
         'weekend_surcharge_percent',
         'child_surcharge_per_night',
+        'early_checkin_surcharge_percent',
+        'late_checkout_surcharge_percent',
     ];
 
     protected $casts = [
@@ -42,6 +44,8 @@ class HotelInfo extends Model
         'status'                    => 'string',
         'weekend_surcharge_percent' => 'decimal:2',
         'child_surcharge_per_night' => 'integer',
+        'early_checkin_surcharge_percent' => 'decimal:2',
+        'late_checkout_surcharge_percent' => 'decimal:2',
         'latitude'                  => 'decimal:7',
         'longitude'                 => 'decimal:7',
     ];

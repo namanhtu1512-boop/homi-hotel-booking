@@ -20,6 +20,10 @@ class UpdateHotelInfoRequest extends BaseFormRequest
             'amenity_ids.*'   => ['integer', 'exists:amenities,id'],
             'images'          => ['nullable', 'array'],
             'images.*'        => ['string', 'max:500'],
+            'weekend_surcharge_percent'       => ['nullable', 'numeric', 'between:0,100'],
+            'child_surcharge_per_night'       => ['nullable', 'numeric', 'min:0'],
+            'early_checkin_surcharge_percent' => ['nullable', 'numeric', 'between:0,100'],
+            'late_checkout_surcharge_percent' => ['nullable', 'numeric', 'between:0,100'],
         ];
     }
 
@@ -37,6 +41,10 @@ class UpdateHotelInfoRequest extends BaseFormRequest
             'amenity_ids.*'  => 'tiện ích',
             'images'         => 'hình ảnh',
             'images.*'       => 'đường dẫn ảnh',
+            'weekend_surcharge_percent'       => 'phụ thu cuối tuần (%)',
+            'child_surcharge_per_night'       => 'phụ thu trẻ em/đêm',
+            'early_checkin_surcharge_percent' => 'phụ thu nhận phòng sớm (%)',
+            'late_checkout_surcharge_percent' => 'phụ thu trả phòng muộn (%)',
         ];
     }
 }

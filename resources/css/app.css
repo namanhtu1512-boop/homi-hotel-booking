@@ -94,6 +94,24 @@
         @apply bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300;
     }
 
+    /* Nhãn mã khuyến mãi dạng "coupon" — viền đứt nét + font monospace để mã
+       dễ đọc/dễ phân biệt với chữ thường xung quanh, khác với .badge dùng
+       chung cho mọi trạng thái (đơn, phòng...). */
+    .coupon-code {
+        @apply inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-accent-dark/50 bg-accent-light px-3 py-1.5 font-mono text-sm font-bold tracking-wide text-accent-dark dark:border-accent/50 dark:bg-accent/10 dark:text-accent;
+    }
+
+    .coupon-copy-btn {
+        @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-base leading-none transition hover:bg-accent-dark/10 dark:hover:bg-accent/20;
+    }
+
+    /* Thẻ giảm giá theo mùa đè ở góc ảnh phòng — chữ nhật bo nhẹ (không
+       phải pill tròn như .badge), luôn chỉ chứa số % ngắn gọn nên không lo
+       tràn ra ngoài ảnh dù card hẹp. */
+    .discount-tag {
+        @apply absolute top-2.5 left-2.5 rounded-md bg-red-500 px-2 py-1 text-xs font-bold whitespace-nowrap text-white shadow-sm;
+    }
+
     .input {
         @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900;
     }
@@ -394,5 +412,57 @@
 
     .logout-form {
         @apply m-0;
+    }
+}
+
+/* Hóa đơn in (resources/views/bookings/invoice.blade.php) — trang này chỉ
+   dùng layouts.print, không load theme-script nên .dark không bao giờ bật
+   ở đây, nhưng UI vẫn đang tái dùng nguyên style màn hình (card có shadow/
+   bo góc, badge nền màu nhạt, chữ xám mờ...) — khi in ra giấy (đặc biệt khi
+   trình duyệt tắt "in nền/màu" theo mặc định) chữ mờ/badge mất màu nền sẽ
+   khó đọc. Quy tắc dưới đây chỉ áp dụng lúc in (@media print), không ảnh
+   hưởng giao diện xem trên màn hình.
+*/
+@media print {
+    @page {
+        size: A4;
+        margin: 1.2cm;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+
+    #invoice-document {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    #invoice-document .text-slate-400,
+    #invoice-document .text-slate-500,
+    #invoice-document .label {
+        color: #444 !important;
+    }
+
+    #invoice-document table {
+        border-collapse: collapse;
+    }
+
+    #invoice-document th,
+    #invoice-document td {
+        border: 1px solid #999 !important;
+        padding: 6px 8px !important;
+    }
+
+    #invoice-document .badge {
+        border: 1px solid #666 !important;
+        background: none !important;
+        color: #000 !important;
+    }
+
+    .invoice-signatures {
+        break-inside: avoid;
     }
 }

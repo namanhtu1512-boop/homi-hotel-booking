@@ -9,13 +9,10 @@ use App\Services\BookingService;
 use App\Services\PricingService;
 use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
-use App\Services\SeasonalRateService;
-use App\Services\ServiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use RuntimeException;
 
 class BookingController extends Controller
 {
@@ -24,9 +21,7 @@ class BookingController extends Controller
         private readonly RoomTypeService $roomTypeService,
         private readonly AvailabilityService $availabilityService,
         private readonly RoomHoldService $roomHoldService,
-        private readonly ServiceService $serviceService,
         private readonly PricingService $pricingService,
-        private readonly SeasonalRateService $seasonalRateService,
     ) {}
 
     public function create(Request $request): View
@@ -38,6 +33,17 @@ class BookingController extends Controller
         }
 
         $roomTypes = $this->roomTypeService->list();
+
+        // Giá "tạm tính" phía JS (updateEstimate() trong blade) trước đây chỉ
+        // dùng giá gốc, gây lệch số với khối "Kiểm tra phòng trống" bên dưới
+        // (đã tính đúng giá theo mùa + cuối tuần qua PricingService::calculate())
+        // khi có đợt giá đang active hôm nay hoặc đêm nay là cuối tuần — dùng
+        // previewTonight() (gọi thẳng calculate()) để 2 nơi luôn khớp nhau
+        // trong trường hợp phổ biến (không đảm bảo khớp 100% khi kỳ nghỉ nhiều
+        // đêm vắt qua nhiều mức giá khác nhau — JS vẫn chỉ là ước tính nhanh).
+        $todayPrices = $roomTypes->mapWithKeys(fn ($type) => [
+            $type->id => $this->pricingService->previewTonight($type)['preview_price'],
+        ]);
 
         $checkIn  = $request->query('check_in');
         $checkOut = $request->query('check_out');
@@ -105,8 +111,7 @@ class BookingController extends Controller
             'checkOut'       => $checkOut,
             'availabilities' => $availabilities,
             'holdExpiresAt'  => $holdExpiresAt,
-            'services'       => $this->serviceService->activePublic(),
-            'seasonalRates'  => $this->seasonalRateService->allActive(),
+            'todayPrices'    => $todayPrices,
         ]);
     }
 
@@ -177,7 +182,13 @@ class BookingController extends Controller
 
     public function cancel(int $id, Request $request): RedirectResponse
     {
-        $this->bookingService->cancelByCustomer($id, $request->user());
+        $result = $this->bookingService->cancelByCustomer($id, $request->user());
+
+        if (! $result['refund_ok']) {
+            return redirect()
+                ->route('customer.bookings.show', $id)
+                ->with('error', 'Đã hủy đơn, nhưng hoàn tiền tự động không thành công. Khách sạn sẽ liên hệ để hoàn tiền thủ công.');
+        }
 
         return redirect()
             ->route('customer.bookings.show', $id)
@@ -186,7 +197,9 @@ class BookingController extends Controller
 
     public function payOnline(int $id, Request $request): RedirectResponse
     {
-        return $this->redirectToMomo($id, $request, 'full');
+        $result = $this->bookingService->initiateVnpayPayment($id, $request->user(), $request->ip());
+
+        return redirect()->away($result['payment_url']);
     }
 
     public function payBankTransfer(int $id, Request $request): RedirectResponse
@@ -200,19 +213,13 @@ class BookingController extends Controller
 
     public function payDeposit(int $id, Request $request): RedirectResponse
     {
-        return $this->redirectToMomo($id, $request, 'deposit');
-    }
+        $booking = $this->bookingService->payDepositDemo($id, $request->user());
 
-    private function redirectToMomo(int $id, Request $request, string $type): RedirectResponse
-    {
-        try {
-            $result = $this->bookingService->initiateMomoPayment($id, $request->user(), $type);
-        } catch (RuntimeException $e) {
-            return redirect()
-                ->route('customer.bookings.show', $id)
-                ->with('error', $e->getMessage());
-        }
+        $deposit   = number_format($booking->depositAmount(), 0, ',', '.');
+        $remaining = number_format($booking->remainingAfterDeposit(), 0, ',', '.');
 
-        return redirect()->away($result['payUrl']);
+        return redirect()
+            ->route('customer.bookings.show', $booking->id)
+            ->with('success', "Đã đặt cọc {$deposit}đ. Vui lòng thanh toán {$remaining}đ còn lại bằng tiền mặt khi nhận phòng.");
     }
 }

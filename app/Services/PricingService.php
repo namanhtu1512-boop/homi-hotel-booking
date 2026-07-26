@@ -57,6 +57,7 @@ class PricingService
                 'date'                => $cursor->toDateString(),
                 'base_price'          => $basePrice,
                 'seasonal_adjustment' => $seasonalAdjustment,
+                'seasonal_rate'       => $rate,
                 'is_weekend'          => $isWeekend,
                 'weekend_surcharge'   => $weekendSurcharge,
                 'nightly_total'       => $nightlyTotal,
@@ -83,5 +84,38 @@ class PricingService
     public function nightCount(string $checkIn, string $checkOut): int
     {
         return Carbon::parse($checkIn)->diffInDays(Carbon::parse($checkOut));
+    }
+
+    /**
+     * Xem trước giá "tối nay" (1 đêm, tính từ hôm nay theo giờ Việt Nam) cho
+     * 1 loại phòng — dùng cho trang danh sách/chi tiết phòng và ước tính JS
+     * lúc đặt phòng, TRƯỚC khi khách chọn ngày nhận/trả cụ thể. Gọi thẳng
+     * calculate() nên luôn khớp 100% với giá thật lúc đặt (gồm cả phụ thu
+     * cuối tuần + đúng rate mùa nào thắng), khác với việc tự viết lại công
+     * thức riêng ở nơi khác rồi bị lệch dần theo thời gian.
+     *
+     * @return array{base_price: float, preview_price: float, seasonal_rate: ?\App\Models\SeasonalRate, is_discount: bool}
+     */
+    public function previewTonight(RoomType $roomType): array
+    {
+        $checkIn  = now('Asia/Ho_Chi_Minh')->toDateString();
+        $checkOut = now('Asia/Ho_Chi_Minh')->addDay()->toDateString();
+
+        $pricing = $this->calculate($roomType, $checkIn, $checkOut, 1, 0);
+        $night   = $pricing['nightly_breakdown'][0] ?? null;
+
+        $basePrice    = (float) $roomType->price_per_night;
+        $previewPrice = $pricing['total_price'];
+
+        return [
+            'base_price'    => $basePrice,
+            'preview_price' => $previewPrice,
+            'seasonal_rate' => $night['seasonal_rate'] ?? null,
+            // Chỉ coi là "đang giảm giá" khi giá xem trước THẤP HƠN giá gốc
+            // — một seasonal rate dương (phụ thu mùa cao điểm) hoặc phụ thu
+            // cuối tuần có thể khiến giá xem trước CAO HƠN, không được vẽ
+            // thành nhãn giảm giá màu đỏ trong trường hợp đó.
+            'is_discount'   => $previewPrice < $basePrice,
+        ];
     }
 }

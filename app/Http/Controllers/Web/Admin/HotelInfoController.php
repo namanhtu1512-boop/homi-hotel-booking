@@ -70,6 +70,8 @@ class HotelInfoController extends Controller
             'star_rating'    => ['nullable', 'integer', 'between:1,5'],
             'weekend_surcharge_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'child_surcharge_per_night' => ['nullable', 'integer', 'min:0'],
+            'early_checkin_surcharge_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'late_checkout_surcharge_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'amenity_ids'    => ['nullable', 'array'],
             'amenity_ids.*'  => ['integer', 'exists:amenities,id'],
             'images_text'    => ['nullable', 'string', $this->eachImageLineMax500()],
@@ -89,6 +91,8 @@ class HotelInfoController extends Controller
             'star_rating'    => 'xếp hạng sao',
             'weekend_surcharge_percent' => 'phụ thu cuối tuần',
             'child_surcharge_per_night' => 'phụ thu trẻ em/đêm',
+            'early_checkin_surcharge_percent' => 'phụ phí nhận phòng sớm',
+            'late_checkout_surcharge_percent' => 'phụ phí trả phòng muộn',
             'amenity_ids'    => 'tiện ích',
             'image_files.*'  => 'file ảnh',
         ]);

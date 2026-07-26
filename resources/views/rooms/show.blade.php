@@ -161,31 +161,21 @@
     <div class="flex flex-col gap-5">
         <div id="price-sidebar" class="card sticky top-20 {{ $seasonalRate ? 'ring-2 ring-offset-2 dark:ring-offset-slate-950 ' . ($seasonalRate->adjustment_value < 0 ? 'ring-red-500' : 'ring-amber-500') : '' }}">
             <span class="section-kicker">Giá phòng</span>
-
-            @php
-                $seasonalPrice = $seasonalRate
-                    ? $roomType->price_per_night + ($seasonalRate->adjustment_type === 'percent'
-                        ? round($roomType->price_per_night * ((float) $seasonalRate->adjustment_value / 100))
-                        : (float) $seasonalRate->adjustment_value)
-                    : null;
-            @endphp
-
             @if ($seasonalRate)
-                <span class="mb-2 inline-flex animate-pulse items-center gap-1 rounded-full bg-gradient-to-r {{ $seasonalRate->adjustment_value < 0 ? 'from-red-600 to-orange-500' : 'from-amber-600 to-amber-500' }} px-3 py-1.5 text-sm font-extrabold text-white shadow-md">
-                    {{ $seasonalRate->adjustment_value < 0 ? '🔥 Giảm giá mùa' : '📈 Phụ thu mùa' }} · {{ $seasonalRate->label }}
-                    ({{ $seasonalRate->adjustment_type === 'percent' ? number_format($seasonalRate->adjustment_value, 0) . '%' : number_format($seasonalRate->adjustment_value, 0, ',', '.') . 'đ' }})
-                </span>
-                <div class="mb-1 text-sm text-slate-400 line-through">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ</div>
-                <div class="mb-1 text-4xl font-extrabold {{ $seasonalRate->adjustment_value < 0 ? 'text-green-600' : 'text-red-600' }}">
-                    {{ number_format($seasonalPrice, 0, ',', '.') }}đ
+                <div class="mb-2 flex items-center gap-2">
+                    <span class="badge badge-red">{{ $discountLabel }}</span>
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ $seasonalRate->label }}</span>
                 </div>
-                <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng · áp dụng {{ $seasonalRate->start_date->format('d/m') }} – {{ $seasonalRate->end_date->format('d/m/Y') }}</div>
+                <div class="text-sm font-semibold text-slate-400 line-through">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ</div>
+                <div class="mb-1 text-3xl font-extrabold text-red-500">
+                    {{ number_format($discountedPrice, 0, ',', '.') }}đ
+                </div>
             @else
                 <div class="mb-1 text-3xl font-extrabold text-primary">
                     {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ
                 </div>
-                <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng</div>
             @endif
+            <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng</div>
 
             <form method="GET" action="{{ route('rooms.show', $roomType->id) }}" class="space-y-3">
                 <div>

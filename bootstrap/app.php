@@ -17,9 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => \App\Http\Middleware\CheckActiveAccount::class,
         ]);
 
-        // MoMo gọi IPN thẳng từ server của họ, không mang CSRF token của ta.
+        // VNPay gọi IPN từ server của họ, không mang CSRF token của Laravel.
         $middleware->validateCsrfTokens(except: [
-            'payment/momo/ipn',
+            'payment/vnpay/ipn',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

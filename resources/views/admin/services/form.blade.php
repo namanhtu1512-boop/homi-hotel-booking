@@ -46,6 +46,19 @@
             </select>
         </div>
 
+        <div class="form-group">
+            <label for="available_from">Giờ bắt đầu phục vụ</label>
+            <input id="available_from" type="time" name="available_from"
+                value="{{ old('available_from', $service?->available_from ? substr($service->available_from, 0, 5) : '') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="available_until">Giờ kết thúc phục vụ</label>
+            <input id="available_until" type="time" name="available_until"
+                value="{{ old('available_until', $service?->available_until ? substr($service->available_until, 0, 5) : '') }}">
+            <p class="text-xs text-slate-500 dark:text-slate-400" style="margin-top: 4px;">Để trống cả 2 ô nếu dịch vụ phục vụ cả ngày (VD: khăn tắm thêm, giặt ủi). Nếu đặt, khách/nhân viên chỉ thêm được dịch vụ này trong đúng khung giờ.</p>
+        </div>
+
         <button type="submit" class="btn btn-primary btn-block">{{ $isEdit ? 'Lưu thay đổi' : 'Tạo dịch vụ' }}</button>
     </form>
 </div>

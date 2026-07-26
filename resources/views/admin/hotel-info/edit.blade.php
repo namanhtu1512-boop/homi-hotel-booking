@@ -89,6 +89,16 @@
                 <label for="child_surcharge_per_night">Phụ thu trẻ em (VNĐ/trẻ/đêm)</label>
                 <input id="child_surcharge_per_night" type="number" min="0" name="child_surcharge_per_night" value="{{ old('child_surcharge_per_night', $hotel->child_surcharge_per_night) }}">
             </div>
+            <div class="form-group">
+                <label for="early_checkin_surcharge_percent">Phụ phí nhận phòng sớm (% giá phòng/đêm đầu)</label>
+                <input id="early_checkin_surcharge_percent" type="number" min="0" max="100" step="0.1" name="early_checkin_surcharge_percent" value="{{ old('early_checkin_surcharge_percent', $hotel->early_checkin_surcharge_percent) }}">
+                <p class="section-desc">Tự động tính khi khách nhận phòng trước giờ nhận phòng tiêu chuẩn ở trên. Để 0 nếu không thu phí.</p>
+            </div>
+            <div class="form-group">
+                <label for="late_checkout_surcharge_percent">Phụ phí trả phòng muộn (% giá phòng/đêm cuối)</label>
+                <input id="late_checkout_surcharge_percent" type="number" min="0" max="100" step="0.1" name="late_checkout_surcharge_percent" value="{{ old('late_checkout_surcharge_percent', $hotel->late_checkout_surcharge_percent) }}">
+                <p class="section-desc">Tự động tính khi khách trả phòng sau giờ trả phòng tiêu chuẩn ở trên, đúng ngày trả phòng đã đặt. Để 0 nếu không thu phí.</p>
+            </div>
         </div>
 
         <div class="form-group">

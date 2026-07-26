@@ -15,6 +15,7 @@ class BookingItem extends Model
         'quantity',
         'adults',
         'children',
+        'infants',
         'price_per_night',
         'nights',
         'subtotal',
@@ -25,6 +26,7 @@ class BookingItem extends Model
     protected $casts = [
         'adults'          => 'integer',
         'children'        => 'integer',
+        'infants'         => 'integer',
         'price_per_night' => 'decimal:2',
         'subtotal'        => 'decimal:2',
         'child_surcharge' => 'decimal:2',

@@ -39,11 +39,11 @@ use App\Http\Controllers\Web\Staff\BookingController as StaffBookingController;
 use App\Http\Controllers\Web\Staff\PaymentController as StaffPaymentController;
 use App\Http\Controllers\Web\Staff\ChatController as StaffChatController;
 use App\Http\Controllers\Web\Staff\GroupBookingController as StaffGroupBookingController;
+use App\Http\Controllers\Web\PaymentGatewayController;
 use App\Http\Controllers\Web\AboutController;
 use App\Http\Controllers\Web\NotificationPollController;
 use App\Http\Controllers\Web\Customer\NotificationController as CustomerNotificationController;
 use App\Http\Controllers\Web\Admin\NotificationController as AdminNotificationController;
-use App\Http\Controllers\Web\Payment\MomoController;
 use App\Http\Controllers\Web\AiAssistantController;
 
 // ---------------------------------------------------------------
@@ -71,10 +71,14 @@ Route::middleware('auth')->group(function () {
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
 
-// MoMo gọi lại (return: trình duyệt redirect, ipn: server-to-server) — không
-// đứng sau middleware 'auth' vì IPN không mang session của khách.
-Route::get('/payment/momo/return', [MomoController::class, 'returnUrl'])->name('payment.momo.return');
-Route::post('/payment/momo/ipn', [MomoController::class, 'ipn'])->name('payment.momo.ipn');
+// VNPay gọi về sau khi khách thanh toán — công khai, không qua middleware
+// auth (VNPay không mang session/cookie của khách khi redirect/gọi IPN).
+Route::prefix('payment/vnpay')->name('payment.vnpay.')->group(function () {
+    Route::get('/return', [PaymentGatewayController::class, 'vnpayReturn'])->name('return');
+    // VNPay gọi IPN bằng GET (query string), không phải POST — vẫn thêm cả
+    // POST để tương thích nếu cấu hình sandbox dùng phương thức khác.
+    Route::match(['get', 'post'], '/ipn', [PaymentGatewayController::class, 'vnpayIpn'])->name('ipn');
+});
 
 // ---------------------------------------------------------------
 // Auth — guest only
@@ -122,8 +126,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::post('/{id}/cancel', [CustomerBookingController::class, 'cancel'])->name('cancel');
 
         // Thanh toán tự phục vụ — chỉ khả dụng khi đơn đã được admin xác nhận
-        // (xem Booking::canMarkPaymentAsPaid()). pay-online/pay-deposit redirect
-        // sang MoMo thật, trạng thái chỉ đổi khi MoMo xác nhận qua return/IPN.
+        // (xem Booking::canMarkPaymentAsPaid()). pay-online redirect sang VNPay
+        // thật, trạng thái chỉ đổi khi VNPay xác nhận qua return/IPN.
         Route::post('/{id}/pay/online',        [CustomerBookingController::class, 'payOnline'])->name('pay-online');
         Route::post('/{id}/pay/bank-transfer', [CustomerBookingController::class, 'payBankTransfer'])->name('pay-bank-transfer');
         Route::post('/{id}/pay/deposit',       [CustomerBookingController::class, 'payDeposit'])->name('pay-deposit');
@@ -201,10 +205,14 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/cancel',    [AdminBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [AdminBookingController::class, 'complete'])->name('complete');
         Route::patch('/{id}/payment',  [AdminBookingController::class, 'updatePayment'])->name('update-payment');
-        Route::post('/{id}/services',  [AdminBookingController::class, 'addServices'])->name('add-services');
         Route::get('/{id}/check-in',   [AdminBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [AdminBookingController::class, 'checkIn'])->name('check-in');
         Route::post('/{id}/check-out', [AdminBookingController::class, 'checkOut'])->name('check-out');
+
+        // Phát sinh trong lúc lưu trú (chỉ áp dụng khi đơn đã check-in — xem
+        // BookingService::addServiceItem()/addSurcharge()).
+        Route::post('/{id}/services',  [AdminBookingController::class, 'addService'])->name('services.store');
+        Route::post('/{id}/surcharge', [AdminBookingController::class, 'addSurcharge'])->name('surcharge.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
@@ -320,10 +328,12 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::post('/{id}/cancel',    [StaffBookingController::class, 'cancel'])->name('cancel');
         Route::post('/{id}/complete',  [StaffBookingController::class, 'complete'])->name('complete');
         Route::patch('/{id}/payment',  [StaffBookingController::class, 'updatePayment'])->name('update-payment');
-        Route::post('/{id}/services',  [StaffBookingController::class, 'addServices'])->name('add-services');
         Route::get('/{id}/check-in',   [StaffBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [StaffBookingController::class, 'checkIn'])->name('check-in');
         Route::post('/{id}/check-out', [StaffBookingController::class, 'checkOut'])->name('check-out');
+
+        Route::post('/{id}/services',  [StaffBookingController::class, 'addService'])->name('services.store');
+        Route::post('/{id}/surcharge', [StaffBookingController::class, 'addSurcharge'])->name('surcharge.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
