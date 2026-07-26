@@ -31,7 +31,13 @@
                 <a href="{{ route('staff.bookings.check-in.show', $booking->id) }}" class="btn btn-primary">Check-in</a>
             @endif
 
-            @if ($booking->canCheckOut())
+            @if ($booking->canCheckOut() && $booking->isEarlyCheckoutToday())
+                <form method="POST" action="{{ route('staff.bookings.check-out', $booking->id) }}"
+                    onsubmit="return confirm('Đơn còn {{ $booking->nightsRemainingForEarlyCheckout() }} đêm chưa sử dụng (ngày trả phòng đã đặt: {{ $booking->check_out->format('d/m/Y') }}). Xác nhận trả phòng SỚM?');">
+                    @csrf
+                    <button type="submit" class="btn btn-primary">⚠ Trả phòng sớm</button>
+                </form>
+            @elseif ($booking->canCheckOut())
                 <form method="POST" action="{{ route('staff.bookings.check-out', $booking->id) }}"
                     onsubmit="return confirm('Check-out đơn {{ $booking->booking_code }}?');">
                     @csrf
@@ -63,6 +69,10 @@
         <div class="alert alert-warning" style="margin-top: 16px;">Khách cần đặt cọc hoặc thanh toán trước khi có thể check-in.</div>
     @endif
 
+    @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN && ! $booking->canCheckOut())
+        <div class="alert alert-warning" style="margin-top: 16px;">Cần thu đủ tiền (kể cả phần dịch vụ/phụ phí phát sinh thêm trong lúc lưu trú, nếu có) trước khi có thể trả phòng.</div>
+    @endif
+
     <div class="section-kicker" style="margin-top: 22px;">Phòng đã đặt</div>
     <div class="table-wrapper" style="margin-top: 10px;">
         <table>
@@ -83,7 +93,7 @@
                         <td>{{ $item->roomType->name ?? '—' }}</td>
                         <td>{{ $item->rooms->pluck('room_number')->implode(', ') ?: '—' }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}</td>
+                        <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}{{ $item->infants ? ', ' . $item->infants . ' sơ sinh' : '' }}</td>
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                         <td>{{ $item->nights }}</td>
                         <td>
@@ -144,7 +154,7 @@
                 @endif
                 <div class="info-item">
                     <span class="label">Tổng số khách</span>
-                    <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}</span>
+                    <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Tổng tiền</span>
@@ -188,7 +198,40 @@
                             <span class="value">{{ $booking->payment->paid_at->format('d/m/Y H:i') }}</span>
                         </div>
                     @endif
+                    @if ($booking->payment->surcharge_amount > 0)
+                        <div class="info-item">
+                            <span class="label">Phụ phí phát sinh</span>
+                            <span class="value">{{ number_format($booking->payment->surcharge_amount, 0, ',', '.') }}đ</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Lý do phụ phí</span>
+                            <span class="value">{{ $booking->payment->surcharge_note }}</span>
+                        </div>
+                    @endif
                 </div>
+
+                @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
+                    <div class="action-row" style="margin-top: 16px; flex-wrap: wrap; gap: 12px;">
+                        <form method="POST" action="{{ route('staff.bookings.services.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                            @csrf
+                            <select name="service_id" class="input" style="width:auto; max-width:100%;" required>
+                                <option value="">-- Chọn dịch vụ --</option>
+                                @foreach ($activeServices as $service)
+                                    <option value="{{ $service->id }}">{{ $service->name }}{{ $service->availabilityLabel() ? " ({$service->availabilityLabel()})" : '' }} — {{ number_format($service->price, 0, ',', '.') }}đ</option>
+                                @endforeach
+                            </select>
+                            <input type="number" name="quantity" class="input" style="width:70px;" min="1" max="20" value="1" title="Số lượng">
+                            <button type="submit" class="btn btn-outline btn-sm">➕ Thêm dịch vụ phát sinh</button>
+                        </form>
+
+                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                            @csrf
+                            <input type="number" name="amount" class="input" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                            <input type="text" name="note" class="input" style="width:200px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
+                            <button type="submit" class="btn btn-outline btn-sm">➕ Thêm phụ phí phát sinh</button>
+                        </form>
+                    </div>
+                @endif
 
                 <div class="action-row" style="margin-top: 16px;">
                     @if ($booking->canMarkPaymentAsPaid())

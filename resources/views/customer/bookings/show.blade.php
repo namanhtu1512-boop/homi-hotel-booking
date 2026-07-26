@@ -64,7 +64,7 @@
                         </td>
                         <td>{{ $item->roomType->name ?? '—' }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}</td>
+                        <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}{{ $item->infants ? ', ' . $item->infants . ' sơ sinh' : '' }}</td>
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                         <td>{{ $item->nights }}</td>
                         <td>
@@ -120,7 +120,7 @@
         </div>
         <div class="info-item">
             <span class="label">Tổng số khách</span>
-            <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}</span>
+            <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
         </div>
         @if ($booking->discount_amount > 0)
             <div class="info-item">
@@ -196,9 +196,34 @@
     <div class="quick-actions-row">
         <a href="{{ route('customer.bookings.index') }}" class="btn-outline">Quay lại danh sách</a>
 
+        @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED)
+            {{-- Nhận phòng sớm hiện được tự động cộng phụ phí (không cần
+            duyệt trước) — nút này chỉ để khách CHỦ ĐỘNG báo trước và trao
+            đổi với khách sạn (VD hỏi còn phòng để nhận sớm không), gửi
+            thẳng vào hộp thư hỗ trợ chung đã có sẵn thay vì phải mở riêng
+            trang chat rồi tự gõ lại mã đơn. --}}
+            <form method="POST" action="{{ route('customer.chat.store') }}"
+                onsubmit="return confirm('Gửi yêu cầu nhận phòng sớm cho đơn {{ $booking->booking_code }} tới khách sạn qua tin nhắn hỗ trợ?');">
+                @csrf
+                <input type="hidden" name="body" value="[Yêu cầu nhận phòng sớm] Đơn {{ $booking->booking_code }}, dự kiến nhận phòng ngày {{ $booking->check_in->format('d/m/Y') }}. Tôi muốn hỏi khách sạn có thể sắp xếp cho tôi nhận phòng sớm hơn giờ chuẩn được không, xin phản hồi giúp tôi ạ.">
+                <button type="submit" class="btn-outline w-full">💬 Yêu cầu nhận phòng sớm</button>
+            </form>
+        @endif
+
         @if ($booking->canCancelByCustomer())
+            @php
+                // Hủy đơn đã thanh toán đủ giờ kích hoạt hoàn tiền THẬT (attemptRefund())
+                // — báo trước cho khách biết việc này sẽ xảy ra thay vì chỉ hỏi
+                // chung chung như trước khi VNPay còn là mô phỏng.
+                $cancelConfirmMessage = 'Bạn chắc chắn muốn hủy đơn ' . $booking->booking_code . '?';
+                if ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PAID) {
+                    $cancelConfirmMessage .= $booking->payment->method === \App\Enums\PaymentMethod::ONLINE_VNPAY
+                        ? ' Hệ thống sẽ tự động gửi yêu cầu hoàn tiền qua VNPay.'
+                        : ' Khoản đã thanh toán sẽ được đánh dấu cần hoàn tiền, khách sạn sẽ liên hệ hoàn lại cho bạn.';
+                }
+            @endphp
             <form method="POST" action="{{ route('customer.bookings.cancel', $booking->id) }}"
-                onsubmit="return confirm('Bạn chắc chắn muốn hủy đơn {{ $booking->booking_code }}?');">
+                onsubmit="return confirm('{{ $cancelConfirmMessage }}');">
                 @csrf
                 <button type="submit" class="btn-danger w-full">Hủy đơn</button>
             </form>
@@ -206,7 +231,38 @@
     </div>
 </div>
 
-@if ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING)
+@if ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING && $booking->status === \App\Enums\BookingStatus::CHECKED_IN)
+    {{-- PENDING trong lúc đang lưu trú (CHECKED_IN) không thể đến từ luồng
+    "khách tự báo chuyển khoản" (chỉ cho phép khi đơn còn ở CONFIRMED, xem
+    BookingService::markBankTransferPending()) — chắc chắn là do vừa phát
+    sinh thêm dịch vụ/phụ phí giữa lúc lưu trú (BookingService::applyExtraCharge()
+    mở lại PAID→PENDING, kể cả khi trước đó đã thanh toán xong qua VNPay),
+    nên phải kiểm tra nhánh này TRƯỚC nhánh theo method bên dưới — nếu không,
+    một đơn đã trả qua VNPay rồi bị cộng thêm phí sẽ hiển thị nhầm thông báo
+    "bạn có đóng trang thanh toán giữa chừng không" dù khách đã thanh toán
+    xong từ trước, hoặc thông báo "đã ghi nhận chuyển khoản" sai sự thật. --}}
+    <div class="card">
+        <span class="section-kicker">Thanh toán</span>
+        <div class="alert alert-warning mt-2.5">
+            Đơn vừa phát sinh thêm phí, cần thanh toán thêm <strong>{{ number_format((float) $booking->payment->amount - (float) $booking->payment->amount_collected, 0, ',', '.') }}đ</strong>. Vui lòng thanh toán qua VNPay bên dưới hoặc liên hệ khách sạn để thanh toán tại quầy.
+        </div>
+        <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}" class="mt-3">
+            @csrf
+            <button type="submit" class="btn-primary w-full">Thanh toán qua VNPay</button>
+        </form>
+    </div>
+@elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING && $booking->payment->method === \App\Enums\PaymentMethod::ONLINE_VNPAY)
+    <div class="card">
+        <span class="section-kicker">Thanh toán</span>
+        <div class="alert alert-warning mt-2.5">
+            Đang chờ xác nhận từ VNPay. Nếu bạn đã đóng trang thanh toán giữa chừng hoặc chưa hoàn tất, vui lòng tải lại trang này hoặc bấm thanh toán lại bên dưới.
+        </div>
+        <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}" class="mt-3">
+            @csrf
+            <button type="submit" class="btn-primary w-full">Thanh toán lại qua VNPay</button>
+        </form>
+    </div>
+@elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING)
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
         <div class="alert alert-success mt-2.5">
@@ -224,7 +280,7 @@
 @elseif ($booking->canMarkPaymentAsPaid())
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
-        <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (demo, không phát sinh giao dịch thật).</p>
+        <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới ("Ví điện tử / Thẻ ngân hàng" chuyển sang cổng VNPay sandbox thật; các hình thức còn lại là demo/thủ công).</p>
 
         <div class="grid gap-4 sm:grid-cols-2">
             <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -254,13 +310,12 @@
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                     <div class="mb-2 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
                         <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">💳</span>
-                        Ví điện tử / Thẻ ngân hàng
+                        Ví điện tử / Thẻ ngân hàng (VNPay)
                     </div>
-                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Thanh toán ngay bằng ví điện tử hoặc thẻ (mô phỏng demo).</p>
-                    <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}"
-                        onsubmit="return confirm('Đây là thanh toán online mô phỏng (demo), không phát sinh giao dịch thật. Tiếp tục?');">
+                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển sang cổng thanh toán VNPay (môi trường sandbox) để thanh toán bằng thẻ ATM/thẻ quốc tế/QR.</p>
+                    <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}">
                         @csrf
-                        <button type="submit" class="btn-primary w-full">Thanh toán ngay (demo)</button>
+                        <button type="submit" class="btn-primary w-full">Thanh toán qua VNPay</button>
                     </form>
                 </div>
 

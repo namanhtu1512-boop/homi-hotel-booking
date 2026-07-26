@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Web\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Booking\AddBookingServiceRequest;
+use App\Http\Requests\Booking\AddSurchargeRequest;
 use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
 use App\Services\RoomService;
+use App\Services\ServiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,6 +21,7 @@ class BookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly AuditLogService $auditLog,
         private readonly RoomService $roomService,
+        private readonly ServiceService $serviceService,
     ) {}
 
     public function index(Request $request): View
@@ -46,7 +50,8 @@ class BookingController extends Controller
     public function show(int $id): View
     {
         return view('staff.bookings.show', [
-            'booking' => $this->bookingService->findForAdmin($id),
+            'booking'        => $this->bookingService->findForAdmin($id),
+            'activeServices' => $this->serviceService->activePublic(),
         ]);
     }
 
@@ -73,9 +78,15 @@ class BookingController extends Controller
     public function cancel(int $id): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $this->bookingService->cancelByAdmin($booking);
+        $result = $this->bookingService->cancelByAdmin($booking);
 
         $this->auditLog->log('booking.cancelled', $booking, "Hủy đơn \"{$booking->booking_code}\".");
+
+        if (! $result['refund_ok']) {
+            return redirect()
+                ->route('staff.bookings.show', $id)
+                ->with('error', "Đã hủy đơn {$booking->booking_code}, nhưng hoàn tiền tự động qua VNPay không thành công — cần xử lý hoàn tiền thủ công.");
+        }
 
         return redirect()
             ->route('staff.bookings.show', $id)
@@ -107,25 +118,35 @@ class BookingController extends Controller
             ->map(fn ($roomIds) => array_map('intval', (array) $roomIds))
             ->all();
 
-        $this->bookingService->checkIn($booking, $roomAssignments);
+        $result = $this->bookingService->checkIn($booking, $roomAssignments);
 
         $this->auditLog->log('booking.checked_in', $booking, "Check-in đơn \"{$booking->booking_code}\".");
 
+        $message = "Đã check-in đơn {$booking->booking_code}.";
+        if ($result['early_checkin_fee']) {
+            $message .= ' Đã tự động cộng phụ phí nhận phòng sớm ' . number_format($result['early_checkin_fee'], 0, ',', '.') . 'đ.';
+        }
+
         return redirect()
             ->route('staff.bookings.show', $id)
-            ->with('success', "Đã check-in đơn {$booking->booking_code}.");
+            ->with('success', $message);
     }
 
     public function checkOut(int $id): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $this->bookingService->checkOut($booking);
+        $result = $this->bookingService->checkOut($booking);
 
         $this->auditLog->log('booking.checked_out', $booking, "Check-out đơn \"{$booking->booking_code}\".");
 
+        $message = "Đã check-out đơn {$booking->booking_code}.";
+        if ($result['late_checkout_fee']) {
+            $message .= ' Đã tự động cộng phụ phí trả phòng muộn ' . number_format($result['late_checkout_fee'], 0, ',', '.') . 'đ.';
+        }
+
         return redirect()
             ->route('staff.bookings.show', $id)
-            ->with('success', "Đã check-out đơn {$booking->booking_code}.");
+            ->with('success', $message);
     }
 
     public function complete(int $id): RedirectResponse
@@ -150,5 +171,29 @@ class BookingController extends Controller
         return redirect()
             ->route('staff.bookings.show', $id)
             ->with('success', "Đã cập nhật trạng thái thanh toán đơn {$booking->booking_code}.");
+    }
+
+    public function addService(int $id, AddBookingServiceRequest $request): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+        $this->bookingService->addServiceItem($booking, (int) $request->validated('service_id'), (int) $request->validated('quantity'));
+
+        $this->auditLog->log('booking.service_added', $booking, "Thêm dịch vụ phát sinh cho đơn \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('staff.bookings.show', $id)
+            ->with('success', "Đã thêm dịch vụ phát sinh cho đơn {$booking->booking_code}.");
+    }
+
+    public function addSurcharge(int $id, AddSurchargeRequest $request): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+        $this->bookingService->addSurcharge($booking, (float) $request->validated('amount'), $request->validated('note'));
+
+        $this->auditLog->log('booking.surcharge_added', $booking, "Thêm phụ phí phát sinh cho đơn \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('staff.bookings.show', $id)
+            ->with('success', "Đã thêm phụ phí phát sinh cho đơn {$booking->booking_code}.");
     }
 }

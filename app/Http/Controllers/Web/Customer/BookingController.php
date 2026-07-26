@@ -9,7 +9,6 @@ use App\Services\BookingService;
 use App\Services\PricingService;
 use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
-use App\Services\ServiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +21,6 @@ class BookingController extends Controller
         private readonly RoomTypeService $roomTypeService,
         private readonly AvailabilityService $availabilityService,
         private readonly RoomHoldService $roomHoldService,
-        private readonly ServiceService $serviceService,
         private readonly PricingService $pricingService,
     ) {}
 
@@ -35,6 +33,17 @@ class BookingController extends Controller
         }
 
         $roomTypes = $this->roomTypeService->list();
+
+        // Giá "tạm tính" phía JS (updateEstimate() trong blade) trước đây chỉ
+        // dùng giá gốc, gây lệch số với khối "Kiểm tra phòng trống" bên dưới
+        // (đã tính đúng giá theo mùa + cuối tuần qua PricingService::calculate())
+        // khi có đợt giá đang active hôm nay hoặc đêm nay là cuối tuần — dùng
+        // previewTonight() (gọi thẳng calculate()) để 2 nơi luôn khớp nhau
+        // trong trường hợp phổ biến (không đảm bảo khớp 100% khi kỳ nghỉ nhiều
+        // đêm vắt qua nhiều mức giá khác nhau — JS vẫn chỉ là ước tính nhanh).
+        $todayPrices = $roomTypes->mapWithKeys(fn ($type) => [
+            $type->id => $this->pricingService->previewTonight($type)['preview_price'],
+        ]);
 
         $checkIn  = $request->query('check_in');
         $checkOut = $request->query('check_out');
@@ -102,7 +111,7 @@ class BookingController extends Controller
             'checkOut'       => $checkOut,
             'availabilities' => $availabilities,
             'holdExpiresAt'  => $holdExpiresAt,
-            'services'       => $this->serviceService->activePublic(),
+            'todayPrices'    => $todayPrices,
         ]);
     }
 
@@ -173,7 +182,13 @@ class BookingController extends Controller
 
     public function cancel(int $id, Request $request): RedirectResponse
     {
-        $this->bookingService->cancelByCustomer($id, $request->user());
+        $result = $this->bookingService->cancelByCustomer($id, $request->user());
+
+        if (! $result['refund_ok']) {
+            return redirect()
+                ->route('customer.bookings.show', $id)
+                ->with('error', 'Đã hủy đơn, nhưng hoàn tiền tự động không thành công. Khách sạn sẽ liên hệ để hoàn tiền thủ công.');
+        }
 
         return redirect()
             ->route('customer.bookings.show', $id)
@@ -182,11 +197,9 @@ class BookingController extends Controller
 
     public function payOnline(int $id, Request $request): RedirectResponse
     {
-        $booking = $this->bookingService->payOnlineDemo($id, $request->user());
+        $result = $this->bookingService->initiateVnpayPayment($id, $request->user(), $request->ip());
 
-        return redirect()
-            ->route('customer.bookings.show', $booking->id)
-            ->with('success', 'Thanh toán online thành công (mô phỏng).');
+        return redirect()->away($result['payment_url']);
     }
 
     public function payBankTransfer(int $id, Request $request): RedirectResponse

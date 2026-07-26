@@ -152,9 +152,20 @@
     <div class="flex flex-col gap-5">
         <div id="price-sidebar" class="card sticky top-20">
             <span class="section-kicker">Giá phòng</span>
-            <div class="mb-1 text-3xl font-extrabold text-primary">
-                {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ
-            </div>
+            @if ($seasonalRate)
+                <div class="mb-2 flex items-center gap-2">
+                    <span class="badge badge-red">{{ $discountLabel }}</span>
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ $seasonalRate->label }}</span>
+                </div>
+                <div class="text-sm font-semibold text-slate-400 line-through">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ</div>
+                <div class="mb-1 text-3xl font-extrabold text-red-500">
+                    {{ number_format($discountedPrice, 0, ',', '.') }}đ
+                </div>
+            @else
+                <div class="mb-1 text-3xl font-extrabold text-primary">
+                    {{ number_format($roomType->price_per_night, 0, ',', '.') }}đ
+                </div>
+            @endif
             <div class="mb-5 text-sm text-slate-500 dark:text-slate-400">/ đêm / phòng</div>
 
             <form method="GET" action="{{ route('rooms.show', $roomType->id) }}" class="space-y-3">

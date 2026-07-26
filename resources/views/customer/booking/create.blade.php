@@ -11,7 +11,7 @@
     $rows = old('items', $items);
     $rows = is_array($rows) && $rows !== []
         ? array_values($rows)
-        : [['room_type_id' => null, 'quantity' => 1, 'adults' => 1, 'children' => 0]];
+        : [['room_type_id' => null, 'quantity' => 1, 'adults' => 1, 'children' => 0, 'infants' => 0]];
 @endphp
 
 <div class="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
@@ -39,6 +39,7 @@
                                     @foreach ($roomTypes as $type)
                                         <option value="{{ $type->id }}"
                                                 data-price="{{ (float) $type->price_per_night }}"
+                                                data-price-today="{{ (float) ($todayPrices[$type->id] ?? $type->price_per_night) }}"
                                                 data-capacity="{{ (int) $type->capacity }}"
                                                 @selected((string) ($row['room_type_id'] ?? '') === (string) $type->id)>
                                             {{ $type->name }} — {{ number_format($type->price_per_night, 0, ',', '.') }}đ/đêm ({{ $type->capacity }} khách/phòng)
@@ -52,13 +53,17 @@
                             </div>
 
                             <div class="mt-2.5 flex flex-wrap items-center gap-2.5">
-                                <label class="text-xs font-bold whitespace-nowrap">Người lớn</label>
+                                <label class="text-xs font-bold whitespace-nowrap">Người lớn <span class="font-normal text-slate-400">(≥12 tuổi)</span></label>
                                 <input type="number" name="items[{{ $i }}][adults]" class="item-adults input w-20"
                                        min="1" max="50" value="{{ (int) ($row['adults'] ?? 1) }}" required onchange="updateEstimate()">
 
-                                <label class="text-xs font-bold whitespace-nowrap">Trẻ em</label>
+                                <label class="text-xs font-bold whitespace-nowrap">Trẻ em <span class="font-normal text-slate-400">(6-11 tuổi)</span></label>
                                 <input type="number" name="items[{{ $i }}][children]" class="item-children input w-20"
                                        min="0" max="50" value="{{ (int) ($row['children'] ?? 0) }}" onchange="updateEstimate()">
+
+                                <label class="text-xs font-bold whitespace-nowrap">Sơ sinh <span class="font-normal text-slate-400">(0-5 tuổi, miễn phí)</span></label>
+                                <input type="number" name="items[{{ $i }}][infants]" class="item-infants input w-20"
+                                       min="0" max="50" value="{{ (int) ($row['infants'] ?? 0) }}" onchange="updateEstimate()">
 
                                 <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
                             </div>
@@ -148,26 +153,6 @@
                 <input class="input" type="email" id="customer_email" name="customer_email" value="{{ old('customer_email', auth()->user()->email) }}" placeholder="email@example.com">
             </div>
 
-            @if ($services->isNotEmpty())
-                <div>
-                    <label class="form-label">Dịch vụ thêm</label>
-                    <div class="checkbox-grid" id="services-container">
-                        @php $oldServiceIds = old('service_ids', []); @endphp
-                        @foreach ($services as $service)
-                            <label class="checkbox-item">
-                                <input type="checkbox" name="service_ids[]" value="{{ $service->id }}"
-                                    class="service-checkbox" data-price="{{ (float) $service->price }}"
-                                    @checked(in_array((string) $service->id, $oldServiceIds))
-                                    onchange="updateEstimate()">
-                                {{ $service->name }} ({{ number_format($service->price, 0, ',', '.') }}đ)
-                                <input type="number" name="service_quantities[{{ $service->id }}]" value="{{ old('service_quantities.' . $service->id, 1) }}"
-                                    min="1" max="20" class="input service-quantity" style="width: 60px;" onchange="updateEstimate()">
-                            </label>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
             <div>
                 <label class="form-label" for="promo_codes_text">Mã giảm giá</label>
                 <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text', is_array(old('promo_codes')) ? implode(', ', old('promo_codes')) : '') }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
@@ -187,9 +172,10 @@
             <span class="section-kicker">Lưu ý</span>
             <ul class="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 <li>Bạn có thể chọn <strong>nhiều loại phòng</strong> trong cùng một đơn (dùng chung ngày nhận/trả).</li>
-                <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng).</li>
-                <li>Đơn đặt phòng sẽ ở trạng thái <strong>chờ xác nhận</strong> cho đến khi admin duyệt.</li>
+                <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em/sơ sinh riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng). Người lớn ≥12 tuổi, trẻ em 6-11 tuổi (tối đa 2 trẻ/phòng), trẻ sơ sinh 0-5 tuổi ở miễn phí và không tính vào sức chứa.</li>
+                <li>Đơn đặt phòng được <strong>xác nhận ngay</strong> sau khi đặt — bạn có thể thanh toán luôn mà không cần chờ admin duyệt.</li>
                 <li>Mã giảm giá (nếu có) sẽ được trừ trực tiếp vào tổng tiền đơn.</li>
+                <li>Dịch vụ thêm (ăn sáng, giặt ủi...) được đặt <strong>sau khi nhận phòng</strong>, không chọn ở bước này.</li>
                 <li>Để hủy đơn, vào <strong>Đơn của tôi</strong> và chọn Hủy đơn trước ngày nhận phòng.</li>
             </ul>
         </div>
@@ -204,6 +190,7 @@
                 @foreach ($roomTypes as $type)
                     <option value="{{ $type->id }}"
                             data-price="{{ (float) $type->price_per_night }}"
+                            data-price-today="{{ (float) ($todayPrices[$type->id] ?? $type->price_per_night) }}"
                             data-capacity="{{ (int) $type->capacity }}">
                         {{ $type->name }} — {{ number_format($type->price_per_night, 0, ',', '.') }}đ/đêm ({{ $type->capacity }} khách/phòng)
                     </option>
@@ -215,12 +202,16 @@
         </div>
 
         <div class="mt-2.5 flex flex-wrap items-center gap-2.5">
-            <label class="text-xs font-bold whitespace-nowrap">Người lớn</label>
+            <label class="text-xs font-bold whitespace-nowrap">Người lớn <span class="font-normal text-slate-400">(≥12 tuổi)</span></label>
             <input type="number" name="items[__INDEX__][adults]" class="item-adults input w-20"
                    min="1" max="50" value="1" required onchange="updateEstimate()">
 
-            <label class="text-xs font-bold whitespace-nowrap">Trẻ em</label>
+            <label class="text-xs font-bold whitespace-nowrap">Trẻ em <span class="font-normal text-slate-400">(6-11 tuổi)</span></label>
             <input type="number" name="items[__INDEX__][children]" class="item-children input w-20"
+                   min="0" max="50" value="0" onchange="updateEstimate()">
+
+            <label class="text-xs font-bold whitespace-nowrap">Sơ sinh <span class="font-normal text-slate-400">(0-5 tuổi, miễn phí)</span></label>
+            <input type="number" name="items[__INDEX__][infants]" class="item-infants input w-20"
                    min="0" max="50" value="0" onchange="updateEstimate()">
 
             <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
@@ -273,10 +264,15 @@
             const adults   = parseInt(row.querySelector('.item-adults').value) || 0;
             const children = parseInt(row.querySelector('.item-children').value) || 0;
             const opt      = sel.options[sel.selectedIndex];
-            const price    = opt ? (parseFloat(opt.dataset.price) || 0) : 0;
+            // Ưu tiên giá đã áp giá theo mùa của HÔM NAY (data-price-today,
+            // do server tính sẵn) để khớp với khối "Kiểm tra phòng trống"
+            // bên dưới — vẫn chỉ là ước tính nhanh, không đảm bảo khớp 100%
+            // khi kỳ nghỉ vắt qua nhiều mức giá/cuối tuần khác nhau.
+            const price    = opt ? (parseFloat(opt.dataset.priceToday ?? opt.dataset.price) || 0) : 0;
             const capacityPerRoom = opt ? (parseInt(opt.dataset.capacity) || 0) : 0;
             const capacity = capacityPerRoom * qty;
-            const guests   = adults + children;
+            const guests   = adults + children; // trẻ sơ sinh (infants) không tính vào sức chứa
+            const maxChildren = 2 * qty;
 
             total += price * nights * qty;
 
@@ -284,24 +280,20 @@
             const warnEl = row.querySelector('.item-capacity-warning');
 
             if (capacityPerRoom > 0) {
-                hintEl.textContent = `(tối đa ${capacity} khách cho ${qty} phòng này)`;
+                hintEl.textContent = `(tối đa ${capacity} khách cho ${qty} phòng này, chưa kể sơ sinh)`;
             } else {
                 hintEl.textContent = '';
             }
 
-            if (capacityPerRoom > 0 && guests > capacity) {
+            if (children > maxChildren) {
+                warnEl.textContent = `Vượt giới hạn trẻ em: tối đa 2 trẻ em (6-11 tuổi)/phòng × ${qty} phòng = ${maxChildren}.`;
+                warnEl.classList.remove('hidden');
+            } else if (capacityPerRoom > 0 && guests > capacity) {
                 warnEl.textContent = `Vượt sức chứa: ${guests} khách > tối đa ${capacity} khách của loại phòng này.`;
                 warnEl.classList.remove('hidden');
             } else {
                 warnEl.classList.add('hidden');
             }
-        });
-
-        document.querySelectorAll('.service-checkbox:checked').forEach(cb => {
-            const price = parseFloat(cb.dataset.price) || 0;
-            const qtyEl = cb.closest('.checkbox-item').querySelector('.service-quantity');
-            const qty   = parseInt(qtyEl?.value) || 1;
-            total += price * qty;
         });
 
         if (nights > 0 && total > 0) {

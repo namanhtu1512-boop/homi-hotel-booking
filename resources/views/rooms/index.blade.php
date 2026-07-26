@@ -113,12 +113,17 @@
                     @php
                         $cover = $roomType->images->first();
                         $rating = $ratings[$roomType->id] ?? null;
+                        $seasonalRate = $seasonalRates[$roomType->id] ?? null;
+                        $discountedPrice = $discountedPrices[$roomType->id] ?? null;
                     @endphp
                     <div class="room-card">
-                        <a href="{{ route('rooms.show', $roomType->id) }}" class="room-card-image" @if ($cover) style="background-image: url('{{ $cover->image_url }}');" @endif>
+                        <a href="{{ route('rooms.show', $roomType->id) }}" class="room-card-image" style="position:relative; @if ($cover) background-image: url('{{ $cover->image_url }}'); @endif">
                             @unless ($cover)
                                 Chưa có ảnh
                             @endunless
+                            @if ($seasonalRate)
+                                <span class="discount-tag" title="{{ $seasonalRate->label }}">{{ $discountLabels[$roomType->id] }}</span>
+                            @endif
                         </a>
 
                         <div class="room-card-body">
@@ -146,7 +151,14 @@
                             </div>
 
                             <div class="room-card-footer">
-                                <span class="room-card-price">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ / đêm</span>
+                                @if ($discountedPrice !== null)
+                                    <span>
+                                        <span class="room-card-price text-red-500">{{ number_format($discountedPrice, 0, ',', '.') }}đ / đêm</span>
+                                        <span class="block text-xs text-slate-400 line-through">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ</span>
+                                    </span>
+                                @else
+                                    <span class="room-card-price">{{ number_format($roomType->price_per_night, 0, ',', '.') }}đ / đêm</span>
+                                @endif
                                 <div class="action-row">
                                     @auth
                                         @if (auth()->user()->role === 'customer')

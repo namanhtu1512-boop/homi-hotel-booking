@@ -8,6 +8,7 @@ enum PaymentMethod: string
     case BANK_TRANSFER     = 'bank_transfer';
     case ONLINE_DEMO       = 'online_demo';
     case CASH_WITH_DEPOSIT = 'cash_with_deposit';
+    case ONLINE_VNPAY      = 'online_vnpay';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum PaymentMethod: string
             self::BANK_TRANSFER     => 'Chuyển khoản ngân hàng',
             self::ONLINE_DEMO       => 'Thanh toán online (mô phỏng)',
             self::CASH_WITH_DEPOSIT => 'Tiền mặt khi nhận phòng (đặt cọc 30%)',
+            self::ONLINE_VNPAY      => 'Thanh toán online qua VNPay',
         };
     }
 }

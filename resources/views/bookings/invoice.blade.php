@@ -62,6 +62,10 @@
             <span class="label">Trả phòng</span>
             <span class="value">{{ $booking->check_out->format('d/m/Y') }}</span>
         </div>
+        <div class="info-item">
+            <span class="label">Số khách</span>
+            <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
+        </div>
     </div>
 
     <span class="section-kicker mt-5 block">Phòng</span>
@@ -151,6 +155,16 @@
                 <span class="label">Phương thức</span>
                 <span class="value">{{ $booking->payment->method->label() }}</span>
             </div>
+            @if ($booking->payment->surcharge_amount > 0)
+                <div class="info-item">
+                    <span class="label">Phụ phí phát sinh</span>
+                    <span class="value">{{ number_format($booking->payment->surcharge_amount, 0, ',', '.') }}đ</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Lý do phụ phí</span>
+                    <span class="value">{{ $booking->payment->surcharge_note }}</span>
+                </div>
+            @endif
             @if ($booking->payment->isPaid())
                 <div class="info-item">
                     <span class="label">Số tiền đã thanh toán</span>
@@ -183,6 +197,19 @@
                 <span class="value">Chưa có thông tin thanh toán</span>
             </div>
         @endif
+    </div>
+
+    <div class="invoice-signatures mt-8 grid grid-cols-2 gap-4 text-center text-sm">
+        <div>
+            <div class="font-bold text-slate-900 dark:text-white">Khách hàng</div>
+            <div class="text-xs text-slate-400">(Ký, ghi rõ họ tên)</div>
+            <div class="mt-16"></div>
+        </div>
+        <div>
+            <div class="font-bold text-slate-900 dark:text-white">Nhân viên lập hóa đơn</div>
+            <div class="text-xs text-slate-400">(Ký, ghi rõ họ tên)</div>
+            <div class="mt-16"></div>
+        </div>
     </div>
 </div>
 @endsection

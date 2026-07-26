@@ -70,9 +70,13 @@ class BookingController extends Controller
      */
     public function cancel(int $booking, Request $request): JsonResponse
     {
-        $bookingModel = $this->bookingService->cancelByCustomer($booking, $request->user());
+        $result = $this->bookingService->cancelByCustomer($booking, $request->user());
 
-        return $this->success($this->formatBooking($bookingModel), 'Đã hủy đơn.');
+        $message = $result['refund_ok']
+            ? 'Đã hủy đơn.'
+            : 'Đã hủy đơn, nhưng hoàn tiền tự động không thành công — cần xử lý hoàn tiền thủ công.';
+
+        return $this->success($this->formatBooking($result['booking']), $message);
     }
 
     // ----------------------------------------------------------------
@@ -120,9 +124,18 @@ class BookingController extends Controller
 
         $bookingModel = $this->bookingService->findForAdmin($booking);
 
+        if ($data['status'] === 'cancelled') {
+            $result = $this->bookingService->cancelByAdmin($bookingModel);
+
+            $message = $result['refund_ok']
+                ? 'Cập nhật trạng thái thành công.'
+                : 'Đã hủy đơn, nhưng hoàn tiền tự động không thành công — cần xử lý hoàn tiền thủ công.';
+
+            return $this->success($this->formatBooking($result['booking']), $message);
+        }
+
         $updated = match ($data['status']) {
             'confirmed' => $this->bookingService->confirm($bookingModel),
-            'cancelled' => $this->bookingService->cancelByAdmin($bookingModel),
             'completed' => $this->bookingService->complete($bookingModel),
         };
 
@@ -195,6 +208,7 @@ class BookingController extends Controller
                 'quantity'        => $item->quantity,
                 'adults'          => $item->adults,
                 'children'        => $item->children,
+                'infants'         => $item->infants,
                 'price_per_night' => $item->price_per_night,
                 'nights'          => $item->nights,
                 'subtotal'        => $item->subtotal,

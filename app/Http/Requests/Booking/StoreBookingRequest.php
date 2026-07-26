@@ -14,6 +14,7 @@ class StoreBookingRequest extends BaseFormRequest
             'items.*.quantity'     => ['required', 'integer', 'min:1', 'max:10'],
             'items.*.adults'       => ['required', 'integer', 'min:1', 'max:50'],
             'items.*.children'     => ['nullable', 'integer', 'min:0', 'max:50'],
+            'items.*.infants'      => ['nullable', 'integer', 'min:0', 'max:50'],
             'check_in'             => ['required', 'date_format:Y-m-d'],
             'check_out'            => ['required', 'date_format:Y-m-d'],
             'customer_name'        => ['required', 'string', 'max:100'],
@@ -22,9 +23,6 @@ class StoreBookingRequest extends BaseFormRequest
             'note'                 => ['nullable', 'string', 'max:500'],
             'promo_codes'          => ['nullable', 'array', 'max:5'],
             'promo_codes.*'        => ['string', 'max:50', 'distinct'],
-            'services'                => ['nullable', 'array'],
-            'services.*.service_id'   => ['required_with:services', 'integer', 'distinct', 'exists:services,id'],
-            'services.*.quantity'     => ['nullable', 'integer', 'min:1', 'max:20'],
         ];
     }
 
@@ -42,6 +40,7 @@ class StoreBookingRequest extends BaseFormRequest
             'items.*.adults.required'       => 'Vui lòng nhập số người lớn cho từng loại phòng.',
             'items.*.adults.min'            => 'Mỗi loại phòng phải có ít nhất 1 người lớn.',
             'items.*.children.min'          => 'Số trẻ em không hợp lệ.',
+            'items.*.infants.min'           => 'Số trẻ sơ sinh không hợp lệ.',
             'check_in.required'             => 'Vui lòng nhập ngày nhận phòng.',
             'check_in.date_format'          => 'Ngày nhận phòng không đúng định dạng (YYYY-MM-DD).',
             'check_out.required'            => 'Vui lòng nhập ngày trả phòng.',
@@ -70,24 +69,6 @@ class StoreBookingRequest extends BaseFormRequest
             $this->merge(['promo_codes' => $codes]);
         }
 
-        // Form dùng checkbox chọn dịch vụ (service_ids[]) + số lượng riêng
-        // theo id (service_quantities[id]) — gộp thành services[] có cấu
-        // trúc để validate/xử lý đồng nhất với items[].
-        if (! is_array($this->input('services')) && is_array($this->input('service_ids'))) {
-            $quantities = $this->input('service_quantities', []);
-
-            $services = collect($this->input('service_ids'))
-                ->filter()
-                ->map(fn ($id) => [
-                    'service_id' => (int) $id,
-                    'quantity'   => max(1, (int) ($quantities[$id] ?? 1)),
-                ])
-                ->values()
-                ->all();
-
-            $this->merge(['services' => $services]);
-        }
-
         $items = $this->input('items');
 
         // Tương thích ngược: payload phẳng room_type_id + quantity (+ adults/
@@ -98,16 +79,19 @@ class StoreBookingRequest extends BaseFormRequest
                 'quantity'     => (int) $this->input('quantity', 1),
                 'adults'       => $this->input('adults'),
                 'children'     => $this->input('children'),
+                'infants'      => $this->input('infants'),
             ]];
         }
 
         if (is_array($items)) {
             // Số khách được validate theo TỪNG dòng loại phòng (capacity
-            // riêng) — thiếu ⇒ mặc định 1 người lớn, 0 trẻ em cho dòng đó.
+            // riêng) — thiếu ⇒ mặc định 1 người lớn, 0 trẻ em, 0 sơ sinh cho
+            // dòng đó.
             $items = array_map(fn (array $item) => [
                 ...$item,
                 'adults'   => (int) ($item['adults'] ?? 1),
                 'children' => (int) ($item['children'] ?? 0),
+                'infants'  => (int) ($item['infants'] ?? 0),
             ], $items);
 
             $this->merge(['items' => $items]);

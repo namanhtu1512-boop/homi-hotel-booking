@@ -21,6 +21,7 @@
                         <th>Tên dịch vụ</th>
                         <th>Mô tả</th>
                         <th>Giá</th>
+                        <th>Khung giờ phục vụ</th>
                         <th>Trạng thái</th>
                         <th>Hành động</th>
                     </tr>
@@ -31,6 +32,7 @@
                             <td>{{ $service->name }}</td>
                             <td>{{ \Illuminate\Support\Str::limit($service->description, 60) }}</td>
                             <td>{{ number_format($service->price, 0, ',', '.') }}đ</td>
+                            <td>{{ $service->availabilityLabel() ?? 'Cả ngày' }}</td>
                             <td>
                                 @if ($service->trashed())
                                     <span class="badge badge-red">Đã xóa</span>

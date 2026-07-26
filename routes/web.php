@@ -39,6 +39,7 @@ use App\Http\Controllers\Web\Staff\BookingController as StaffBookingController;
 use App\Http\Controllers\Web\Staff\PaymentController as StaffPaymentController;
 use App\Http\Controllers\Web\Staff\ChatController as StaffChatController;
 use App\Http\Controllers\Web\Staff\GroupBookingController as StaffGroupBookingController;
+use App\Http\Controllers\Web\PaymentGatewayController;
 use App\Http\Controllers\Web\AboutController;
 use App\Http\Controllers\Web\NotificationPollController;
 use App\Http\Controllers\Web\Customer\NotificationController as CustomerNotificationController;
@@ -67,6 +68,15 @@ Route::middleware('auth')->group(function () {
 
 // Health-check (Week 1 BE1)
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'timestamp' => now()->toISOString()]))->name('health');
+
+// VNPay gọi về sau khi khách thanh toán — công khai, không qua middleware
+// auth (VNPay không mang session/cookie của khách khi redirect/gọi IPN).
+Route::prefix('payment/vnpay')->name('payment.vnpay.')->group(function () {
+    Route::get('/return', [PaymentGatewayController::class, 'vnpayReturn'])->name('return');
+    // VNPay gọi IPN bằng GET (query string), không phải POST — vẫn thêm cả
+    // POST để tương thích nếu cấu hình sandbox dùng phương thức khác.
+    Route::match(['get', 'post'], '/ipn', [PaymentGatewayController::class, 'vnpayIpn'])->name('ipn');
+});
 
 // ---------------------------------------------------------------
 // Auth — guest only
@@ -195,6 +205,11 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::get('/{id}/check-in',   [AdminBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [AdminBookingController::class, 'checkIn'])->name('check-in');
         Route::post('/{id}/check-out', [AdminBookingController::class, 'checkOut'])->name('check-out');
+
+        // Phát sinh trong lúc lưu trú (chỉ áp dụng khi đơn đã check-in — xem
+        // BookingService::addServiceItem()/addSurcharge()).
+        Route::post('/{id}/services',  [AdminBookingController::class, 'addService'])->name('services.store');
+        Route::post('/{id}/surcharge', [AdminBookingController::class, 'addSurcharge'])->name('surcharge.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
@@ -313,6 +328,9 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/{id}/check-in',   [StaffBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [StaffBookingController::class, 'checkIn'])->name('check-in');
         Route::post('/{id}/check-out', [StaffBookingController::class, 'checkOut'])->name('check-out');
+
+        Route::post('/{id}/services',  [StaffBookingController::class, 'addService'])->name('services.store');
+        Route::post('/{id}/surcharge', [StaffBookingController::class, 'addSurcharge'])->name('surcharge.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {

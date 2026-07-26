@@ -10,8 +10,8 @@
     // (đếm số dòng item ban đầu) luôn có $prefillItems, kể cả khi form tạo
     // đơn bị ẩn do yêu cầu đã converted.
     $prefillItems = old('items', $groupRequest->room_type_ids
-        ? array_map(fn($id) => ['room_type_id' => $id, 'quantity' => 1, 'adults' => 2, 'children' => 0], $groupRequest->room_type_ids)
-        : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0]]);
+        ? array_map(fn($id) => ['room_type_id' => $id, 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0], $groupRequest->room_type_ids)
+        : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0]]);
 @endphp
 <div class="grid gap-5 md:grid-cols-[1fr_1fr]">
 
@@ -93,6 +93,7 @@
 
             <div>
                 <label class="form-label">Loại phòng & số lượng *</label>
+                <p class="mb-1 text-xs text-slate-500 dark:text-slate-400">NL: người lớn (≥12 tuổi) · TE: trẻ em (6-11 tuổi) · SS: sơ sinh (0-5 tuổi, miễn phí)</p>
                 <div id="items-container" class="space-y-2">
                     @foreach ($prefillItems as $i => $row)
                         <div class="item-row flex flex-wrap gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
@@ -105,8 +106,9 @@
                                 @endforeach
                             </select>
                             <input type="number" name="items[{{ $i }}][quantity]" class="input w-20" min="1" value="{{ $row['quantity'] ?? 1 }}" placeholder="Phòng" required>
-                            <input type="number" name="items[{{ $i }}][adults]" class="input w-20" min="1" value="{{ $row['adults'] ?? 2 }}" placeholder="NL" required>
-                            <input type="number" name="items[{{ $i }}][children]" class="input w-20" min="0" value="{{ $row['children'] ?? 0 }}" placeholder="TE">
+                            <input type="number" name="items[{{ $i }}][adults]" class="input w-20" min="1" value="{{ $row['adults'] ?? 2 }}" placeholder="NL" title="Người lớn (≥12 tuổi)" required>
+                            <input type="number" name="items[{{ $i }}][children]" class="input w-20" min="0" value="{{ $row['children'] ?? 0 }}" placeholder="TE" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">
+                            <input type="number" name="items[{{ $i }}][infants]" class="input w-20" min="0" value="{{ $row['infants'] ?? 0 }}" placeholder="SS" title="Sơ sinh 0-5 tuổi (miễn phí)">
                             <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm">✕</button>
                         </div>
                     @endforeach
@@ -148,8 +150,9 @@
             @endforeach
         </select>
         <input type="number" name="items[__I__][quantity]" class="input w-20" min="1" value="1" placeholder="Phòng" required>
-        <input type="number" name="items[__I__][adults]" class="input w-20" min="1" value="2" placeholder="NL" required>
-        <input type="number" name="items[__I__][children]" class="input w-20" min="0" value="0" placeholder="TE">
+        <input type="number" name="items[__I__][adults]" class="input w-20" min="1" value="2" placeholder="NL" title="Người lớn (≥12 tuổi)" required>
+        <input type="number" name="items[__I__][children]" class="input w-20" min="0" value="0" placeholder="TE" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">
+        <input type="number" name="items[__I__][infants]" class="input w-20" min="0" value="0" placeholder="SS" title="Sơ sinh 0-5 tuổi (miễn phí)">
         <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm">✕</button>
     </div>
 </template>

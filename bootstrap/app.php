@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role'   => \App\Http\Middleware\RoleMiddleware::class,
             'active' => \App\Http\Middleware\CheckActiveAccount::class,
         ]);
+
+        // VNPay gọi IPN từ server của họ, không mang CSRF token của Laravel.
+        $middleware->validateCsrfTokens(except: [
+            'payment/vnpay/ipn',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
