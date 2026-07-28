@@ -159,7 +159,7 @@
     </div>
 
     <div class="flex flex-col gap-5">
-        <div id="price-sidebar" class="card sticky top-20 {{ $seasonalRate ? 'ring-2 ring-offset-2 dark:ring-offset-slate-950 ' . ($seasonalRate->adjustment_value < 0 ? 'ring-red-500' : 'ring-amber-500') : '' }}">
+        <div id="price-sidebar" class="card {{ $seasonalRate ? 'ring-2 ring-offset-2 dark:ring-offset-slate-950 ' . ($seasonalRate->adjustment_value < 0 ? 'ring-red-500' : 'ring-amber-500') : '' }}">
             <span class="section-kicker">Giá phòng</span>
             @if ($seasonalRate)
                 <div class="mb-2 flex items-center gap-2">

@@ -134,27 +134,6 @@
         </div>
     @endif
 
-    @if ($booking->canAddServices())
-        <div class="section-kicker" style="margin-top: 22px;">Thêm dịch vụ phát sinh (khách đang lưu trú)</div>
-        <form method="POST" action="{{ route('admin.bookings.add-services', $booking->id) }}" class="action-row" style="margin-top: 10px; align-items: flex-end;">
-            @csrf
-            <div>
-                <label class="form-label" for="add-service-select">Dịch vụ</label>
-                <select id="add-service-select" name="services[0][service_id]" class="input" required>
-                    <option value="">-- Chọn dịch vụ --</option>
-                    @foreach ($services as $service)
-                        <option value="{{ $service->id }}">{{ $service->name }} ({{ number_format($service->price, 0, ',', '.') }}đ)</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label class="form-label" for="add-service-quantity">Số lượng</label>
-                <input type="number" id="add-service-quantity" name="services[0][quantity]" class="input" style="width: 90px;" min="1" max="20" value="1" required>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">➕ Thêm vào đơn</button>
-        </form>
-    @endif
-
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 22px;">
         <div>
             <div class="section-kicker">Thông tin khách hàng</div>

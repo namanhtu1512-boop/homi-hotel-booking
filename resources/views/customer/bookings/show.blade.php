@@ -296,11 +296,8 @@
             <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                 <div class="mb-3 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
                     <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">▦</span>
-                    Chuyển khoản / Quét mã QR
+                    Chuyển khoản ngân hàng
                 </div>
-                <img src="{{ asset('image/bank-transfer-qr.jpg') }}" alt="Mã QR chuyển khoản"
-                    class="mx-auto mb-3 w-48 max-w-full rounded-lg border border-slate-300 dark:border-slate-700">
-                <p class="mb-3 text-center text-xs text-slate-400">Quét mã bằng app MoMo/ngân hàng bất kỳ (VietQR)</p>
                 <div class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
                     Nội dung chuyển khoản: <strong>{{ $booking->booking_code }}</strong>
                 </div>

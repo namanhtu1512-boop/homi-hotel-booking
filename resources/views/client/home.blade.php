@@ -252,7 +252,10 @@
             <div class="grid gap-5 sm:grid-cols-3">
                 @foreach ($promotions as $promo)
                     <div class="card border-2 border-dashed border-accent/40">
-                        <span class="badge badge-orange">{{ $promo->code }}</span>
+                        <button type="button" class="coupon-code copy-code-btn" data-code="{{ $promo->code }}" title="Bấm để sao chép mã">
+                            <span class="copy-code-text">{{ $promo->code }}</span>
+                            <span class="coupon-copy-btn copy-code-icon">📋</span>
+                        </button>
                         <h3 class="mt-3 font-heading text-lg font-bold text-slate-900 dark:text-white">{{ $promo->name }}</h3>
                         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ Str::limit($promo->description, 80) }}</p>
                         <div class="mt-3 text-xl font-extrabold text-accent">
@@ -344,4 +347,45 @@
             </div>
         </div>
     </section>
+
+    @if ($promotions->isNotEmpty())
+        <script>
+        document.querySelectorAll('.copy-code-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const code = btn.dataset.code;
+                const iconEl = btn.querySelector('.copy-code-icon');
+                const originalIcon = iconEl.textContent;
+
+                const showCopied = () => {
+                    iconEl.textContent = '✅';
+                    btn.title = 'Đã sao chép!';
+                    setTimeout(() => {
+                        iconEl.textContent = originalIcon;
+                        btn.title = 'Bấm để sao chép mã';
+                    }, 1500);
+                };
+
+                const fallbackCopy = () => {
+                    // Fallback cho trình duyệt cũ/HTTP không hỗ trợ Clipboard API,
+                    // và cho trường hợp Clipboard API bị từ chối (quyền, mất focus...).
+                    const tmp = document.createElement('textarea');
+                    tmp.value = code;
+                    tmp.style.position = 'fixed';
+                    tmp.style.opacity = '0';
+                    document.body.appendChild(tmp);
+                    tmp.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    showCopied();
+                };
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(code).then(showCopied).catch(fallbackCopy);
+                } else {
+                    fallbackCopy();
+                }
+            });
+        });
+        </script>
+    @endif
 @endsection
