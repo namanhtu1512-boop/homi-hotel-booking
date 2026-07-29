@@ -30,6 +30,7 @@
                         ['route' => 'staff.payments.index', 'pattern' => 'staff.payments.*', 'label' => 'Thanh toán'],
                         ['route' => 'staff.chat.index', 'pattern' => 'staff.chat.*', 'label' => 'Chat khách hàng'],
                         ['route' => 'staff.group-bookings.index', 'pattern' => 'staff.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
+                        ['route' => 'staff.room-change-requests.index', 'pattern' => 'staff.room-change-requests.*', 'label' => 'Yêu cầu đổi phòng'],
                     ];
                 @endphp
 

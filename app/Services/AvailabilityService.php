@@ -23,13 +23,13 @@ class AvailabilityService
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException nếu room_type không tồn tại/không active
      */
-    public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1, ?string $excludeSessionId = null): array
+    public function check(int $roomTypeId, string $checkIn, string $checkOut, int $quantity = 1, ?string $excludeSessionId = null, ?int $excludeBookingId = null): array
     {
         $this->dateRange->validate($checkIn, $checkOut);
 
         $roomType = RoomType::where('status', 'active')->findOrFail($roomTypeId);
 
-        $bookedQuantity    = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut, $excludeSessionId);
+        $bookedQuantity    = $this->getBookedQuantity($roomTypeId, $checkIn, $checkOut, $excludeSessionId, $excludeBookingId);
         $availableQuantity = $roomType->total_rooms - $bookedQuantity;
 
         return [
@@ -58,13 +58,14 @@ class AvailabilityService
      * khi chạy test) không ép kiểu nên có thể lưu kèm "00:00:00". whereDate()
      * chuẩn hóa cả hai vế về phần ngày, tránh sai lệch giữa 2 loại DB.
      */
-    public function getBookedQuantity(int $roomTypeId, string $checkIn, string $checkOut, ?string $excludeSessionId = null): int
+    public function getBookedQuantity(int $roomTypeId, string $checkIn, string $checkOut, ?string $excludeSessionId = null, ?int $excludeBookingId = null): int
     {
         $booked = (int) BookingItem::where('room_type_id', $roomTypeId)
             ->whereHas('booking', fn ($q) => $q
                 ->whereIn('status', BookingStatus::holdingStatuses())
                 ->whereDate('check_in', '<', $checkOut)
                 ->whereDate('check_out', '>', $checkIn)
+                ->when($excludeBookingId, fn ($q2) => $q2->where('id', '!=', $excludeBookingId))
             )
             ->sum('quantity');
 
@@ -83,9 +84,9 @@ class AvailabilityService
      *
      * @throws \Illuminate\Validation\ValidationException nếu ngày không hợp lệ
      */
-    public function canBook(int $roomTypeId, string $checkIn, string $checkOut, int $quantity, ?string $excludeSessionId = null): bool
+    public function canBook(int $roomTypeId, string $checkIn, string $checkOut, int $quantity, ?string $excludeSessionId = null, ?int $excludeBookingId = null): bool
     {
-        return $this->check($roomTypeId, $checkIn, $checkOut, $quantity, $excludeSessionId)['can_book'];
+        return $this->check($roomTypeId, $checkIn, $checkOut, $quantity, $excludeSessionId, $excludeBookingId)['can_book'];
     }
 
     /**

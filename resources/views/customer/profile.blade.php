@@ -57,6 +57,11 @@
                     <input class="input" type="text" id="address" name="address" value="{{ old('address', $user->address ?? '') }}" placeholder="123 Đường ABC, Quận 1, TP.HCM">
                 </div>
 
+                <div>
+                    <label class="form-label" for="national_id">Số CCCD/CMND</label>
+                    <input class="input" type="text" id="national_id" name="national_id" value="{{ old('national_id', $user->national_id ?? '') }}" placeholder="9 hoặc 12 chữ số" maxlength="20">
+                </div>
+
                 <button type="submit" class="btn-primary">Lưu thay đổi</button>
             </form>
         </div>
@@ -125,6 +130,10 @@
                 <div class="info-item">
                     <span class="label">Địa chỉ</span>
                     <span class="value">{{ $user->address ?? '—' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Số CCCD/CMND</span>
+                    <span class="value">{{ $user->national_id ?? '—' }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Vai trò</span>

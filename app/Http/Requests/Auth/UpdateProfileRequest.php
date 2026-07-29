@@ -15,17 +15,19 @@ class UpdateProfileRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
-            'name'    => ['required', 'string', 'max:255'],
-            'phone'   => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'avatar'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'name'        => ['required', 'string', 'max:255'],
+            'phone'       => ['nullable', 'string', 'max:20'],
+            'address'     => ['nullable', 'string', 'max:255'],
+            'national_id' => ['nullable', 'string', 'regex:/^[0-9]{9}$|^[0-9]{12}$/'],
+            'avatar'      => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'name.required' => 'Họ tên không được để trống.',
+            'name.required'      => 'Họ tên không được để trống.',
+            'national_id.regex'  => 'Số CCCD/CMND không hợp lệ (9 hoặc 12 chữ số).',
         ];
     }
 }
