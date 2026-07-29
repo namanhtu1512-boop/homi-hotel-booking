@@ -324,7 +324,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -341,8 +341,10 @@ class BookingService
         $booking = $this->findForCustomer($bookingId, $customer);
 
         if (! $booking->canCancelByCustomer()) {
+            $hoursBefore = HotelInfo::instance()->cancellation_hours_before;
+
             throw ValidationException::withMessages([
-                'status' => ['Không thể hủy đơn ở trạng thái hiện tại hoặc đã quá hạn hủy (chỉ hủy được trước ngày nhận phòng).'],
+                'status' => ["Không thể hủy đơn ở trạng thái hiện tại hoặc đã quá hạn hủy (chỉ hủy được trước {$hoursBefore} giờ so với giờ nhận phòng)."],
             ]);
         }
 

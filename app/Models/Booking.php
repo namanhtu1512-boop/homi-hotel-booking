@@ -88,12 +88,31 @@ class Booking extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function roomChangeRequests()
+    {
+        return $this->hasMany(RoomChangeRequest::class);
+    }
+
     public function canCancelByCustomer(): bool
     {
-        // >= hôm nay (không chỉ isAfter) — hệ thống cho phép đặt phòng cùng
-        // ngày (DateRangeService::validate), nên khách đặt hôm nay vẫn phải
-        // hủy được trước khi thực sự nhận phòng, không bị khóa ngay lập tức.
-        return $this->status->canCancelByCustomer() && $this->check_in->gte(today());
+        return $this->status->canCancelByCustomer() && $this->hoursUntilCheckIn() >= HotelInfo::instance()->cancellation_hours_before;
+    }
+
+    /**
+     * Số giờ còn lại tính tới thời điểm nhận phòng DỰ KIẾN (ngày check_in +
+     * giờ nhận phòng chuẩn của khách sạn `hotel_info.check_in_time`, mặc
+     * định 14:00 nếu chưa cấu hình) — dùng cho canCancelByCustomer() để so
+     * với hạn hủy theo giờ (cancellation_hours_before) thay vì chỉ so ngày
+     * như trước đây (đặt cùng ngày trước kia luôn hủy được bất kể còn mấy
+     * giờ, không đúng với chính sách "phải hủy trước N giờ").
+     */
+    public function hoursUntilCheckIn(): float
+    {
+        $checkInTime = HotelInfo::instance()->check_in_time ?? '14:00';
+
+        $expectedCheckIn = \Carbon\Carbon::parse($this->check_in->toDateString() . ' ' . $checkInTime, 'Asia/Ho_Chi_Minh');
+
+        return now('Asia/Ho_Chi_Minh')->diffInHours($expectedCheckIn);
     }
 
     public function canCancelByAdmin(): bool

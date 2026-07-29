@@ -21,9 +21,13 @@ class User extends Authenticatable
         'password',
         'phone',
         'address',
+        'national_id',
         'avatar_path',
         'role',
         'status',
+        'provider',
+        'provider_id',
+        'email_verified_at',
     ];
 
     protected $hidden = [
@@ -32,7 +36,8 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'password' => 'hashed',
+        'password'           => 'hashed',
+        'email_verified_at'  => 'datetime',
     ];
 
     public function bookings()

@@ -55,6 +55,14 @@
                 <button type="submit" class="btn btn-primary btn-block">Đăng ký</button>
             </form>
 
+            <div class="my-4 flex items-center gap-3 text-xs font-semibold text-slate-400">
+                <span class="h-px flex-1 bg-slate-200 dark:bg-slate-800"></span>
+                HOẶC
+                <span class="h-px flex-1 bg-slate-200 dark:bg-slate-800"></span>
+            </div>
+
+            @include('auth.partials.social-buttons')
+
             <div class="auth-footer">
                 Đã có tài khoản?
                 <a href="{{ route('login') }}">Đăng nhập</a>

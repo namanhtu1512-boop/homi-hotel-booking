@@ -11,6 +11,7 @@ use App\Models\News;
 use App\Models\Promotion;
 use App\Models\Review;
 use App\Models\Room;
+use App\Models\RoomChangeRequest;
 use App\Models\RoomType;
 use App\Models\SeasonalRate;
 use App\Models\Service;
@@ -51,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
             'services' => Service::class,
             'group_booking_requests' => GroupBookingRequest::class,
             'rooms' => Room::class,
+            'room_change_requests' => RoomChangeRequest::class,
         ]);
 
         // Footer hiển thị trên mọi trang khách hàng — chia sẻ thông tin khách sạn
@@ -67,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('chatUnreadCount', $this->app->make(ChatService::class)->unreadCountForStaff());
             $view->with('contactNewCount', ContactMessage::where('status', 'new')->count());
             $view->with('groupBookingNewCount', GroupBookingRequest::where('status', 'new')->count());
+            $view->with('roomChangeNewCount', RoomChangeRequest::where('status', 'pending')->count());
             $user = Auth::user();
             $view->with('adminNotifUnread', $user ? $user->unreadNotifications()->latest()->take(10)->get() : collect());
         });

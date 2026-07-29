@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AuthWebController;
+use App\Http\Controllers\Web\SocialAuthController;
+use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\RoomController;
 use App\Http\Controllers\Web\Admin\DashboardController;
@@ -29,6 +31,9 @@ use App\Http\Controllers\Web\Customer\BookingController as CustomerBookingContro
 use App\Http\Controllers\Web\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Web\Customer\WishlistController as CustomerWishlistController;
 use App\Http\Controllers\Web\Customer\ReviewController as CustomerReviewController;
+use App\Http\Controllers\Web\Customer\RoomChangeRequestController as CustomerRoomChangeRequestController;
+use App\Http\Controllers\Web\Admin\RoomChangeRequestController as AdminRoomChangeRequestController;
+use App\Http\Controllers\Web\Staff\RoomChangeRequestController as StaffRoomChangeRequestController;
 use App\Http\Controllers\Web\Customer\ChatController as CustomerChatController;
 use App\Http\Controllers\Web\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Web\Staff\DashboardController as StaffDashboardController;
@@ -89,11 +94,26 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/customer/login', [AuthWebController::class, 'showLogin'])->name('login');
     Route::post('/customer/login', [AuthWebController::class, 'login'])->middleware('throttle:5,1');
+
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgot'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showReset'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:5,1')->name('password.update');
 });
 
 Route::post('/logout', [AuthWebController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
+
+// Đăng nhập Facebook/Google — không đặt trong 'guest' group vì callback vẫn
+// cần xử lý được (redirect có thông báo lỗi) ngay cả khi phiên guest đã hết.
+Route::get('/auth/{provider}', [SocialAuthController::class, 'redirect'])
+    ->whereIn('provider', ['facebook', 'google'])
+    ->middleware('throttle:10,1')
+    ->name('social.redirect');
+Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+    ->whereIn('provider', ['facebook', 'google'])
+    ->name('social.callback');
 
 // Admin login (separate, not under guest middleware so already-logged-in admins get redirected)
 Route::get('/admin/login', [AuthWebController::class, 'showAdminLogin'])->name('admin.login');
@@ -131,6 +151,9 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::post('/{id}/pay/online',        [CustomerBookingController::class, 'payOnline'])->name('pay-online');
         Route::post('/{id}/pay/bank-transfer', [CustomerBookingController::class, 'payBankTransfer'])->name('pay-bank-transfer');
         Route::post('/{id}/pay/deposit',       [CustomerBookingController::class, 'payDeposit'])->name('pay-deposit');
+
+        Route::get('/{id}/room-change',  [CustomerRoomChangeRequestController::class, 'create'])->name('room-change.create');
+        Route::post('/{id}/room-change', [CustomerRoomChangeRequestController::class, 'store'])->name('room-change.store');
     });
 
     Route::prefix('wishlist')->name('wishlist.')->group(function () {
@@ -287,6 +310,13 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::delete('/{id}',               [AdminGroupBookingController::class, 'destroy'])->name('destroy');
     });
 
+    Route::prefix('room-change-requests')->name('room-change-requests.')->group(function () {
+        Route::get('/',              [AdminRoomChangeRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [AdminRoomChangeRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/approve', [AdminRoomChangeRequestController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject',  [AdminRoomChangeRequestController::class, 'reject'])->name('reject');
+    });
+
     Route::prefix('chat')->name('chat.')->group(function () {
         Route::get('/',                 [AdminChatController::class, 'index'])->name('index');
         Route::get('/{customerId}',     [AdminChatController::class, 'show'])->name('show');
@@ -354,5 +384,12 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::post('/{id}/create-booking',  [StaffGroupBookingController::class, 'createBooking'])->name('create-booking');
         Route::patch('/{id}/mark-contacted', [StaffGroupBookingController::class, 'markContacted'])->name('mark-contacted');
         Route::post('/{id}/send-quote',      [StaffGroupBookingController::class, 'sendQuote'])->name('send-quote');
+    });
+
+    Route::prefix('room-change-requests')->name('room-change-requests.')->group(function () {
+        Route::get('/',              [StaffRoomChangeRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [StaffRoomChangeRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/approve', [StaffRoomChangeRequestController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject',  [StaffRoomChangeRequestController::class, 'reject'])->name('reject');
     });
 });

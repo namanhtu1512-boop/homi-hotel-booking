@@ -23,6 +23,10 @@
                     <td>{{ $customer->address ?: '—' }}</td>
                 </tr>
                 <tr>
+                    <th>Số CCCD/CMND</th>
+                    <td>{{ $customer->national_id ?: '—' }}</td>
+                </tr>
+                <tr>
                     <th>Ngày tạo tài khoản</th>
                     <td>{{ $customer->created_at->format('d/m/Y') }}</td>
                 </tr>

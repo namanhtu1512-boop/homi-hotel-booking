@@ -214,6 +214,16 @@
             </form>
         @endif
 
+        @if (
+            in_array($booking->status, [\App\Enums\BookingStatus::PENDING, \App\Enums\BookingStatus::CONFIRMED], true)
+            && $booking->bookingItems->count() === 1
+            && ! $booking->roomChangeRequests->contains(fn ($r) => $r->status === 'pending')
+        )
+            <a href="{{ route('customer.bookings.room-change.create', $booking->id) }}" class="btn-outline w-full text-center">🔁 Yêu cầu đổi phòng</a>
+        @elseif ($booking->roomChangeRequests->contains(fn ($r) => $r->status === 'pending'))
+            <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu đổi phòng chờ khách sạn duyệt.</p>
+        @endif
+
         @if ($booking->canCancelByCustomer())
             @php
                 // Hủy đơn đã thanh toán đủ giờ kích hoạt hoàn tiền THẬT (attemptRefund())
@@ -231,6 +241,13 @@
                 @csrf
                 <button type="submit" class="btn-danger w-full">Hủy đơn</button>
             </form>
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                Có thể hủy miễn phí trước {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ so với giờ nhận phòng.
+            </p>
+        @elseif ($booking->status->canCancelByCustomer())
+            <p class="text-xs text-red-500">
+                Đã quá hạn hủy đơn (chỉ hủy được trước {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ so với giờ nhận phòng). Vui lòng liên hệ khách sạn nếu cần hỗ trợ.
+            </p>
         @endif
     </div>
 </div>

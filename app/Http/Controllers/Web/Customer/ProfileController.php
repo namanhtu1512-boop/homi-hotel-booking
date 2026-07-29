@@ -19,7 +19,7 @@ class ProfileController extends Controller
 
     public function update(UpdateProfileRequest $request): RedirectResponse
     {
-        $data = $request->safe()->only(['name', 'phone', 'address']);
+        $data = $request->safe()->only(['name', 'phone', 'address', 'national_id']);
 
         if ($request->hasFile('avatar')) {
             $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
