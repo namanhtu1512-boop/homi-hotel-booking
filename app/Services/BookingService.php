@@ -324,7 +324,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -684,7 +684,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy'])
+        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests'])
             ->findOrFail($bookingId);
     }
 
@@ -937,6 +937,8 @@ class BookingService
             ]);
         }
 
+        $this->guardEarlyCheckinApproval($booking);
+
         return DB::transaction(function () use ($booking, $roomAssignments) {
             foreach ($booking->bookingItems as $item) {
                 $roomIds = array_values(array_unique($roomAssignments[$item->id] ?? []));
@@ -991,6 +993,37 @@ class BookingService
     }
 
     /**
+     * Chặn check-in TRƯỚC giờ chuẩn nếu đơn chưa có yêu cầu "Nhận phòng sớm"
+     * (EarlyCheckinRequest) được admin/staff duyệt — bắt buộc phải đi qua
+     * luồng duyệt (EarlyCheckinRequestService) thay vì lễ tân tự ý cho khách
+     * vào phòng sớm bất kỳ lúc nào. Không áp dụng nếu khách sạn chưa cấu
+     * hình check_in_time, hoặc hôm nay không phải đúng ngày check_in đã đặt
+     * (khách đến TRỄ hơn ngày đặt, không phải "sớm" — xem isCheckInDateToday()).
+     */
+    private function guardEarlyCheckinApproval(Booking $booking): void
+    {
+        $hotel = HotelInfo::instance();
+
+        if (! $hotel->check_in_time || ! $booking->isCheckInDateToday()) {
+            return;
+        }
+
+        $nowVn = now('Asia/Ho_Chi_Minh')->format('H:i:s');
+
+        if ($nowVn >= $hotel->check_in_time) {
+            return;
+        }
+
+        $hasApproved = $booking->earlyCheckinRequests()->where('status', 'approved')->exists();
+
+        if (! $hasApproved) {
+            throw ValidationException::withMessages([
+                'status' => ['Khách đến trước giờ nhận phòng chuẩn (' . substr($hotel->check_in_time, 0, 5) . ') nhưng chưa có yêu cầu nhận phòng sớm được duyệt. Vui lòng duyệt yêu cầu ở mục "Yêu cầu nhận phòng sớm" trước, hoặc đợi tới giờ chuẩn.'],
+            ]);
+        }
+    }
+
+    /**
      * Xem checkIn() — tách riêng cho dễ đọc. Không thu phí nếu khách sạn
      * chưa cấu hình giờ nhận phòng chuẩn hoặc % phụ phí = 0 (mặc định).
      *
@@ -1019,6 +1052,15 @@ class BookingService
         $nowVn = now('Asia/Ho_Chi_Minh')->format('H:i:s');
 
         if ($nowVn >= $hotel->check_in_time) {
+            return null;
+        }
+
+        // Khách vào được tới đây (đã qua guardEarlyCheckinApproval()) nghĩa
+        // là có 1 EarlyCheckinRequest đã duyệt cho lần đến sớm này, và phí
+        // cố định (100k/giờ) đã thu ngay lúc duyệt (xem
+        // EarlyCheckinRequestService::approve()) — không tính thêm % phụ
+        // phí tự động ở đây nữa để tránh thu 2 lần cho cùng 1 lần đến sớm.
+        if ($booking->earlyCheckinRequests()->where('status', 'approved')->exists()) {
             return null;
         }
 

@@ -39,6 +39,7 @@
                         ['route' => 'admin.contact-messages.index', 'pattern' => 'admin.contact-messages.*', 'label' => 'Liên hệ', 'badge' => $contactNewCount ?? 0],
                         ['route' => 'admin.group-bookings.index', 'pattern' => 'admin.group-bookings.*', 'label' => 'Đặt đoàn/nhóm', 'badge' => $groupBookingNewCount ?? 0],
                         ['route' => 'admin.room-change-requests.index', 'pattern' => 'admin.room-change-requests.*', 'label' => 'Yêu cầu đổi phòng', 'badge' => $roomChangeNewCount ?? 0],
+                        ['route' => 'admin.early-checkin-requests.index', 'pattern' => 'admin.early-checkin-requests.*', 'label' => 'Yêu cầu nhận phòng sớm', 'badge' => $earlyCheckinNewCount ?? 0],
                         ['route' => 'admin.chat.index', 'pattern' => 'admin.chat.*', 'label' => 'Chat khách hàng'],
                     ];
                 @endphp

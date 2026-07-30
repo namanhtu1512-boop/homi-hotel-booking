@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Banner;
 use App\Models\Booking;
 use App\Models\ContactMessage;
+use App\Models\EarlyCheckinRequest;
 use App\Models\GroupBookingRequest;
 use App\Models\HotelInfo;
 use App\Models\News;
@@ -53,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
             'group_booking_requests' => GroupBookingRequest::class,
             'rooms' => Room::class,
             'room_change_requests' => RoomChangeRequest::class,
+            'early_checkin_requests' => EarlyCheckinRequest::class,
         ]);
 
         // Footer hiển thị trên mọi trang khách hàng — chia sẻ thông tin khách sạn
@@ -70,6 +72,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('contactNewCount', ContactMessage::where('status', 'new')->count());
             $view->with('groupBookingNewCount', GroupBookingRequest::where('status', 'new')->count());
             $view->with('roomChangeNewCount', RoomChangeRequest::where('status', 'pending')->count());
+            $view->with('earlyCheckinNewCount', EarlyCheckinRequest::where('status', 'pending')->count());
             $user = Auth::user();
             $view->with('adminNotifUnread', $user ? $user->unreadNotifications()->latest()->take(10)->get() : collect());
         });

@@ -210,6 +210,27 @@
                     @endif
                 </div>
 
+                @php
+                    $latestEarlyCheckin = $booking->earlyCheckinRequests->sortByDesc('created_at')->first();
+                @endphp
+                @if ($latestEarlyCheckin)
+                    @php
+                        $eciBadge = ['pending' => 'badge-orange', 'approved' => 'badge-green', 'rejected' => 'badge-red'][$latestEarlyCheckin->status] ?? 'badge-green';
+                        $eciLabel = ['pending' => 'Chờ duyệt', 'approved' => 'Đã duyệt', 'rejected' => 'Đã từ chối'][$latestEarlyCheckin->status] ?? $latestEarlyCheckin->status;
+                    @endphp
+                    <div class="info-list mt-3">
+                        <div class="info-item">
+                            <span class="label">Yêu cầu nhận phòng sớm</span>
+                            <span class="value">
+                                Lúc {{ substr($latestEarlyCheckin->requested_arrival_time, 0, 5) }}
+                                ({{ $latestEarlyCheckin->hours_early }} giờ, {{ number_format($latestEarlyCheckin->fee_amount, 0, ',', '.') }}đ)
+                                <span class="badge {{ $eciBadge }}">{{ $eciLabel }}</span>
+                                — <a href="{{ route('staff.early-checkin-requests.show', $latestEarlyCheckin->id) }}">Xem</a>
+                            </span>
+                        </div>
+                    </div>
+                @endif
+
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
                     <div class="action-row" style="margin-top: 16px; flex-wrap: wrap; gap: 12px;">
                         <form method="POST" action="{{ route('staff.bookings.services.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">

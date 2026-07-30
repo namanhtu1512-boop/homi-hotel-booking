@@ -200,18 +200,10 @@
     <div class="quick-actions-row">
         <a href="{{ route('customer.bookings.index') }}" class="btn-outline">Quay lại danh sách</a>
 
-        @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED)
-            {{-- Nhận phòng sớm hiện được tự động cộng phụ phí (không cần
-            duyệt trước) — nút này chỉ để khách CHỦ ĐỘNG báo trước và trao
-            đổi với khách sạn (VD hỏi còn phòng để nhận sớm không), gửi
-            thẳng vào hộp thư hỗ trợ chung đã có sẵn thay vì phải mở riêng
-            trang chat rồi tự gõ lại mã đơn. --}}
-            <form method="POST" action="{{ route('customer.chat.store') }}"
-                onsubmit="return confirm('Gửi yêu cầu nhận phòng sớm cho đơn {{ $booking->booking_code }} tới khách sạn qua tin nhắn hỗ trợ?');">
-                @csrf
-                <input type="hidden" name="body" value="[Yêu cầu nhận phòng sớm] Đơn {{ $booking->booking_code }}, dự kiến nhận phòng ngày {{ $booking->check_in->format('d/m/Y') }}. Tôi muốn hỏi khách sạn có thể sắp xếp cho tôi nhận phòng sớm hơn giờ chuẩn được không, xin phản hồi giúp tôi ạ.">
-                <button type="submit" class="btn-outline w-full">💬 Yêu cầu nhận phòng sớm</button>
-            </form>
+        @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED && ! $booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
+            <a href="{{ route('customer.bookings.early-checkin.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu nhận phòng sớm</a>
+        @elseif ($booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
+            <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu nhận phòng sớm chờ khách sạn duyệt.</p>
         @endif
 
         @if (

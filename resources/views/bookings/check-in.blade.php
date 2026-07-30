@@ -11,6 +11,24 @@
         <a href="{{ $backRoute }}" class="btn btn-outline">Quay lại</a>
     </div>
 
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
+    @php
+        $approvedEarlyCheckin = $booking->earlyCheckinRequests->firstWhere('status', 'approved');
+    @endphp
+    @if ($approvedEarlyCheckin)
+        <div class="alert alert-success">
+            ✅ Đã duyệt nhận phòng sớm lúc {{ substr($approvedEarlyCheckin->requested_arrival_time, 0, 5) }}
+            (phụ phí {{ number_format($approvedEarlyCheckin->fee_amount, 0, ',', '.') }}đ đã cộng vào đơn).
+        </div>
+    @endif
+
     <form method="POST" action="{{ $formAction }}">
         @csrf
 

@@ -93,6 +93,11 @@ class Booking extends Model
         return $this->hasMany(RoomChangeRequest::class);
     }
 
+    public function earlyCheckinRequests()
+    {
+        return $this->hasMany(EarlyCheckinRequest::class);
+    }
+
     public function canCancelByCustomer(): bool
     {
         return $this->status->canCancelByCustomer() && $this->hoursUntilCheckIn() >= HotelInfo::instance()->cancellation_hours_before;

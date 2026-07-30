@@ -31,6 +31,7 @@
                         ['route' => 'staff.chat.index', 'pattern' => 'staff.chat.*', 'label' => 'Chat khách hàng'],
                         ['route' => 'staff.group-bookings.index', 'pattern' => 'staff.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
                         ['route' => 'staff.room-change-requests.index', 'pattern' => 'staff.room-change-requests.*', 'label' => 'Yêu cầu đổi phòng'],
+                        ['route' => 'staff.early-checkin-requests.index', 'pattern' => 'staff.early-checkin-requests.*', 'label' => 'Yêu cầu nhận phòng sớm'],
                     ];
                 @endphp
 
