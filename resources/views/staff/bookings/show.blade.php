@@ -144,6 +144,12 @@
                         <span class="value">{{ $booking->customer_email }}</span>
                     </div>
                 @endif
+                @if ($booking->customer_national_id)
+                    <div class="info-item">
+                        <span class="label">Số CCCD/CMND</span>
+                        <span class="value">{{ $booking->customer_national_id }}</span>
+                    </div>
+                @endif
                 <div class="info-item">
                     <span class="label">Tổng số khách</span>
                     <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
@@ -277,8 +283,9 @@
 
                         <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
-                            <input type="number" name="amount" class="input" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input" style="width:200px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
+                            @include('partials.surcharge-item-select')
+                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
                             <button type="submit" class="btn btn-outline btn-sm">➕ Thêm phụ phí phát sinh</button>
                         </form>
                     </div>
