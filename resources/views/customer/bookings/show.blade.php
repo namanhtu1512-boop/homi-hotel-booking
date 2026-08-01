@@ -179,6 +179,29 @@
         </div>
     @endif
 
+    @php
+        $incidentalInvoice = $booking->incidentalInvoice;
+        $incidentalItems = $incidentalInvoice?->items ?? collect();
+    @endphp
+    @if ($incidentalItems->isNotEmpty())
+        <span class="section-kicker mt-5 block">Hóa đơn phát sinh</span>
+        <div class="info-list mt-2.5">
+            @foreach ($incidentalItems as $item)
+                <div class="info-item">
+                    <span class="label">{{ $item->description }}</span>
+                    <span class="value">{{ number_format($item->amount, 0, ',', '.') }}đ</span>
+                </div>
+            @endforeach
+            <div class="info-item">
+                <span class="label">Tổng hóa đơn phát sinh</span>
+                <span class="value">
+                    {{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ
+                    <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span>
+                </span>
+            </div>
+        </div>
+    @endif
+
     <span class="section-kicker mt-5 block">Thông tin liên hệ</span>
     <div class="info-list mt-2.5">
         <div class="info-item">

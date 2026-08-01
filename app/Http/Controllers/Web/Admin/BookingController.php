@@ -132,6 +132,18 @@ class BookingController extends Controller
             ->with('success', $message);
     }
 
+    public function showCheckOut(int $id): View
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+
+        return view('bookings.check-out', [
+            'booking'    => $booking,
+            'formAction' => route('admin.bookings.check-out', $id),
+            'backRoute'  => route('admin.bookings.show', $id),
+            'layout'     => 'layouts.admin',
+        ]);
+    }
+
     public function checkOut(int $id): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);

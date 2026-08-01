@@ -98,6 +98,24 @@ class Booking extends Model
         return $this->hasMany(EarlyCheckinRequest::class);
     }
 
+    public function incidentalInvoice()
+    {
+        return $this->hasOne(IncidentalInvoice::class)->latestOfMany();
+    }
+
+    /**
+     * Hóa đơn phát sinh (dịch vụ/phụ phí thêm trong lúc lưu trú) còn tiền
+     * CHƯA thu — dùng để chặn trả phòng cho tới khi lễ tân xác nhận đã thu
+     * đủ (xem IncidentalInvoiceService::markPaid(), BookingService::checkOut()).
+     * Tách hẳn khỏi tiền phòng gốc (payment) — xem canCheckOut().
+     */
+    public function hasUnpaidIncidentalInvoice(): bool
+    {
+        return $this->incidentalInvoice
+            && $this->incidentalInvoice->isOpen()
+            && (float) $this->incidentalInvoice->total_amount > 0;
+    }
+
     public function canCancelByCustomer(): bool
     {
         return $this->status->canCancelByCustomer() && $this->hoursUntilCheckIn() >= HotelInfo::instance()->cancellation_hours_before;

@@ -34,12 +34,22 @@ class BookingService
      */
     private const MAX_CHILDREN_PER_ROOM = 2;
 
+    /**
+     * Phần trăm phụ phí trả phòng muộn tính theo MỖI GIỜ trễ (làm tròn lên),
+     * nhân với giá phòng đêm cuối — VD trễ 1h05' → tính 2 giờ → 20% giá
+     * phòng đêm cuối. Không giới hạn số giờ trễ tối đa (khác phí nhận phòng
+     * sớm — EarlyCheckinRequestService::MAX_HOURS_EARLY — vốn phải xin duyệt
+     * trước; trả phòng muộn phát hiện ngay lúc trả phòng nên không cần cap).
+     */
+    private const LATE_CHECKOUT_PERCENT_PER_HOUR = 10;
+
     public function __construct(
         private AvailabilityService $availabilityService,
         private PricingService $pricingService,
         private PromotionService $promotionService,
         private RoomHoldService $roomHoldService,
         private VNPayService $vnPayService,
+        private IncidentalInvoiceService $incidentalInvoiceService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -324,7 +334,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -684,7 +694,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests'])
+        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
     }
 
@@ -796,8 +806,9 @@ class BookingService
      * Admin/staff thêm dịch vụ cho đơn ĐANG lưu trú (checked_in) — vd khách
      * gọi thêm đồ ăn/giặt ủi giữa kỳ nghỉ. Trước đây dịch vụ chỉ gắn được
      * lúc tạo đơn ban đầu, không có cách nào thêm sau khi khách đã nhận
-     * phòng. Cộng dồn vào booking.total_amount + payment.amount qua
-     * applyExtraCharge() (xem đó để biết cách xử lý khi đơn đã thanh toán đủ).
+     * phòng. Ghi vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService) —
+     * KHÔNG đụng tới booking.total_amount/payment (tiền phòng gốc) nữa, chỉ
+     * thu 1 lần lúc trả phòng (xem checkOut()).
      */
     public function addServiceItem(Booking $booking, int $serviceId, int $quantity): Booking
     {
@@ -824,24 +835,27 @@ class BookingService
         $subtotal = (float) $service->price * $quantity;
 
         return DB::transaction(function () use ($booking, $service, $quantity, $subtotal) {
-            $booking->serviceItems()->create([
+            $serviceItem = $booking->serviceItems()->create([
                 'service_id' => $service->id,
                 'quantity'   => $quantity,
                 'unit_price' => $service->price,
                 'subtotal'   => $subtotal,
             ]);
 
-            $this->applyExtraCharge($booking, $subtotal, "Phát sinh thêm dịch vụ \"{$service->name}\" × {$quantity} trong lúc lưu trú.");
+            $this->incidentalInvoiceService->addItem(
+                $booking, 'service', "{$service->name} × {$quantity}", $subtotal, $serviceItem->id
+            );
 
-            return $booking->fresh(['serviceItems.service', 'payment']);
+            return $booking->fresh(['serviceItems.service', 'payment', 'incidentalInvoice.items']);
         });
     }
 
     /**
-     * Admin/staff ghi nhận phụ phí phát sinh tùy ý (hư hỏng, trả phòng
-     * trễ...) không gắn với dịch vụ nào trong catalog — khác addServiceItem()
-     * ở chỗ đây là số tiền + lý do nhập tay, lưu riêng ở payments.surcharge_amount
-     * (không tạo dòng booking_services). Cùng cơ chế cộng dồn applyExtraCharge().
+     * Admin/staff ghi nhận phụ phí phát sinh tùy ý (hư hỏng, nhận phòng sớm
+     * tự động, trả phòng muộn tự động...) không gắn với dịch vụ nào trong
+     * catalog — khác addServiceItem() ở chỗ đây là số tiền + lý do nhập tay.
+     * Ghi thẳng vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService) —
+     * KHÔNG đụng payment (tiền phòng gốc) nữa, xem checkOut().
      */
     public function addSurcharge(Booking $booking, float $amount, string $note): Booking
     {
@@ -857,65 +871,11 @@ class BookingService
             ]);
         }
 
-        if (! $booking->payment) {
-            throw ValidationException::withMessages([
-                'amount' => ['Đơn này chưa có thông tin thanh toán.'],
-            ]);
-        }
-
         return DB::transaction(function () use ($booking, $amount, $note) {
-            $booking->payment->increment('surcharge_amount', $amount);
-            $booking->payment->update([
-                'surcharge_note' => $booking->payment->surcharge_note
-                    ? $booking->payment->surcharge_note . " | {$note} (+" . number_format($amount, 0, ',', '.') . 'đ)'
-                    : "{$note} (+" . number_format($amount, 0, ',', '.') . 'đ)',
-            ]);
+            $this->incidentalInvoiceService->addItem($booking, 'surcharge', $note, $amount);
 
-            $this->applyExtraCharge($booking, $amount, "Phụ phí phát sinh: {$note}.");
-
-            return $booking->fresh('payment');
+            return $booking->fresh(['payment', 'incidentalInvoice.items']);
         });
-    }
-
-    /**
-     * Logic dùng chung khi cộng thêm tiền vào một đơn đã tồn tại (dịch vụ
-     * thêm hoặc phụ phí): tăng total_amount/payment.amount theo đúng số
-     * tiền phát sinh. Nếu đơn LÚC NÀY đã ở trạng thái đã thanh toán đủ
-     * (PAID) — số tiền cũ không còn đủ cho tổng mới — mở lại về PENDING để
-     * bắt buộc thu thêm phần chênh lệch trước khi cho trả phòng (xem
-     * Booking::canCheckOut()); nếu đơn chưa PAID (đang unpaid/deposit_paid)
-     * thì số tiền mới cứ cộng dồn bình thường, thu chung 1 lần như cũ.
-     */
-    private function applyExtraCharge(Booking $booking, float $amount, string $logNote): void
-    {
-        $booking->increment('total_amount', $amount);
-
-        $payment = $booking->payment;
-
-        if (! $payment) {
-            return;
-        }
-
-        $wasPaid = $payment->status === PaymentStatus::PAID;
-
-        $payment->increment('amount', $amount);
-
-        // Trước đây chỉ ghi log + báo khách khi đơn đã PAID (phải mở lại
-        // chờ thu thêm) — đơn đang unpaid/deposit_paid vẫn bị cộng thêm phí
-        // nhưng khách không hề hay biết cho tới lúc trả phòng. Giờ luôn ghi
-        // log + luôn báo khách, chỉ khác nhau ở việc có đổi trạng thái hay không.
-        if ($wasPaid) {
-            $payment->update(['status' => PaymentStatus::PENDING]);
-            $this->logPaymentStatus($payment, PaymentStatus::PAID, PaymentStatus::PENDING, Auth::id(), $logNote . ' Đơn đã thanh toán đủ trước đó — mở lại chờ thu thêm phần chênh lệch.');
-        } else {
-            $this->logPaymentStatus($payment, $payment->status, $payment->status, Auth::id(), $logNote);
-        }
-
-        $amountText = number_format($amount, 0, ',', '.') . 'đ';
-        $message = $wasPaid
-            ? "Đơn {$booking->booking_code} phát sinh thêm phí {$amountText}, vui lòng thanh toán phần còn lại khi trả phòng."
-            : "Đơn {$booking->booking_code} phát sinh thêm phí {$amountText}, đã cộng vào tổng tiền cần thanh toán.";
-        $booking->user?->notify(new BookingStatusChanged($booking, $message));
     }
 
     /**
@@ -1119,6 +1079,14 @@ class BookingService
             // sớm (isEarly true nghĩa là sai ngày, không phải trễ giờ).
             $fee = $isEarly ? null : $this->applyLateCheckoutSurchargeIfNeeded($booking);
 
+            // Lễ tân bấm "Trả phòng" ở trang xác nhận (đã hiện toàn bộ hóa
+            // đơn phát sinh cho khách xem + thu tiền mặt tại quầy) — hành
+            // động này VỪA xác nhận đã thu VỪA hoàn tất trả phòng trong 1
+            // bước, đúng quy trình "khách thanh toán một lần → hoàn tất
+            // check-out". Không ảnh hưởng gì nếu không có hóa đơn phát sinh
+            // nào đang mở (markPaid() tự bỏ qua, trả về null).
+            $this->incidentalInvoiceService->markPaid($booking, Auth::user());
+
             $oldStatus = $booking->status;
             $booking->update(['status' => BookingStatus::CHECKED_OUT]);
 
@@ -1139,7 +1107,7 @@ class BookingService
     /**
      * Xem checkOut() — tách riêng cho dễ đọc, đối xứng với
      * applyEarlyCheckinSurchargeIfNeeded(). Không thu phí nếu khách sạn chưa
-     * cấu hình giờ trả phòng chuẩn hoặc % phụ phí = 0 (mặc định).
+     * cấu hình giờ trả phòng chuẩn.
      *
      * @return ?float  Số tiền phụ phí vừa cộng, null nếu không áp dụng.
      */
@@ -1147,7 +1115,7 @@ class BookingService
     {
         $hotel = HotelInfo::instance();
 
-        if (! $hotel->check_out_time || (float) $hotel->late_checkout_surcharge_percent <= 0) {
+        if (! $hotel->check_out_time) {
             return null;
         }
 
@@ -1167,6 +1135,14 @@ class BookingService
             return null;
         }
 
+        $standard = \Carbon\Carbon::createFromFormat('H:i:s', $hotel->check_out_time);
+        $now = \Carbon\Carbon::createFromFormat('H:i:s', $nowVn);
+        // diffInMinutes() mặc định trả giá trị CÓ DẤU (âm nếu $now đứng sau
+        // $standard) từ Carbon 3 trở đi, khác Carbon 2 (luôn dương) — phải
+        // truyền absolute=true tường minh, nếu không hoursLate âm khiến điều
+        // kiện "$fee > 0" bên dưới fail âm thầm, bỏ qua phụ phí không báo lỗi.
+        $hoursLate = (int) ceil($now->diffInMinutes($standard, true) / 60);
+
         // Dùng nightly_total của ĐÊM CUỐI CÙNG trong price_breakdown (đã lưu
         // sẵn lúc đặt, gồm cả điều chỉnh giá theo mùa + phụ thu cuối tuần
         // của đúng đêm đó) — đối xứng với đêm đầu tiên dùng cho phụ phí
@@ -1177,13 +1153,13 @@ class BookingService
 
             return (float) $lastNight * $item->quantity;
         });
-        $fee = round($lastNightTotal * (float) $hotel->late_checkout_surcharge_percent / 100);
+        $fee = round($lastNightTotal * $hoursLate * self::LATE_CHECKOUT_PERCENT_PER_HOUR / 100);
 
         if ($fee > 0) {
             $this->addSurcharge(
                 $booking,
                 $fee,
-                "Trả phòng muộn sau giờ tiêu chuẩn " . substr($hotel->check_out_time, 0, 5) . " (lúc " . substr($nowVn, 0, 5) . ")"
+                "Trả phòng muộn {$hoursLate} giờ sau giờ tiêu chuẩn " . substr($hotel->check_out_time, 0, 5) . " (lúc " . substr($nowVn, 0, 5) . ")"
             );
 
             return $fee;

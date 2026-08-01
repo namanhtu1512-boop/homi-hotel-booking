@@ -32,17 +32,9 @@
             @endif
 
             @if ($booking->canCheckOut() && $booking->isEarlyCheckoutToday())
-                <form method="POST" action="{{ route('staff.bookings.check-out', $booking->id) }}"
-                    onsubmit="return confirm('Đơn còn {{ $booking->nightsRemainingForEarlyCheckout() }} đêm chưa sử dụng (ngày trả phòng đã đặt: {{ $booking->check_out->format('d/m/Y') }}). Xác nhận trả phòng SỚM?');">
-                    @csrf
-                    <button type="submit" class="btn btn-primary">⚠ Trả phòng sớm</button>
-                </form>
+                <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">⚠ Trả phòng sớm</a>
             @elseif ($booking->canCheckOut())
-                <form method="POST" action="{{ route('staff.bookings.check-out', $booking->id) }}"
-                    onsubmit="return confirm('Check-out đơn {{ $booking->booking_code }}?');">
-                    @csrf
-                    <button type="submit" class="btn btn-primary">Check-out</button>
-                </form>
+                <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">Check-out</a>
             @endif
 
             @if ($booking->canComplete())
@@ -199,16 +191,54 @@
                         </div>
                     @endif
                     @if ($booking->payment->surcharge_amount > 0)
+                        {{-- Dữ liệu lịch sử trước khi tách hóa đơn phát sinh riêng — giữ hiển thị để không mất thông tin đơn cũ. --}}
                         <div class="info-item">
-                            <span class="label">Phụ phí phát sinh</span>
+                            <span class="label">Phụ phí phát sinh (cũ)</span>
                             <span class="value">{{ number_format($booking->payment->surcharge_amount, 0, ',', '.') }}đ</span>
                         </div>
                         <div class="info-item">
-                            <span class="label">Lý do phụ phí</span>
+                            <span class="label">Lý do phụ phí (cũ)</span>
                             <span class="value">{{ $booking->payment->surcharge_note }}</span>
                         </div>
                     @endif
                 </div>
+
+                @php
+                    $incidentalInvoice = $booking->incidentalInvoice;
+                    $incidentalItems = $incidentalInvoice?->items ?? collect();
+                @endphp
+                @if ($incidentalItems->isNotEmpty())
+                    <div class="section-kicker mt-4">Hóa đơn phát sinh</div>
+                    <div class="table-wrapper mt-2">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Loại</th>
+                                    <th>Mô tả</th>
+                                    <th>Số tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($incidentalItems as $item)
+                                    <tr>
+                                        <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
+                                        <td>{{ $item->description }}</td>
+                                        <td>{{ number_format($item->amount, 0, ',', '.') }}đ</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">
+                                        <strong>Tổng cộng</strong>
+                                        <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Đang mở' }}</span>
+                                    </td>
+                                    <td><strong>{{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                @endif
 
                 @php
                     $latestEarlyCheckin = $booking->earlyCheckinRequests->sortByDesc('created_at')->first();

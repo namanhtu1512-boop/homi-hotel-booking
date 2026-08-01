@@ -236,6 +236,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::patch('/{id}/payment',  [AdminBookingController::class, 'updatePayment'])->name('update-payment');
         Route::get('/{id}/check-in',   [AdminBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [AdminBookingController::class, 'checkIn'])->name('check-in');
+        Route::get('/{id}/check-out',  [AdminBookingController::class, 'showCheckOut'])->name('check-out.show');
         Route::post('/{id}/check-out', [AdminBookingController::class, 'checkOut'])->name('check-out');
 
         // Phát sinh trong lúc lưu trú (chỉ áp dụng khi đơn đã check-in — xem
@@ -373,6 +374,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::patch('/{id}/payment',  [StaffBookingController::class, 'updatePayment'])->name('update-payment');
         Route::get('/{id}/check-in',   [StaffBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [StaffBookingController::class, 'checkIn'])->name('check-in');
+        Route::get('/{id}/check-out',  [StaffBookingController::class, 'showCheckOut'])->name('check-out.show');
         Route::post('/{id}/check-out', [StaffBookingController::class, 'checkOut'])->name('check-out');
 
         Route::post('/{id}/services',  [StaffBookingController::class, 'addService'])->name('services.store');

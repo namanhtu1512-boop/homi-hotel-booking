@@ -6,7 +6,6 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\EarlyCheckinRequest;
 use App\Models\HotelInfo;
-use App\Models\PaymentStatusLog;
 use App\Models\User;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewEarlyCheckinRequest;
@@ -22,16 +21,21 @@ use Illuminate\Validation\ValidationException;
  * BookingService::checkIn()/applyEarlyCheckinSurchargeIfNeeded() — không đụng
  * vào cơ chế đó.
  *
- * Phí cố định 100.000đ/giờ sớm (làm tròn lên), cộng dồn vào
- * payment.surcharge_amount giống các phụ phí phát sinh khác — không thu ngay
- * khi duyệt, chỉ bắt buộc thanh toán khi trả phòng (Booking::canCheckOut()
- * đã đòi hỏi payment.status === PAID sẵn).
+ * Phí cố định 100.000đ/giờ sớm (làm tròn lên), ghi vào "hóa đơn phát sinh"
+ * riêng (IncidentalInvoiceService) — hoàn toàn KHÔNG đụng payment (tiền
+ * phòng gốc), nên không cần lo việc duyệt trước khi nhận phòng có thể vô
+ * tình chặn check-in — chỉ bắt buộc thanh toán khi trả phòng
+ * (BookingService::checkOut() tự thu toàn bộ hóa đơn phát sinh 1 lần).
  */
 class EarlyCheckinRequestService
 {
     public const FEE_PER_HOUR = 100000;
 
     public const MAX_HOURS_EARLY = 3;
+
+    public function __construct(
+        private readonly IncidentalInvoiceService $incidentalInvoiceService,
+    ) {}
 
     public function create(Booking $booking, User $customer, array $data): EarlyCheckinRequest
     {
@@ -63,7 +67,9 @@ class EarlyCheckinRequestService
             ]);
         }
 
-        $minutesEarly = $requested->diffInMinutes($standard);
+        // absolute=true tường minh — diffInMinutes() mặc định trả giá trị
+        // CÓ DẤU từ Carbon 3 trở đi (xem BookingService::applyLateCheckoutSurchargeIfNeeded()).
+        $minutesEarly = $requested->diffInMinutes($standard, true);
         $hoursEarly = (int) ceil($minutesEarly / 60);
 
         if ($hoursEarly > self::MAX_HOURS_EARLY) {
@@ -122,40 +128,9 @@ class EarlyCheckinRequestService
         return DB::transaction(function () use ($earlyCheckinRequest, $booking, $staff) {
             $fee = (float) $earlyCheckinRequest->fee_amount;
 
-            $booking->increment('total_amount', $fee);
-
-            if ($booking->payment) {
-                $feeText = number_format($fee, 0, ',', '.') . 'đ';
-                $note = "Phụ phí nhận phòng sớm {$earlyCheckinRequest->hours_early} giờ (+{$feeText})";
-
-                $booking->payment->increment('surcharge_amount', $fee);
-                $booking->payment->update([
-                    'surcharge_note' => $booking->payment->surcharge_note
-                        ? $booking->payment->surcharge_note . " | {$note}"
-                        : $note,
-                ]);
-
-                // KHÔNG mở lại PENDING dù đơn đã PAID trước đó — khác với
-                // applyExtraCharge()/RoomChangeRequestService::approve() (chỉ
-                // chạy sau khi khách đã CHECKED_IN nên mở PENDING chỉ chặn
-                // trả phòng). Ở đây duyệt xảy ra TRƯỚC khi nhận phòng — nếu mở
-                // PENDING sẽ vô tình chặn luôn canCheckIn() (đòi hỏi
-                // PAID/DEPOSIT_PAID), trái với yêu cầu "không chặn nhận phòng,
-                // chỉ bắt buộc thanh toán khi trả phòng". Đánh đổi: hệ thống
-                // không tự cưỡng chế thu khoản phụ phí này ở bước trả phòng
-                // nữa (canCheckOut() chỉ check status===PAID, không so số
-                // tiền) — lễ tân cần tự thu dựa vào surcharge_note hiển thị.
-                $status = $booking->payment->status;
-                $booking->payment->increment('amount', $fee);
-
-                PaymentStatusLog::create([
-                    'payment_id'  => $booking->payment->id,
-                    'changed_by'  => $staff->id,
-                    'from_status' => $status->value,
-                    'to_status'   => $status->value,
-                    'note'        => "Duyệt yêu cầu nhận phòng sớm #{$earlyCheckinRequest->id}: {$note}.",
-                ]);
-            }
+            $this->incidentalInvoiceService->addItem(
+                $booking, 'surcharge', "Phụ phí nhận phòng sớm {$earlyCheckinRequest->hours_early} giờ (đã duyệt)", $fee
+            );
 
             $earlyCheckinRequest->update([
                 'status'     => 'approved',
@@ -167,12 +142,12 @@ class EarlyCheckinRequestService
             $arrivalTime = substr($earlyCheckinRequest->requested_arrival_time, 0, 5);
             $booking->user?->notify(new BookingStatusChanged(
                 $booking,
-                "Yêu cầu nhận phòng sớm lúc {$arrivalTime} cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã cộng vào tổng tiền, thanh toán khi trả phòng."
+                "Yêu cầu nhận phòng sớm lúc {$arrivalTime} cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng."
             ));
 
             return [
                 'request' => $earlyCheckinRequest->fresh(),
-                'booking' => $booking->fresh('payment'),
+                'booking' => $booking->fresh(['payment', 'incidentalInvoice.items']),
             ];
         });
     }
