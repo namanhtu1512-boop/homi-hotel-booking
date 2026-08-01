@@ -153,6 +153,10 @@
                     </div>
                 @endif
                 <div class="info-item">
+                    <span class="label">Số CCCD/CMND</span>
+                    <span class="value">{{ $booking->national_id ?: '—' }}</span>
+                </div>
+                <div class="info-item">
                     <span class="label">Tổng số khách</span>
                     <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
                 </div>

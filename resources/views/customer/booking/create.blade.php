@@ -163,6 +163,12 @@
             </div>
 
             <div>
+                <label class="form-label" for="national_id">Số CCCD/CMND</label>
+                <input class="input" type="text" id="national_id" name="national_id" value="{{ old('national_id', auth()->user()->national_id ?? '') }}" placeholder="9 hoặc 12 chữ số" maxlength="20">
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Dùng để đối chiếu khi nhận phòng, không bắt buộc.</p>
+            </div>
+
+            <div>
                 <label class="form-label" for="promo_codes_text">Mã giảm giá</label>
                 <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text', is_array(old('promo_codes')) ? implode(', ', old('promo_codes')) : '') }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
             </div>
