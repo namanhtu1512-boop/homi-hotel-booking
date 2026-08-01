@@ -33,6 +33,16 @@ class EarlyCheckinRequestService
 
     public const MAX_HOURS_EARLY = 3;
 
+    /**
+     * Khách chỉ được gửi yêu cầu nhận phòng sớm khi còn trong vòng N giờ
+     * trước giờ nhận phòng đã đặt — tránh gửi yêu cầu quá sớm (VD ngay lúc
+     * vừa đặt phòng, còn vài ngày nữa mới tới) rồi quên mất, khách sạn khó
+     * chủ động sắp xếp phòng trước quá lâu. Cùng cơ chế với
+     * Booking::canCancelByCustomer() (dùng hoursUntilCheckIn()), chỉ khác
+     * chiều so sánh (<=  thay vì  >=).
+     */
+    public const REQUEST_WINDOW_HOURS_BEFORE = 20;
+
     public function __construct(
         private readonly IncidentalInvoiceService $incidentalInvoiceService,
     ) {}
@@ -46,6 +56,12 @@ class EarlyCheckinRequestService
         if ($booking->status !== BookingStatus::CONFIRMED) {
             throw ValidationException::withMessages([
                 'status' => ['Chỉ có thể yêu cầu nhận phòng sớm khi đơn đã được xác nhận (chưa nhận phòng).'],
+            ]);
+        }
+
+        if ($booking->hoursUntilCheckIn() > self::REQUEST_WINDOW_HOURS_BEFORE) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể gửi yêu cầu nhận phòng sớm trong vòng ' . self::REQUEST_WINDOW_HOURS_BEFORE . ' giờ trước giờ nhận phòng, vui lòng quay lại gần ngày nhận phòng hơn.'],
             ]);
         }
 

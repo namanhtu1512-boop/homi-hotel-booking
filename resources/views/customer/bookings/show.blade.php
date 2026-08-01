@@ -223,10 +223,14 @@
     <div class="quick-actions-row">
         <a href="{{ route('customer.bookings.index') }}" class="btn-outline">Quay lại danh sách</a>
 
-        @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED && ! $booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
-            <a href="{{ route('customer.bookings.early-checkin.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu nhận phòng sớm</a>
-        @elseif ($booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
+        @if ($booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
             <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu nhận phòng sớm chờ khách sạn duyệt.</p>
+        @elseif ($booking->canRequestEarlyCheckin())
+            <a href="{{ route('customer.bookings.early-checkin.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu nhận phòng sớm</a>
+        @elseif ($booking->status === \App\Enums\BookingStatus::CONFIRMED)
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Chỉ có thể yêu cầu nhận phòng sớm trong vòng {{ \App\Services\EarlyCheckinRequestService::REQUEST_WINDOW_HOURS_BEFORE }} giờ so với giờ nhận phòng.
+            </p>
         @endif
 
         @if (
@@ -244,8 +248,11 @@
                 // Hủy đơn đã thanh toán đủ giờ kích hoạt hoàn tiền THẬT (attemptRefund())
                 // — báo trước cho khách biết việc này sẽ xảy ra thay vì chỉ hỏi
                 // chung chung như trước khi VNPay còn là mô phỏng.
+                $isLateCancel = $booking->isLateCancellation();
                 $cancelConfirmMessage = 'Bạn chắc chắn muốn hủy đơn ' . $booking->booking_code . '?';
-                if ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PAID) {
+                if ($isLateCancel) {
+                    $cancelConfirmMessage .= ' Hủy trong vòng ' . \App\Models\HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng sẽ MẤT TIỀN CỌC ' . number_format($booking->depositAmount(), 0, ',', '.') . 'đ, chỉ hoàn phần đã trả vượt quá tiền cọc (nếu có).';
+                } elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PAID) {
                     $cancelConfirmMessage .= $booking->payment->method === \App\Enums\PaymentMethod::ONLINE_VNPAY
                         ? ' Hệ thống sẽ tự động gửi yêu cầu hoàn tiền qua VNPay.'
                         : ' Khoản đã thanh toán sẽ được đánh dấu cần hoàn tiền, khách sạn sẽ liên hệ hoàn lại cho bạn.';
@@ -256,13 +263,15 @@
                 @csrf
                 <button type="submit" class="btn-danger w-full">Hủy đơn</button>
             </form>
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Có thể hủy miễn phí trước {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ so với giờ nhận phòng.
-            </p>
-        @elseif ($booking->status->canCancelByCustomer())
-            <p class="text-xs text-red-500">
-                Đã quá hạn hủy đơn (chỉ hủy được trước {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ so với giờ nhận phòng). Vui lòng liên hệ khách sạn nếu cần hỗ trợ.
-            </p>
+            @if ($isLateCancel)
+                <p class="mt-2 text-xs text-red-500">
+                    Đang trong vòng {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ trước giờ nhận phòng — hủy lúc này sẽ mất tiền cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ.
+                </p>
+            @else
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Có thể hủy miễn phí trước {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ so với giờ nhận phòng.
+                </p>
+            @endif
         @endif
     </div>
 </div>

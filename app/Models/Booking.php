@@ -116,9 +116,40 @@ class Booking extends Model
             && (float) $this->incidentalInvoice->total_amount > 0;
     }
 
+    /**
+     * Khách LUÔN được tự hủy đơn ở trạng thái phù hợp (PENDING/CONFIRMED),
+     * bất kể còn bao lâu tới giờ nhận phòng — khác trước đây (chặn hẳn nếu
+     * hủy trễ). Hậu quả của việc hủy trễ là MẤT TIỀN CỌC (xem
+     * isLateCancellation(), BookingService::attemptRefund()) thay vì bị
+     * chặn không cho hủy.
+     */
     public function canCancelByCustomer(): bool
     {
-        return $this->status->canCancelByCustomer() && $this->hoursUntilCheckIn() >= HotelInfo::instance()->cancellation_hours_before;
+        return $this->status->canCancelByCustomer();
+    }
+
+    /**
+     * Hủy trong vòng N giờ trước giờ nhận phòng đã đặt (N =
+     * hotel_info.cancellation_hours_before) — khách vẫn hủy được nhưng MẤT
+     * TIỀN CỌC (xem depositAmount(), BookingService::attemptRefund()), chỉ
+     * hoàn phần đã thu VƯỢT quá tiền cọc (nếu có).
+     */
+    public function isLateCancellation(): bool
+    {
+        return $this->hoursUntilCheckIn() < HotelInfo::instance()->cancellation_hours_before;
+    }
+
+    /**
+     * Đơn còn trong vòng N giờ trước giờ nhận phòng đã đặt mới được gửi yêu
+     * cầu nhận phòng sớm — xem EarlyCheckinRequestService::REQUEST_WINDOW_HOURS_BEFORE.
+     * Chiều so sánh ngược với canCancelByCustomer() (<= thay vì >=): hủy
+     * phải làm SỚM, còn yêu cầu nhận phòng sớm chỉ có ý nghĩa khi đã GẦN tới
+     * ngày nhận phòng.
+     */
+    public function canRequestEarlyCheckin(): bool
+    {
+        return $this->status === BookingStatus::CONFIRMED
+            && $this->hoursUntilCheckIn() <= \App\Services\EarlyCheckinRequestService::REQUEST_WINDOW_HOURS_BEFORE;
     }
 
     /**

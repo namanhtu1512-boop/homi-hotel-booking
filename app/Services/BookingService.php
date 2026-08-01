@@ -351,20 +351,23 @@ class BookingService
         $booking = $this->findForCustomer($bookingId, $customer);
 
         if (! $booking->canCancelByCustomer()) {
-            $hoursBefore = HotelInfo::instance()->cancellation_hours_before;
-
             throw ValidationException::withMessages([
-                'status' => ["Không thể hủy đơn ở trạng thái hiện tại hoặc đã quá hạn hủy (chỉ hủy được trước {$hoursBefore} giờ so với giờ nhận phòng)."],
+                'status' => ['Không thể hủy đơn ở trạng thái hiện tại.'],
             ]);
         }
 
+        $isLate = $booking->isLateCancellation();
+
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CANCELLED]);
-        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, 'Khách hủy đơn.');
+        $note = $isLate
+            ? 'Khách hủy đơn (trong vòng ' . HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng — mất tiền cọc).'
+            : 'Khách hủy đơn.';
+        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, $note);
 
-        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy."));
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy." . ($isLate ? ' Đơn hủy trong hạn nên tiền cọc không được hoàn lại.' : '')));
 
-        $refundOk = $this->attemptRefund($booking, $customer->id);
+        $refundOk = $this->attemptRefund($booking, $customer->id, $isLate);
 
         return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refundOk];
     }
@@ -1315,6 +1318,11 @@ class BookingService
      * nhiều hơn số VNPay thực nhận. Các phương thức khác (chuyển khoản, tiền
      * mặt...) chỉ đánh dấu trạng thái vì tiền được hoàn thủ công ngoài hệ thống.
      *
+     * $forfeitDeposit = true (hủy trong hạn — xem Booking::isLateCancellation())
+     * trừ thẳng Booking::depositAmount() ra khỏi số tiền được hoàn TRƯỚC khi
+     * tính toán, bất kể phương thức thanh toán — tiền cọc luôn bị giữ lại làm
+     * phí hủy trễ, chỉ hoàn phần khách đã trả VƯỢT quá tiền cọc (nếu có).
+     *
      * @return bool true nếu đã hoàn xong (hoặc không cần hoàn tự động qua
      *              cổng — chuyển khoản/tiền mặt); false nếu ĐÁNG LẼ phải tự
      *              động hoàn qua cổng nhưng không thực hiện được (lỗi mạng,
@@ -1322,7 +1330,7 @@ class BookingService
      *              hàm này cần báo rõ cho người dùng biết để xử lý thủ công,
      *              KHÔNG được coi là đã hoàn tiền thành công.
      */
-    private function attemptRefund(Booking $booking, ?int $actorId): bool
+    private function attemptRefund(Booking $booking, ?int $actorId, bool $forfeitDeposit = false): bool
     {
         $payment = $booking->payment;
 
@@ -1331,24 +1339,34 @@ class BookingService
         }
 
         $oldStatus = $payment->status;
+        $collected = (float) $payment->amount_collected;
+
+        // Với VNPay, xét theo amount_collected (tiền THẬT đã thu qua cổng)
+        // thay vì payment->canRefund() (dựa trên status hiện tại) —
+        // applyExtraCharge() có thể đã mở lại PAID→PENDING do phát sinh phụ
+        // phí SAU khi thanh toán xong, nhưng tiền cũ vẫn đang nằm ở VNPay và
+        // vẫn phải hoàn khi hủy đơn, bất kể status lúc này không còn là PAID
+        // nữa. Nếu chưa từng thu được đồng nào thì không có gì để hoàn/giữ.
+        if ($collected <= 0) {
+            return true;
+        }
+
+        $forfeitAmount = $forfeitDeposit ? min($collected, $booking->depositAmount()) : 0.0;
+        $refundableTotal = round($collected - $forfeitAmount, 2);
+        $forfeitNote = $forfeitAmount > 0
+            ? ' Hủy trong vòng ' . HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng nên giữ lại tiền cọc ' . number_format($forfeitAmount, 0, ',', '.') . 'đ.'
+            : '';
 
         if ($payment->method === PaymentMethod::ONLINE_VNPAY) {
-            $collected = (float) $payment->amount_collected;
+            if ($refundableTotal <= 0) {
+                $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
+                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hủy đơn — số tiền đã thu không vượt quá tiền cọc, giữ lại toàn bộ, không có phần hoàn.' . $forfeitNote);
 
-            // Với VNPay, xét theo amount_collected (tiền THẬT đã thu qua
-            // cổng) thay vì payment->canRefund() (dựa trên status hiện tại)
-            // — applyExtraCharge() có thể đã mở lại PAID→PENDING do phát
-            // sinh phụ phí SAU khi thanh toán xong, nhưng tiền cũ vẫn đang
-            // nằm ở VNPay và vẫn phải hoàn khi hủy đơn, bất kể status lúc
-            // này không còn là PAID nữa. Nếu chưa từng thu được đồng nào
-            // (collected <= 0, kể cả trường hợp đã hoàn hết ở lần trước) thì
-            // không có gì để hoàn.
-            if ($collected <= 0) {
                 return true;
             }
 
             if (! $payment->gateway_transaction_no) {
-                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Thanh toán VNPay thiếu thông tin giao dịch cổng (chưa từng được VNPay xác nhận thật) — không thể tự động hoàn tiền, cần xử lý hoàn tiền thủ công.');
+                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Thanh toán VNPay thiếu thông tin giao dịch cổng (chưa từng được VNPay xác nhận thật) — không thể tự động hoàn tiền, cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
                 return false;
             }
@@ -1356,12 +1374,12 @@ class BookingService
             // transaction_code/gateway_transaction_no chỉ lưu được giao dịch
             // VNPay GẦN NHẤT — nếu payment đã trải qua nhiều chu kỳ thanh
             // toán VNPay riêng biệt (trả đủ → phụ phí mở lại PENDING → trả
-            // tiếp qua VNPay lần 2), collected có thể lớn hơn số tiền giao
-            // dịch hiện tại thực thu (last_gateway_amount). Chỉ được yêu cầu
-            // API hoàn tối đa bằng số tiền của ĐÚNG giao dịch đang lưu, tránh
-            // VNPay từ chối/hoàn sai do vượt quá số giao dịch gốc.
-            $refundable = min($collected, (float) ($payment->last_gateway_amount ?? $collected));
-            $strandedFromEarlierTxn = round($collected - $refundable, 2);
+            // tiếp qua VNPay lần 2), refundableTotal có thể lớn hơn số tiền
+            // giao dịch hiện tại thực thu (last_gateway_amount). Chỉ được
+            // yêu cầu API hoàn tối đa bằng số tiền của ĐÚNG giao dịch đang
+            // lưu, tránh VNPay từ chối/hoàn sai do vượt quá số giao dịch gốc.
+            $refundable = min($refundableTotal, (float) ($payment->last_gateway_amount ?? $refundableTotal));
+            $strandedFromEarlierTxn = round($refundableTotal - $refundable, 2);
 
             try {
                 $response = $this->vnPayService->refund(
@@ -1374,7 +1392,7 @@ class BookingService
                     request()?->ip() ?? '127.0.0.1',
                 );
             } catch (\Throwable $e) {
-                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Gọi API hoàn tiền VNPay lỗi: ' . $e->getMessage() . ' — cần xử lý hoàn tiền thủ công.');
+                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Gọi API hoàn tiền VNPay lỗi: ' . $e->getMessage() . ' — cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
                 return false;
             }
@@ -1389,18 +1407,18 @@ class BookingService
                     $payment->update(['amount_collected' => $strandedFromEarlierTxn, 'last_gateway_amount' => null]);
                     $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thành công cho '
                         . number_format($refundable, 0, ',', '.') . 'đ (giao dịch gần nhất) — còn '
-                        . number_format($strandedFromEarlierTxn, 0, ',', '.') . 'đ từ (các) giao dịch trước đó không còn thông tin cổng để tự động hoàn, cần xử lý hoàn tiền thủ công.');
+                        . number_format($strandedFromEarlierTxn, 0, ',', '.') . 'đ từ (các) giao dịch trước đó không còn thông tin cổng để tự động hoàn, cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
                     return false;
                 }
 
                 $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
-                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hoàn tiền tự động qua VNPay thành công.');
+                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hoàn tiền tự động qua VNPay thành công.' . $forfeitNote);
 
                 return true;
             }
 
-            $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thất bại (mã ' . ($response['vnp_ResponseCode'] ?? '?') . ') — cần xử lý hoàn tiền thủ công.');
+            $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thất bại (mã ' . ($response['vnp_ResponseCode'] ?? '?') . ') — cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
             return false;
         }
@@ -1412,13 +1430,15 @@ class BookingService
         // khoản tiền mặt/chuyển khoản cũ khách đã nộp vẫn cần được hoàn khi
         // hủy, bất kể status lúc này không còn là PAID nữa (tiền cọc giữ chỗ
         // — chưa từng có amount_collected — vẫn không tự động hoàn, đúng
-        // chính sách cũ).
-        if ((float) $payment->amount_collected <= 0) {
-            return true;
-        }
-
+        // chính sách cũ). Hệ thống không tự chuyển tiền cho phương thức thủ
+        // công — chỉ đánh dấu REFUNDED + ghi rõ số tiền staff cần hoàn tay.
         $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0]);
-        $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Tự động hoàn tiền khi hủy đơn.');
+        $manualNote = match (true) {
+            $forfeitAmount <= 0 => 'Tự động hoàn tiền khi hủy đơn.',
+            $refundableTotal <= 0 => 'Hủy đơn trong hạn — giữ lại toàn bộ ' . number_format($forfeitAmount, 0, ',', '.') . 'đ tiền cọc, không có phần hoàn.',
+            default => 'Hủy đơn trong hạn — giữ lại tiền cọc ' . number_format($forfeitAmount, 0, ',', '.') . 'đ, cần hoàn thủ công phần còn lại ' . number_format($refundableTotal, 0, ',', '.') . 'đ cho khách.',
+        };
+        $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, $manualNote);
 
         return true;
     }
