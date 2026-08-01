@@ -79,9 +79,10 @@
     @endphp
     @if ($hotel->check_out_time && $booking->isCheckOutDateToday())
         <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            Giờ trả phòng chuẩn: {{ substr($hotel->check_out_time, 0, 5) }}. Nếu trả phòng sau giờ này, hệ thống
-            sẽ tự động cộng thêm phụ phí trả phòng muộn (10% giá phòng đêm cuối / mỗi giờ trễ) vào hóa đơn
-            phát sinh trước khi hoàn tất.
+            Giờ trả phòng chuẩn: {{ substr($hotel->check_out_time, 0, 5) }}. Trả phòng muộn không có yêu cầu
+            được duyệt trước sẽ KHÔNG tự động bị tính phí — nếu cần thu, dùng mục "Thêm phụ phí phát sinh" bên
+            dưới, hoặc hướng dẫn khách gửi "Yêu cầu trả phòng muộn" trước khi hết giờ chuẩn để được duyệt và tính
+            phí đúng bậc.
         </p>
     @endif
 

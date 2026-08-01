@@ -267,6 +267,27 @@
                     </div>
                 @endif
 
+                @php
+                    $latestLateCheckout = $booking->lateCheckoutRequests->sortByDesc('created_at')->first();
+                @endphp
+                @if ($latestLateCheckout)
+                    @php
+                        $lcoBadge = ['pending' => 'badge-orange', 'approved' => 'badge-green', 'rejected' => 'badge-red'][$latestLateCheckout->status] ?? 'badge-green';
+                        $lcoLabel = ['pending' => 'Chờ duyệt', 'approved' => 'Đã duyệt', 'rejected' => 'Đã từ chối'][$latestLateCheckout->status] ?? $latestLateCheckout->status;
+                    @endphp
+                    <div class="info-list mt-3">
+                        <div class="info-item">
+                            <span class="label">Yêu cầu trả phòng muộn</span>
+                            <span class="value">
+                                Tới {{ substr($latestLateCheckout->requested_checkout_time, 0, 5) }}
+                                ({{ $latestLateCheckout->hours_late }} giờ, {{ number_format($latestLateCheckout->fee_amount, 0, ',', '.') }}đ)
+                                <span class="badge {{ $lcoBadge }}">{{ $lcoLabel }}</span>
+                                — <a href="{{ route('staff.late-checkout-requests.show', $latestLateCheckout->id) }}">Xem</a>
+                            </span>
+                        </div>
+                    </div>
+                @endif
+
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
                     <div class="action-row" style="margin-top: 16px; flex-wrap: wrap; gap: 12px;">
                         <form method="POST" action="{{ route('staff.bookings.services.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">

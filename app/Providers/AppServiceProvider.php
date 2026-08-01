@@ -8,6 +8,7 @@ use App\Models\ContactMessage;
 use App\Models\EarlyCheckinRequest;
 use App\Models\GroupBookingRequest;
 use App\Models\HotelInfo;
+use App\Models\LateCheckoutRequest;
 use App\Models\News;
 use App\Models\Promotion;
 use App\Models\Review;
@@ -73,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('groupBookingNewCount', GroupBookingRequest::where('status', 'new')->count());
             $view->with('roomChangeNewCount', RoomChangeRequest::where('status', 'pending')->count());
             $view->with('earlyCheckinNewCount', EarlyCheckinRequest::where('status', 'pending')->count());
+            $view->with('lateCheckoutNewCount', LateCheckoutRequest::where('status', 'pending')->count());
             $user = Auth::user();
             $view->with('adminNotifUnread', $user ? $user->unreadNotifications()->latest()->take(10)->get() : collect());
         });

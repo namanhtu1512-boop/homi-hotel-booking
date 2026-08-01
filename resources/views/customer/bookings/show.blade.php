@@ -239,6 +239,12 @@
             </p>
         @endif
 
+        @if ($booking->lateCheckoutRequests->contains(fn ($r) => $r->status === 'pending'))
+            <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu trả phòng muộn chờ khách sạn duyệt.</p>
+        @elseif ($booking->canRequestLateCheckout())
+            <a href="{{ route('customer.bookings.late-checkout.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu trả phòng muộn</a>
+        @endif
+
         @if (
             in_array($booking->status, [\App\Enums\BookingStatus::PENDING, \App\Enums\BookingStatus::CONFIRMED], true)
             && $booking->bookingItems->count() === 1

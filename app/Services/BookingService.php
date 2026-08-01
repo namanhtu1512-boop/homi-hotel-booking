@@ -34,15 +34,6 @@ class BookingService
      */
     private const MAX_CHILDREN_PER_ROOM = 2;
 
-    /**
-     * Phần trăm phụ phí trả phòng muộn tính theo MỖI GIỜ trễ (làm tròn lên),
-     * nhân với giá phòng đêm cuối — VD trễ 1h05' → tính 2 giờ → 20% giá
-     * phòng đêm cuối. Không giới hạn số giờ trễ tối đa (khác phí nhận phòng
-     * sớm — EarlyCheckinRequestService::MAX_HOURS_EARLY — vốn phải xin duyệt
-     * trước; trả phòng muộn phát hiện ngay lúc trả phòng nên không cần cap).
-     */
-    private const LATE_CHECKOUT_PERCENT_PER_HOUR = 10;
-
     public function __construct(
         private AvailabilityService $availabilityService,
         private PricingService $pricingService,
@@ -335,7 +326,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests', 'incidentalInvoice.items'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -698,7 +689,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'incidentalInvoice.items'])
+        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
     }
 
@@ -1057,7 +1048,12 @@ class BookingService
      * Check-out — chuyển trạng thái + tự động đánh dấu các phòng đã gán
      * cần dọn (dirty), để buồng phòng biết cần xử lý trước khi nhận khách kế tiếp.
      *
-     * @return array{booking: Booking, late_checkout_fee: ?float}
+     * Phụ phí trả phòng muộn (nếu có) đã được ghi nhận từ trước, lúc
+     * LateCheckoutRequestService::approve() duyệt yêu cầu của khách — không
+     * còn tự động tính lại ở đây nữa (khách không xin phép trước thì không
+     * tự bị tính phí; staff vẫn có thể cộng phụ phí thủ công nếu cần).
+     *
+     * @return array{booking: Booking}
      *
      * @throws ValidationException
      */
@@ -1076,13 +1072,6 @@ class BookingService
         $isEarly = $booking->isEarlyCheckoutToday();
 
         return DB::transaction(function () use ($booking, $isEarly) {
-            // Phụ phí trả phòng MUỘN (đúng ngày check_out đã đặt nhưng sau
-            // giờ chuẩn) phải tính TRƯỚC khi đổi status sang CHECKED_OUT —
-            // applyLateCheckoutSurchargeIfNeeded() tái dùng addSurcharge(),
-            // đòi hỏi booking đang CHECKED_IN. Không áp dụng cho trả phòng
-            // sớm (isEarly true nghĩa là sai ngày, không phải trễ giờ).
-            $fee = $isEarly ? null : $this->applyLateCheckoutSurchargeIfNeeded($booking);
-
             // Lễ tân bấm "Trả phòng" ở trang xác nhận (đã hiện toàn bộ hóa
             // đơn phát sinh cho khách xem + thu tiền mặt tại quầy) — hành
             // động này VỪA xác nhận đã thu VỪA hoàn tất trả phòng trong 1
@@ -1104,72 +1093,8 @@ class BookingService
 
             $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
 
-            return ['booking' => $booking->fresh(['payment']), 'late_checkout_fee' => $fee];
+            return ['booking' => $booking->fresh(['payment'])];
         });
-    }
-
-    /**
-     * Xem checkOut() — tách riêng cho dễ đọc, đối xứng với
-     * applyEarlyCheckinSurchargeIfNeeded(). Không thu phí nếu khách sạn chưa
-     * cấu hình giờ trả phòng chuẩn.
-     *
-     * @return ?float  Số tiền phụ phí vừa cộng, null nếu không áp dụng.
-     */
-    private function applyLateCheckoutSurchargeIfNeeded(Booking $booking): ?float
-    {
-        $hotel = HotelInfo::instance();
-
-        if (! $hotel->check_out_time) {
-            return null;
-        }
-
-        // Chỉ tính là "trả phòng muộn" khi hôm nay ĐÚNG là ngày check_out đã
-        // đặt — trả phòng sớm hơn ngày đặt (isEarly ở checkOut()) không đi
-        // vào nhánh này, và trả phòng sau cả ngày check_out (ở lại thêm
-        // ngày) là tình huống khác, ngoài phạm vi phụ phí trả phòng muộn.
-        if (! $booking->isCheckOutDateToday()) {
-            return null;
-        }
-
-        // So sánh chuỗi giờ thuần túy (H:i:s), không qua Carbon instant —
-        // cùng cách làm an toàn đã dùng ở applyEarlyCheckinSurchargeIfNeeded().
-        $nowVn = now('Asia/Ho_Chi_Minh')->format('H:i:s');
-
-        if ($nowVn <= $hotel->check_out_time) {
-            return null;
-        }
-
-        $standard = \Carbon\Carbon::createFromFormat('H:i:s', $hotel->check_out_time);
-        $now = \Carbon\Carbon::createFromFormat('H:i:s', $nowVn);
-        // diffInMinutes() mặc định trả giá trị CÓ DẤU (âm nếu $now đứng sau
-        // $standard) từ Carbon 3 trở đi, khác Carbon 2 (luôn dương) — phải
-        // truyền absolute=true tường minh, nếu không hoursLate âm khiến điều
-        // kiện "$fee > 0" bên dưới fail âm thầm, bỏ qua phụ phí không báo lỗi.
-        $hoursLate = (int) ceil($now->diffInMinutes($standard, true) / 60);
-
-        // Dùng nightly_total của ĐÊM CUỐI CÙNG trong price_breakdown (đã lưu
-        // sẵn lúc đặt, gồm cả điều chỉnh giá theo mùa + phụ thu cuối tuần
-        // của đúng đêm đó) — đối xứng với đêm đầu tiên dùng cho phụ phí
-        // nhận phòng sớm.
-        $lastNightTotal = $booking->bookingItems->sum(function (BookingItem $item) {
-            $breakdown = $item->price_breakdown ?? [];
-            $lastNight = $breakdown !== [] ? end($breakdown)['nightly_total'] ?? $item->price_per_night : $item->price_per_night;
-
-            return (float) $lastNight * $item->quantity;
-        });
-        $fee = round($lastNightTotal * $hoursLate * self::LATE_CHECKOUT_PERCENT_PER_HOUR / 100);
-
-        if ($fee > 0) {
-            $this->addSurcharge(
-                $booking,
-                $fee,
-                "Trả phòng muộn {$hoursLate} giờ sau giờ tiêu chuẩn " . substr($hotel->check_out_time, 0, 5) . " (lúc " . substr($nowVn, 0, 5) . ")"
-            );
-
-            return $fee;
-        }
-
-        return null;
     }
 
     public function complete(Booking $booking): Booking

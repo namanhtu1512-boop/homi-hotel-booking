@@ -166,18 +166,13 @@ class BookingController extends Controller
     public function checkOut(int $id): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $result = $this->bookingService->checkOut($booking);
+        $this->bookingService->checkOut($booking);
 
         $this->auditLog->log('booking.checked_out', $booking, "Check-out đơn \"{$booking->booking_code}\".");
 
-        $message = "Đã check-out đơn {$booking->booking_code}.";
-        if ($result['late_checkout_fee']) {
-            $message .= ' Đã tự động cộng phụ phí trả phòng muộn ' . number_format($result['late_checkout_fee'], 0, ',', '.') . 'đ.';
-        }
-
         return redirect()
             ->route('staff.bookings.show', $id)
-            ->with('success', $message);
+            ->with('success', "Đã check-out đơn {$booking->booking_code}.");
     }
 
     public function complete(int $id): RedirectResponse

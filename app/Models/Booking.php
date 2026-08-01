@@ -99,6 +99,11 @@ class Booking extends Model
         return $this->hasMany(EarlyCheckinRequest::class);
     }
 
+    public function lateCheckoutRequests()
+    {
+        return $this->hasMany(LateCheckoutRequest::class);
+    }
+
     public function incidentalInvoice()
     {
         return $this->hasOne(IncidentalInvoice::class)->latestOfMany();
@@ -151,6 +156,15 @@ class Booking extends Model
     {
         return $this->status === BookingStatus::CONFIRMED
             && $this->hoursUntilCheckIn() <= \App\Services\EarlyCheckinRequestService::REQUEST_WINDOW_HOURS_BEFORE;
+    }
+
+    /**
+     * Chỉ được gửi yêu cầu trả phòng muộn khi đang lưu trú (đã nhận phòng,
+     * chưa trả phòng) — xem LateCheckoutRequestService::create().
+     */
+    public function canRequestLateCheckout(): bool
+    {
+        return $this->status === BookingStatus::CHECKED_IN;
     }
 
     /**
