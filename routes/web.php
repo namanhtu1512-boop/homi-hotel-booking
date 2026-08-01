@@ -228,6 +228,8 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',                [AdminBookingController::class, 'index'])->name('index');
+        Route::get('/create',          [AdminBookingController::class, 'create'])->name('create');
+        Route::post('/',               [AdminBookingController::class, 'store'])->name('store');
         Route::get('/{id}',            [AdminBookingController::class, 'show'])->name('show');
         Route::get('/{id}/invoice',    [AdminBookingController::class, 'invoice'])->name('invoice');
         Route::post('/{id}/confirm',   [AdminBookingController::class, 'confirm'])->name('confirm');
@@ -366,6 +368,8 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
 
     Route::prefix('bookings')->name('bookings.')->group(function () {
         Route::get('/',                [StaffBookingController::class, 'index'])->name('index');
+        Route::get('/create',          [StaffBookingController::class, 'create'])->name('create');
+        Route::post('/',               [StaffBookingController::class, 'store'])->name('store');
         Route::get('/{id}',            [StaffBookingController::class, 'show'])->name('show');
         Route::get('/{id}/invoice',    [StaffBookingController::class, 'invoice'])->name('invoice');
         Route::post('/{id}/confirm',   [StaffBookingController::class, 'confirm'])->name('confirm');
