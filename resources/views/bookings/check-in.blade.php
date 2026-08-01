@@ -29,6 +29,24 @@
         </div>
     @endif
 
+    <div class="form-group">
+        <label>Đối chiếu thông tin khách trước khi giao phòng</label>
+        <div class="info-list">
+            <div class="info-item">
+                <span class="label">Họ tên</span>
+                <span class="value">{{ $booking->customer_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Điện thoại</span>
+                <span class="value">{{ $booking->customer_phone }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Số CCCD/CMND</span>
+                <span class="value">{{ $booking->national_id ?: '— (chưa có, kiểm tra CCCD khách xuất trình rồi đối chiếu tên/thông tin thủ công)' }}</span>
+            </div>
+        </div>
+    </div>
+
     <form method="POST" action="{{ $formAction }}">
         @csrf
 

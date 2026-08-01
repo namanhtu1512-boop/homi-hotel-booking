@@ -20,6 +20,7 @@ class CreateWalkInBookingRequest extends BaseFormRequest
             'customer_name'         => ['required', 'string', 'max:100'],
             'customer_phone'        => ['required', 'string', 'max:20'],
             'customer_email'        => ['nullable', 'email', 'max:150'],
+            'national_id'           => ['nullable', 'string', 'regex:/^[0-9]{9}$|^[0-9]{12}$/'],
             'note'                  => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -39,6 +40,7 @@ class CreateWalkInBookingRequest extends BaseFormRequest
             'items.*.adults.required'       => 'Vui lòng nhập số người lớn cho từng loại phòng.',
             'customer_name.required'        => 'Vui lòng nhập tên khách hàng.',
             'customer_phone.required'       => 'Vui lòng nhập số điện thoại.',
+            'national_id.regex'             => 'Số CCCD/CMND không hợp lệ (9 hoặc 12 chữ số).',
         ];
     }
 }

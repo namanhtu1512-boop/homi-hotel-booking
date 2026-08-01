@@ -63,6 +63,10 @@
             </div>
         </div>
         <div>
+            <label class="form-label">Số CCCD/CMND</label>
+            <input class="input" type="text" name="national_id" value="{{ old('national_id') }}" placeholder="9 hoặc 12 chữ số" maxlength="20">
+        </div>
+        <div>
             <label class="form-label">Ghi chú</label>
             <textarea class="input" name="note" rows="2">{{ old('note') }}</textarea>
         </div>

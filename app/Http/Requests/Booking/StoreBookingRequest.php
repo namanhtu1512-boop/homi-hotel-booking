@@ -20,7 +20,7 @@ class StoreBookingRequest extends BaseFormRequest
             'customer_name'        => ['required', 'string', 'max:100'],
             'customer_phone'       => ['required', 'string', 'max:20'],
             'customer_email'       => ['nullable', 'email', 'max:100'],
-            'customer_national_id' => ['nullable', 'string', 'regex:/^[0-9]{9}$|^[0-9]{12}$/'],
+            'national_id'          => ['nullable', 'string', 'regex:/^[0-9]{9}$|^[0-9]{12}$/'],
             'note'                 => ['nullable', 'string', 'max:500'],
             'promo_codes'          => ['nullable', 'array', 'max:5'],
             'promo_codes.*'        => ['string', 'max:50', 'distinct'],
@@ -48,7 +48,7 @@ class StoreBookingRequest extends BaseFormRequest
             'check_out.date_format'         => 'Ngày trả phòng không đúng định dạng (YYYY-MM-DD).',
             'customer_name.required'        => 'Vui lòng nhập tên khách hàng.',
             'customer_phone.required'       => 'Vui lòng nhập số điện thoại.',
-            'customer_national_id.regex'    => 'Số CCCD/CMND không hợp lệ (9 hoặc 12 chữ số).',
+            'national_id.regex'             => 'Số CCCD/CMND không hợp lệ (9 hoặc 12 chữ số).',
         ];
     }
 
