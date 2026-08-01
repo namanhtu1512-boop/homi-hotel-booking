@@ -8,7 +8,7 @@ use App\Http\Requests\BaseFormRequest;
  * Đổi email có luồng riêng (xem ChangeEmailRequest/ProfileController::updateEmail())
  * — request này KHÔNG validate 'email' để tránh trường hợp form profile lỡ thêm
  * input email rồi tưởng nó được lưu (ProfileController::update() chỉ persist
- * name/phone/address/avatar).
+ * name/phone/address/national_id/avatar).
  */
 class UpdateProfileRequest extends BaseFormRequest
 {

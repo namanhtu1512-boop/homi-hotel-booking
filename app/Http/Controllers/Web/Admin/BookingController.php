@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\AddBookingServiceRequest;
 use App\Http\Requests\Booking\AddSurchargeRequest;
+use App\Http\Requests\Booking\CreateWalkInBookingRequest;
 use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
@@ -53,6 +54,24 @@ class BookingController extends Controller
             'booking'        => $this->bookingService->findForAdmin($id),
             'activeServices' => $this->serviceService->activePublic(),
         ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.bookings.create', [
+            'roomTypes' => RoomType::where('status', 'active')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function store(CreateWalkInBookingRequest $request): RedirectResponse
+    {
+        $booking = $this->bookingService->createByAdmin($request->validated());
+
+        $this->auditLog->log('booking.created_walk_in', $booking, "Tạo đơn tại quầy \"{$booking->booking_code}\".");
+
+        return redirect()
+            ->route('admin.bookings.show', $booking->id)
+            ->with('success', "Đã tạo đơn đặt phòng tại quầy {$booking->booking_code}.");
     }
 
     public function invoice(int $id): View
