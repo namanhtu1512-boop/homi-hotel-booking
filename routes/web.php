@@ -37,6 +37,9 @@ use App\Http\Controllers\Web\Staff\RoomChangeRequestController as StaffRoomChang
 use App\Http\Controllers\Web\Customer\EarlyCheckinRequestController as CustomerEarlyCheckinRequestController;
 use App\Http\Controllers\Web\Admin\EarlyCheckinRequestController as AdminEarlyCheckinRequestController;
 use App\Http\Controllers\Web\Staff\EarlyCheckinRequestController as StaffEarlyCheckinRequestController;
+use App\Http\Controllers\Web\Customer\LateCheckoutRequestController as CustomerLateCheckoutRequestController;
+use App\Http\Controllers\Web\Admin\LateCheckoutRequestController as AdminLateCheckoutRequestController;
+use App\Http\Controllers\Web\Staff\LateCheckoutRequestController as StaffLateCheckoutRequestController;
 use App\Http\Controllers\Web\Customer\ChatController as CustomerChatController;
 use App\Http\Controllers\Web\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Web\Staff\DashboardController as StaffDashboardController;
@@ -160,6 +163,9 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
 
         Route::get('/{id}/early-checkin',  [CustomerEarlyCheckinRequestController::class, 'create'])->name('early-checkin.create');
         Route::post('/{id}/early-checkin', [CustomerEarlyCheckinRequestController::class, 'store'])->name('early-checkin.store');
+
+        Route::get('/{id}/late-checkout',  [CustomerLateCheckoutRequestController::class, 'create'])->name('late-checkout.create');
+        Route::post('/{id}/late-checkout', [CustomerLateCheckoutRequestController::class, 'store'])->name('late-checkout.store');
     });
 
     Route::prefix('wishlist')->name('wishlist.')->group(function () {
@@ -238,6 +244,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::patch('/{id}/payment',  [AdminBookingController::class, 'updatePayment'])->name('update-payment');
         Route::get('/{id}/check-in',   [AdminBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [AdminBookingController::class, 'checkIn'])->name('check-in');
+        Route::get('/{id}/check-out',  [AdminBookingController::class, 'showCheckOut'])->name('check-out.show');
         Route::post('/{id}/check-out', [AdminBookingController::class, 'checkOut'])->name('check-out');
 
         // Phát sinh trong lúc lưu trú (chỉ áp dụng khi đơn đã check-in — xem
@@ -332,6 +339,13 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/reject',  [AdminEarlyCheckinRequestController::class, 'reject'])->name('reject');
     });
 
+    Route::prefix('late-checkout-requests')->name('late-checkout-requests.')->group(function () {
+        Route::get('/',              [AdminLateCheckoutRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [AdminLateCheckoutRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/approve', [AdminLateCheckoutRequestController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject',  [AdminLateCheckoutRequestController::class, 'reject'])->name('reject');
+    });
+
     Route::prefix('chat')->name('chat.')->group(function () {
         Route::get('/',                 [AdminChatController::class, 'index'])->name('index');
         Route::get('/{customerId}',     [AdminChatController::class, 'show'])->name('show');
@@ -377,6 +391,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::patch('/{id}/payment',  [StaffBookingController::class, 'updatePayment'])->name('update-payment');
         Route::get('/{id}/check-in',   [StaffBookingController::class, 'showCheckIn'])->name('check-in.show');
         Route::post('/{id}/check-in',  [StaffBookingController::class, 'checkIn'])->name('check-in');
+        Route::get('/{id}/check-out',  [StaffBookingController::class, 'showCheckOut'])->name('check-out.show');
         Route::post('/{id}/check-out', [StaffBookingController::class, 'checkOut'])->name('check-out');
 
         Route::post('/{id}/services',  [StaffBookingController::class, 'addService'])->name('services.store');
@@ -415,5 +430,12 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/{id}',          [StaffEarlyCheckinRequestController::class, 'show'])->name('show');
         Route::post('/{id}/approve', [StaffEarlyCheckinRequestController::class, 'approve'])->name('approve');
         Route::post('/{id}/reject',  [StaffEarlyCheckinRequestController::class, 'reject'])->name('reject');
+    });
+
+    Route::prefix('late-checkout-requests')->name('late-checkout-requests.')->group(function () {
+        Route::get('/',              [StaffLateCheckoutRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [StaffLateCheckoutRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/approve', [StaffLateCheckoutRequestController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject',  [StaffLateCheckoutRequestController::class, 'reject'])->name('reject');
     });
 });

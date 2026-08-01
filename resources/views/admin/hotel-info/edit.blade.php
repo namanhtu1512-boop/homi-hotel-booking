@@ -95,11 +95,6 @@
                 <p class="section-desc">Tự động tính khi khách nhận phòng trước giờ nhận phòng tiêu chuẩn ở trên. Để 0 nếu không thu phí.</p>
             </div>
             <div class="form-group">
-                <label for="late_checkout_surcharge_percent">Phụ phí trả phòng muộn (% giá phòng/đêm cuối)</label>
-                <input id="late_checkout_surcharge_percent" type="number" min="0" max="100" step="0.1" name="late_checkout_surcharge_percent" value="{{ old('late_checkout_surcharge_percent', $hotel->late_checkout_surcharge_percent) }}">
-                <p class="section-desc">Tự động tính khi khách trả phòng sau giờ trả phòng tiêu chuẩn ở trên, đúng ngày trả phòng đã đặt. Để 0 nếu không thu phí.</p>
-            </div>
-            <div class="form-group">
                 <label for="cancellation_hours_before">Phải hủy trước (giờ so với giờ nhận phòng)</label>
                 <input id="cancellation_hours_before" type="number" min="0" max="720" step="1" name="cancellation_hours_before" value="{{ old('cancellation_hours_before', $hotel->cancellation_hours_before) }}">
                 <p class="section-desc">Khách chỉ hủy đơn được nếu còn đủ số giờ này trước giờ nhận phòng đã đặt.</p>

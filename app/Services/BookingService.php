@@ -40,6 +40,7 @@ class BookingService
         private PromotionService $promotionService,
         private RoomHoldService $roomHoldService,
         private VNPayService $vnPayService,
+        private IncidentalInvoiceService $incidentalInvoiceService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -326,7 +327,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -343,20 +344,23 @@ class BookingService
         $booking = $this->findForCustomer($bookingId, $customer);
 
         if (! $booking->canCancelByCustomer()) {
-            $hoursBefore = HotelInfo::instance()->cancellation_hours_before;
-
             throw ValidationException::withMessages([
-                'status' => ["Không thể hủy đơn ở trạng thái hiện tại hoặc đã quá hạn hủy (chỉ hủy được trước {$hoursBefore} giờ so với giờ nhận phòng)."],
+                'status' => ['Không thể hủy đơn ở trạng thái hiện tại.'],
             ]);
         }
 
+        $isLate = $booking->isLateCancellation();
+
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CANCELLED]);
-        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, 'Khách hủy đơn.');
+        $note = $isLate
+            ? 'Khách hủy đơn (trong vòng ' . HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng — mất tiền cọc).'
+            : 'Khách hủy đơn.';
+        $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, $note);
 
-        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy."));
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy." . ($isLate ? ' Đơn hủy trong hạn nên tiền cọc không được hoàn lại.' : '')));
 
-        $refundOk = $this->attemptRefund($booking, $customer->id);
+        $refundOk = $this->attemptRefund($booking, $customer->id, $isLate);
 
         return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refundOk];
     }
@@ -686,7 +690,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests'])
+        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
     }
 
@@ -798,8 +802,9 @@ class BookingService
      * Admin/staff thêm dịch vụ cho đơn ĐANG lưu trú (checked_in) — vd khách
      * gọi thêm đồ ăn/giặt ủi giữa kỳ nghỉ. Trước đây dịch vụ chỉ gắn được
      * lúc tạo đơn ban đầu, không có cách nào thêm sau khi khách đã nhận
-     * phòng. Cộng dồn vào booking.total_amount + payment.amount qua
-     * applyExtraCharge() (xem đó để biết cách xử lý khi đơn đã thanh toán đủ).
+     * phòng. Ghi vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService) —
+     * KHÔNG đụng tới booking.total_amount/payment (tiền phòng gốc) nữa, chỉ
+     * thu 1 lần lúc trả phòng (xem checkOut()).
      */
     public function addServiceItem(Booking $booking, int $serviceId, int $quantity): Booking
     {
@@ -826,24 +831,27 @@ class BookingService
         $subtotal = (float) $service->price * $quantity;
 
         return DB::transaction(function () use ($booking, $service, $quantity, $subtotal) {
-            $booking->serviceItems()->create([
+            $serviceItem = $booking->serviceItems()->create([
                 'service_id' => $service->id,
                 'quantity'   => $quantity,
                 'unit_price' => $service->price,
                 'subtotal'   => $subtotal,
             ]);
 
-            $this->applyExtraCharge($booking, $subtotal, "Phát sinh thêm dịch vụ \"{$service->name}\" × {$quantity} trong lúc lưu trú.");
+            $this->incidentalInvoiceService->addItem(
+                $booking, 'service', "{$service->name} × {$quantity}", $subtotal, $serviceItem->id
+            );
 
-            return $booking->fresh(['serviceItems.service', 'payment']);
+            return $booking->fresh(['serviceItems.service', 'payment', 'incidentalInvoice.items']);
         });
     }
 
     /**
-     * Admin/staff ghi nhận phụ phí phát sinh tùy ý (hư hỏng, trả phòng
-     * trễ...) không gắn với dịch vụ nào trong catalog — khác addServiceItem()
-     * ở chỗ đây là số tiền + lý do nhập tay, lưu riêng ở payments.surcharge_amount
-     * (không tạo dòng booking_services). Cùng cơ chế cộng dồn applyExtraCharge().
+     * Admin/staff ghi nhận phụ phí phát sinh tùy ý (hư hỏng, nhận phòng sớm
+     * tự động, trả phòng muộn tự động...) không gắn với dịch vụ nào trong
+     * catalog — khác addServiceItem() ở chỗ đây là số tiền + lý do nhập tay.
+     * Ghi thẳng vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService) —
+     * KHÔNG đụng payment (tiền phòng gốc) nữa, xem checkOut().
      */
     public function addSurcharge(Booking $booking, float $amount, string $note): Booking
     {
@@ -859,65 +867,11 @@ class BookingService
             ]);
         }
 
-        if (! $booking->payment) {
-            throw ValidationException::withMessages([
-                'amount' => ['Đơn này chưa có thông tin thanh toán.'],
-            ]);
-        }
-
         return DB::transaction(function () use ($booking, $amount, $note) {
-            $booking->payment->increment('surcharge_amount', $amount);
-            $booking->payment->update([
-                'surcharge_note' => $booking->payment->surcharge_note
-                    ? $booking->payment->surcharge_note . " | {$note} (+" . number_format($amount, 0, ',', '.') . 'đ)'
-                    : "{$note} (+" . number_format($amount, 0, ',', '.') . 'đ)',
-            ]);
+            $this->incidentalInvoiceService->addItem($booking, 'surcharge', $note, $amount);
 
-            $this->applyExtraCharge($booking, $amount, "Phụ phí phát sinh: {$note}.");
-
-            return $booking->fresh('payment');
+            return $booking->fresh(['payment', 'incidentalInvoice.items']);
         });
-    }
-
-    /**
-     * Logic dùng chung khi cộng thêm tiền vào một đơn đã tồn tại (dịch vụ
-     * thêm hoặc phụ phí): tăng total_amount/payment.amount theo đúng số
-     * tiền phát sinh. Nếu đơn LÚC NÀY đã ở trạng thái đã thanh toán đủ
-     * (PAID) — số tiền cũ không còn đủ cho tổng mới — mở lại về PENDING để
-     * bắt buộc thu thêm phần chênh lệch trước khi cho trả phòng (xem
-     * Booking::canCheckOut()); nếu đơn chưa PAID (đang unpaid/deposit_paid)
-     * thì số tiền mới cứ cộng dồn bình thường, thu chung 1 lần như cũ.
-     */
-    private function applyExtraCharge(Booking $booking, float $amount, string $logNote): void
-    {
-        $booking->increment('total_amount', $amount);
-
-        $payment = $booking->payment;
-
-        if (! $payment) {
-            return;
-        }
-
-        $wasPaid = $payment->status === PaymentStatus::PAID;
-
-        $payment->increment('amount', $amount);
-
-        // Trước đây chỉ ghi log + báo khách khi đơn đã PAID (phải mở lại
-        // chờ thu thêm) — đơn đang unpaid/deposit_paid vẫn bị cộng thêm phí
-        // nhưng khách không hề hay biết cho tới lúc trả phòng. Giờ luôn ghi
-        // log + luôn báo khách, chỉ khác nhau ở việc có đổi trạng thái hay không.
-        if ($wasPaid) {
-            $payment->update(['status' => PaymentStatus::PENDING]);
-            $this->logPaymentStatus($payment, PaymentStatus::PAID, PaymentStatus::PENDING, Auth::id(), $logNote . ' Đơn đã thanh toán đủ trước đó — mở lại chờ thu thêm phần chênh lệch.');
-        } else {
-            $this->logPaymentStatus($payment, $payment->status, $payment->status, Auth::id(), $logNote);
-        }
-
-        $amountText = number_format($amount, 0, ',', '.') . 'đ';
-        $message = $wasPaid
-            ? "Đơn {$booking->booking_code} phát sinh thêm phí {$amountText}, vui lòng thanh toán phần còn lại khi trả phòng."
-            : "Đơn {$booking->booking_code} phát sinh thêm phí {$amountText}, đã cộng vào tổng tiền cần thanh toán.";
-        $booking->user?->notify(new BookingStatusChanged($booking, $message));
     }
 
     /**
@@ -1095,7 +1049,12 @@ class BookingService
      * Check-out — chuyển trạng thái + tự động đánh dấu các phòng đã gán
      * cần dọn (dirty), để buồng phòng biết cần xử lý trước khi nhận khách kế tiếp.
      *
-     * @return array{booking: Booking, late_checkout_fee: ?float}
+     * Phụ phí trả phòng muộn (nếu có) đã được ghi nhận từ trước, lúc
+     * LateCheckoutRequestService::approve() duyệt yêu cầu của khách — không
+     * còn tự động tính lại ở đây nữa (khách không xin phép trước thì không
+     * tự bị tính phí; staff vẫn có thể cộng phụ phí thủ công nếu cần).
+     *
+     * @return array{booking: Booking}
      *
      * @throws ValidationException
      */
@@ -1114,12 +1073,13 @@ class BookingService
         $isEarly = $booking->isEarlyCheckoutToday();
 
         return DB::transaction(function () use ($booking, $isEarly) {
-            // Phụ phí trả phòng MUỘN (đúng ngày check_out đã đặt nhưng sau
-            // giờ chuẩn) phải tính TRƯỚC khi đổi status sang CHECKED_OUT —
-            // applyLateCheckoutSurchargeIfNeeded() tái dùng addSurcharge(),
-            // đòi hỏi booking đang CHECKED_IN. Không áp dụng cho trả phòng
-            // sớm (isEarly true nghĩa là sai ngày, không phải trễ giờ).
-            $fee = $isEarly ? null : $this->applyLateCheckoutSurchargeIfNeeded($booking);
+            // Lễ tân bấm "Trả phòng" ở trang xác nhận (đã hiện toàn bộ hóa
+            // đơn phát sinh cho khách xem + thu tiền mặt tại quầy) — hành
+            // động này VỪA xác nhận đã thu VỪA hoàn tất trả phòng trong 1
+            // bước, đúng quy trình "khách thanh toán một lần → hoàn tất
+            // check-out". Không ảnh hưởng gì nếu không có hóa đơn phát sinh
+            // nào đang mở (markPaid() tự bỏ qua, trả về null).
+            $this->incidentalInvoiceService->markPaid($booking, Auth::user());
 
             $oldStatus = $booking->status;
             $booking->update(['status' => BookingStatus::CHECKED_OUT]);
@@ -1134,64 +1094,8 @@ class BookingService
 
             $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
 
-            return ['booking' => $booking->fresh(['payment']), 'late_checkout_fee' => $fee];
+            return ['booking' => $booking->fresh(['payment'])];
         });
-    }
-
-    /**
-     * Xem checkOut() — tách riêng cho dễ đọc, đối xứng với
-     * applyEarlyCheckinSurchargeIfNeeded(). Không thu phí nếu khách sạn chưa
-     * cấu hình giờ trả phòng chuẩn hoặc % phụ phí = 0 (mặc định).
-     *
-     * @return ?float  Số tiền phụ phí vừa cộng, null nếu không áp dụng.
-     */
-    private function applyLateCheckoutSurchargeIfNeeded(Booking $booking): ?float
-    {
-        $hotel = HotelInfo::instance();
-
-        if (! $hotel->check_out_time || (float) $hotel->late_checkout_surcharge_percent <= 0) {
-            return null;
-        }
-
-        // Chỉ tính là "trả phòng muộn" khi hôm nay ĐÚNG là ngày check_out đã
-        // đặt — trả phòng sớm hơn ngày đặt (isEarly ở checkOut()) không đi
-        // vào nhánh này, và trả phòng sau cả ngày check_out (ở lại thêm
-        // ngày) là tình huống khác, ngoài phạm vi phụ phí trả phòng muộn.
-        if (! $booking->isCheckOutDateToday()) {
-            return null;
-        }
-
-        // So sánh chuỗi giờ thuần túy (H:i:s), không qua Carbon instant —
-        // cùng cách làm an toàn đã dùng ở applyEarlyCheckinSurchargeIfNeeded().
-        $nowVn = now('Asia/Ho_Chi_Minh')->format('H:i:s');
-
-        if ($nowVn <= $hotel->check_out_time) {
-            return null;
-        }
-
-        // Dùng nightly_total của ĐÊM CUỐI CÙNG trong price_breakdown (đã lưu
-        // sẵn lúc đặt, gồm cả điều chỉnh giá theo mùa + phụ thu cuối tuần
-        // của đúng đêm đó) — đối xứng với đêm đầu tiên dùng cho phụ phí
-        // nhận phòng sớm.
-        $lastNightTotal = $booking->bookingItems->sum(function (BookingItem $item) {
-            $breakdown = $item->price_breakdown ?? [];
-            $lastNight = $breakdown !== [] ? end($breakdown)['nightly_total'] ?? $item->price_per_night : $item->price_per_night;
-
-            return (float) $lastNight * $item->quantity;
-        });
-        $fee = round($lastNightTotal * (float) $hotel->late_checkout_surcharge_percent / 100);
-
-        if ($fee > 0) {
-            $this->addSurcharge(
-                $booking,
-                $fee,
-                "Trả phòng muộn sau giờ tiêu chuẩn " . substr($hotel->check_out_time, 0, 5) . " (lúc " . substr($nowVn, 0, 5) . ")"
-            );
-
-            return $fee;
-        }
-
-        return null;
     }
 
     public function complete(Booking $booking): Booking
@@ -1341,6 +1245,11 @@ class BookingService
      * nhiều hơn số VNPay thực nhận. Các phương thức khác (chuyển khoản, tiền
      * mặt...) chỉ đánh dấu trạng thái vì tiền được hoàn thủ công ngoài hệ thống.
      *
+     * $forfeitDeposit = true (hủy trong hạn — xem Booking::isLateCancellation())
+     * trừ thẳng Booking::depositAmount() ra khỏi số tiền được hoàn TRƯỚC khi
+     * tính toán, bất kể phương thức thanh toán — tiền cọc luôn bị giữ lại làm
+     * phí hủy trễ, chỉ hoàn phần khách đã trả VƯỢT quá tiền cọc (nếu có).
+     *
      * @return bool true nếu đã hoàn xong (hoặc không cần hoàn tự động qua
      *              cổng — chuyển khoản/tiền mặt); false nếu ĐÁNG LẼ phải tự
      *              động hoàn qua cổng nhưng không thực hiện được (lỗi mạng,
@@ -1348,7 +1257,7 @@ class BookingService
      *              hàm này cần báo rõ cho người dùng biết để xử lý thủ công,
      *              KHÔNG được coi là đã hoàn tiền thành công.
      */
-    private function attemptRefund(Booking $booking, ?int $actorId): bool
+    private function attemptRefund(Booking $booking, ?int $actorId, bool $forfeitDeposit = false): bool
     {
         $payment = $booking->payment;
 
@@ -1357,24 +1266,34 @@ class BookingService
         }
 
         $oldStatus = $payment->status;
+        $collected = (float) $payment->amount_collected;
+
+        // Với VNPay, xét theo amount_collected (tiền THẬT đã thu qua cổng)
+        // thay vì payment->canRefund() (dựa trên status hiện tại) —
+        // applyExtraCharge() có thể đã mở lại PAID→PENDING do phát sinh phụ
+        // phí SAU khi thanh toán xong, nhưng tiền cũ vẫn đang nằm ở VNPay và
+        // vẫn phải hoàn khi hủy đơn, bất kể status lúc này không còn là PAID
+        // nữa. Nếu chưa từng thu được đồng nào thì không có gì để hoàn/giữ.
+        if ($collected <= 0) {
+            return true;
+        }
+
+        $forfeitAmount = $forfeitDeposit ? min($collected, $booking->depositAmount()) : 0.0;
+        $refundableTotal = round($collected - $forfeitAmount, 2);
+        $forfeitNote = $forfeitAmount > 0
+            ? ' Hủy trong vòng ' . HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng nên giữ lại tiền cọc ' . number_format($forfeitAmount, 0, ',', '.') . 'đ.'
+            : '';
 
         if ($payment->method === PaymentMethod::ONLINE_VNPAY) {
-            $collected = (float) $payment->amount_collected;
+            if ($refundableTotal <= 0) {
+                $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
+                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hủy đơn — số tiền đã thu không vượt quá tiền cọc, giữ lại toàn bộ, không có phần hoàn.' . $forfeitNote);
 
-            // Với VNPay, xét theo amount_collected (tiền THẬT đã thu qua
-            // cổng) thay vì payment->canRefund() (dựa trên status hiện tại)
-            // — applyExtraCharge() có thể đã mở lại PAID→PENDING do phát
-            // sinh phụ phí SAU khi thanh toán xong, nhưng tiền cũ vẫn đang
-            // nằm ở VNPay và vẫn phải hoàn khi hủy đơn, bất kể status lúc
-            // này không còn là PAID nữa. Nếu chưa từng thu được đồng nào
-            // (collected <= 0, kể cả trường hợp đã hoàn hết ở lần trước) thì
-            // không có gì để hoàn.
-            if ($collected <= 0) {
                 return true;
             }
 
             if (! $payment->gateway_transaction_no) {
-                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Thanh toán VNPay thiếu thông tin giao dịch cổng (chưa từng được VNPay xác nhận thật) — không thể tự động hoàn tiền, cần xử lý hoàn tiền thủ công.');
+                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Thanh toán VNPay thiếu thông tin giao dịch cổng (chưa từng được VNPay xác nhận thật) — không thể tự động hoàn tiền, cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
                 return false;
             }
@@ -1382,12 +1301,12 @@ class BookingService
             // transaction_code/gateway_transaction_no chỉ lưu được giao dịch
             // VNPay GẦN NHẤT — nếu payment đã trải qua nhiều chu kỳ thanh
             // toán VNPay riêng biệt (trả đủ → phụ phí mở lại PENDING → trả
-            // tiếp qua VNPay lần 2), collected có thể lớn hơn số tiền giao
-            // dịch hiện tại thực thu (last_gateway_amount). Chỉ được yêu cầu
-            // API hoàn tối đa bằng số tiền của ĐÚNG giao dịch đang lưu, tránh
-            // VNPay từ chối/hoàn sai do vượt quá số giao dịch gốc.
-            $refundable = min($collected, (float) ($payment->last_gateway_amount ?? $collected));
-            $strandedFromEarlierTxn = round($collected - $refundable, 2);
+            // tiếp qua VNPay lần 2), refundableTotal có thể lớn hơn số tiền
+            // giao dịch hiện tại thực thu (last_gateway_amount). Chỉ được
+            // yêu cầu API hoàn tối đa bằng số tiền của ĐÚNG giao dịch đang
+            // lưu, tránh VNPay từ chối/hoàn sai do vượt quá số giao dịch gốc.
+            $refundable = min($refundableTotal, (float) ($payment->last_gateway_amount ?? $refundableTotal));
+            $strandedFromEarlierTxn = round($refundableTotal - $refundable, 2);
 
             try {
                 $response = $this->vnPayService->refund(
@@ -1400,7 +1319,7 @@ class BookingService
                     request()?->ip() ?? '127.0.0.1',
                 );
             } catch (\Throwable $e) {
-                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Gọi API hoàn tiền VNPay lỗi: ' . $e->getMessage() . ' — cần xử lý hoàn tiền thủ công.');
+                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Gọi API hoàn tiền VNPay lỗi: ' . $e->getMessage() . ' — cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
                 return false;
             }
@@ -1415,18 +1334,18 @@ class BookingService
                     $payment->update(['amount_collected' => $strandedFromEarlierTxn, 'last_gateway_amount' => null]);
                     $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thành công cho '
                         . number_format($refundable, 0, ',', '.') . 'đ (giao dịch gần nhất) — còn '
-                        . number_format($strandedFromEarlierTxn, 0, ',', '.') . 'đ từ (các) giao dịch trước đó không còn thông tin cổng để tự động hoàn, cần xử lý hoàn tiền thủ công.');
+                        . number_format($strandedFromEarlierTxn, 0, ',', '.') . 'đ từ (các) giao dịch trước đó không còn thông tin cổng để tự động hoàn, cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
                     return false;
                 }
 
                 $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
-                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hoàn tiền tự động qua VNPay thành công.');
+                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hoàn tiền tự động qua VNPay thành công.' . $forfeitNote);
 
                 return true;
             }
 
-            $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thất bại (mã ' . ($response['vnp_ResponseCode'] ?? '?') . ') — cần xử lý hoàn tiền thủ công.');
+            $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thất bại (mã ' . ($response['vnp_ResponseCode'] ?? '?') . ') — cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
             return false;
         }
@@ -1438,13 +1357,15 @@ class BookingService
         // khoản tiền mặt/chuyển khoản cũ khách đã nộp vẫn cần được hoàn khi
         // hủy, bất kể status lúc này không còn là PAID nữa (tiền cọc giữ chỗ
         // — chưa từng có amount_collected — vẫn không tự động hoàn, đúng
-        // chính sách cũ).
-        if ((float) $payment->amount_collected <= 0) {
-            return true;
-        }
-
+        // chính sách cũ). Hệ thống không tự chuyển tiền cho phương thức thủ
+        // công — chỉ đánh dấu REFUNDED + ghi rõ số tiền staff cần hoàn tay.
         $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0]);
-        $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Tự động hoàn tiền khi hủy đơn.');
+        $manualNote = match (true) {
+            $forfeitAmount <= 0 => 'Tự động hoàn tiền khi hủy đơn.',
+            $refundableTotal <= 0 => 'Hủy đơn trong hạn — giữ lại toàn bộ ' . number_format($forfeitAmount, 0, ',', '.') . 'đ tiền cọc, không có phần hoàn.',
+            default => 'Hủy đơn trong hạn — giữ lại tiền cọc ' . number_format($forfeitAmount, 0, ',', '.') . 'đ, cần hoàn thủ công phần còn lại ' . number_format($refundableTotal, 0, ',', '.') . 'đ cho khách.',
+        };
+        $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, $manualNote);
 
         return true;
     }

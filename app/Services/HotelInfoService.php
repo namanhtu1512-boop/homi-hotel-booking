@@ -52,7 +52,6 @@ class HotelInfoService
             'weekend_surcharge_percent' => $data['weekend_surcharge_percent'] ?? null,
             'child_surcharge_per_night' => $data['child_surcharge_per_night'] ?? null,
             'early_checkin_surcharge_percent' => $data['early_checkin_surcharge_percent'] ?? null,
-            'late_checkout_surcharge_percent' => $data['late_checkout_surcharge_percent'] ?? null,
             'cancellation_hours_before'       => $data['cancellation_hours_before'] ?? null,
         ], fn ($v) => $v !== null);
 

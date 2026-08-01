@@ -139,8 +139,49 @@
             @endforelse
         @endif
         <div class="info-item">
-            <span class="label">Tổng cộng</span>
-            <span class="value text-lg text-primary">{{ number_format($booking->total_amount, 0, ',', '.') }}đ</span>
+            <span class="label">Tiền phòng</span>
+            <span class="value">{{ number_format($booking->total_amount, 0, ',', '.') }}đ</span>
+        </div>
+    </div>
+
+    @php
+        $incidentalInvoice = $booking->incidentalInvoice;
+        $incidentalItems = $incidentalInvoice?->items ?? collect();
+    @endphp
+    @if ($incidentalItems->isNotEmpty())
+        <span class="section-kicker mt-5 block">Hóa đơn phát sinh</span>
+        <div class="table-wrapper mt-2.5">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Loại</th>
+                        <th>Mô tả</th>
+                        <th>Số tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($incidentalItems as $item)
+                        <tr>
+                            <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
+                            <td>{{ $item->description }}</td>
+                            <td>{{ number_format($item->amount, 0, ',', '.') }}đ</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="info-list mt-2.5">
+            <div class="info-item">
+                <span class="label">Tổng hóa đơn phát sinh</span>
+                <span class="value">{{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ ({{ $incidentalInvoice->isPaid() ? 'đã thanh toán' : 'chưa thanh toán' }})</span>
+            </div>
+        </div>
+    @endif
+
+    <div class="info-list mt-5">
+        <div class="info-item">
+            <span class="label">TỔNG CỘNG</span>
+            <span class="value text-lg text-primary">{{ number_format($booking->total_amount + ($incidentalInvoice->total_amount ?? 0), 0, ',', '.') }}đ</span>
         </div>
     </div>
 

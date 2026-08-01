@@ -32,17 +32,9 @@
             @endif
 
             @if ($booking->canCheckOut() && $booking->isEarlyCheckoutToday())
-                <form method="POST" action="{{ route('admin.bookings.check-out', $booking->id) }}"
-                    onsubmit="return confirm('Đơn còn {{ $booking->nightsRemainingForEarlyCheckout() }} đêm chưa sử dụng (ngày trả phòng đã đặt: {{ $booking->check_out->format('d/m/Y') }}). Xác nhận trả phòng SỚM?');">
-                    @csrf
-                    <button type="submit" class="btn btn-primary">⚠ Trả phòng sớm</button>
-                </form>
+                <a href="{{ route('admin.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">⚠ Trả phòng sớm</a>
             @elseif ($booking->canCheckOut())
-                <form method="POST" action="{{ route('admin.bookings.check-out', $booking->id) }}"
-                    onsubmit="return confirm('Check-out đơn {{ $booking->booking_code }}?');">
-                    @csrf
-                    <button type="submit" class="btn btn-primary">Check-out</button>
-                </form>
+                <a href="{{ route('admin.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">Check-out</a>
             @endif
 
             @if ($booking->canComplete())
@@ -152,10 +144,12 @@
                         <span class="value">{{ $booking->customer_email }}</span>
                     </div>
                 @endif
-                <div class="info-item">
-                    <span class="label">Số CCCD/CMND</span>
-                    <span class="value">{{ $booking->national_id ?: '—' }}</span>
-                </div>
+                @if ($booking->national_id)
+                    <div class="info-item">
+                        <span class="label">Số CCCD/CMND</span>
+                        <span class="value">{{ $booking->national_id }}</span>
+                    </div>
+                @endif
                 <div class="info-item">
                     <span class="label">Tổng số khách</span>
                     <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
@@ -203,16 +197,54 @@
                         </div>
                     @endif
                     @if ($booking->payment->surcharge_amount > 0)
+                        {{-- Dữ liệu lịch sử trước khi tách hóa đơn phát sinh riêng — giữ hiển thị để không mất thông tin đơn cũ. --}}
                         <div class="info-item">
-                            <span class="label">Phụ phí phát sinh</span>
+                            <span class="label">Phụ phí phát sinh (cũ)</span>
                             <span class="value">{{ number_format($booking->payment->surcharge_amount, 0, ',', '.') }}đ</span>
                         </div>
                         <div class="info-item">
-                            <span class="label">Lý do phụ phí</span>
+                            <span class="label">Lý do phụ phí (cũ)</span>
                             <span class="value">{{ $booking->payment->surcharge_note }}</span>
                         </div>
                     @endif
                 </div>
+
+                @php
+                    $incidentalInvoice = $booking->incidentalInvoice;
+                    $incidentalItems = $incidentalInvoice?->items ?? collect();
+                @endphp
+                @if ($incidentalItems->isNotEmpty())
+                    <div class="section-kicker mt-4">Hóa đơn phát sinh</div>
+                    <div class="table-wrapper mt-2">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Loại</th>
+                                    <th>Mô tả</th>
+                                    <th>Số tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($incidentalItems as $item)
+                                    <tr>
+                                        <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
+                                        <td>{{ $item->description }}</td>
+                                        <td>{{ number_format($item->amount, 0, ',', '.') }}đ</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2">
+                                        <strong>Tổng cộng</strong>
+                                        <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Đang mở' }}</span>
+                                    </td>
+                                    <td><strong>{{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                @endif
 
                 @php
                     $latestEarlyCheckin = $booking->earlyCheckinRequests->sortByDesc('created_at')->first();
@@ -235,6 +267,27 @@
                     </div>
                 @endif
 
+                @php
+                    $latestLateCheckout = $booking->lateCheckoutRequests->sortByDesc('created_at')->first();
+                @endphp
+                @if ($latestLateCheckout)
+                    @php
+                        $lcoBadge = ['pending' => 'badge-orange', 'approved' => 'badge-green', 'rejected' => 'badge-red'][$latestLateCheckout->status] ?? 'badge-green';
+                        $lcoLabel = ['pending' => 'Chờ duyệt', 'approved' => 'Đã duyệt', 'rejected' => 'Đã từ chối'][$latestLateCheckout->status] ?? $latestLateCheckout->status;
+                    @endphp
+                    <div class="info-list mt-3">
+                        <div class="info-item">
+                            <span class="label">Yêu cầu trả phòng muộn</span>
+                            <span class="value">
+                                Tới {{ substr($latestLateCheckout->requested_checkout_time, 0, 5) }}
+                                ({{ $latestLateCheckout->hours_late }} giờ, {{ number_format($latestLateCheckout->fee_amount, 0, ',', '.') }}đ)
+                                <span class="badge {{ $lcoBadge }}">{{ $lcoLabel }}</span>
+                                — <a href="{{ route('admin.late-checkout-requests.show', $latestLateCheckout->id) }}">Xem</a>
+                            </span>
+                        </div>
+                    </div>
+                @endif
+
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
                     <div class="action-row" style="margin-top: 16px; flex-wrap: wrap; gap: 12px;">
                         <form method="POST" action="{{ route('admin.bookings.services.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
@@ -251,8 +304,9 @@
 
                         <form method="POST" action="{{ route('admin.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
-                            <input type="number" name="amount" class="input" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input" style="width:200px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
+                            @include('partials.surcharge-item-select')
+                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
                             <button type="submit" class="btn btn-outline btn-sm">➕ Thêm phụ phí phát sinh</button>
                         </form>
                     </div>
