@@ -11,6 +11,8 @@
             <div class="section-kicker">Danh sách</div>
             <h2 class="section-title">{{ $bookings->total() }} đơn đặt phòng</h2>
         </div>
+
+        <a href="{{ route('admin.bookings.create') }}" class="btn btn-primary">+ Đặt phòng tại quầy</a>
     </div>
 
     <form method="GET" action="{{ route('admin.bookings.index') }}" class="filter-bar">
