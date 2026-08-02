@@ -626,29 +626,61 @@ class BookingService
     /**
      * Khách tự báo đã chuyển khoản — chuyển thanh toán sang "đang xử lý" chờ
      * admin/staff đối soát và xác nhận thủ công (không tự động sang paid).
+     *
+     * Cho phép cả từ PENDING_DEPOSIT/PENDING (trước đây chỉ CONFIRMED) vì
+     * trang khách hàng giờ hiện QR chuyển khoản 100% ngay từ lúc giữ chỗ.
+     * Riêng PENDING_DEPOSIT cần khóa dòng + đưa đơn ra khỏi diện tự hủy theo
+     * giờ (xóa deposit_expires_at, chuyển sang PENDING) NGAY khi khách báo đã
+     * chuyển khoản — nếu không, job cancelExpiredDepositBookings() (hoặc
+     * cancelIfDepositExpired() gọi rải rác ở nơi khác) có thể hủy đơn + nhả
+     * phòng ngay sau đó dù tiền đã chuyển, chỉ vì nhân viên chưa kịp đối soát
+     * trong lúc hạn giữ chỗ còn lại quá ngắn.
      */
     public function markBankTransferPending(int $bookingId, User $customer): Booking
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        $canReportTransfer = $booking->status === BookingStatus::CONFIRMED
+        if ($booking->status === BookingStatus::PENDING_DEPOSIT) {
+            $this->cancelIfDepositExpired($booking->id);
+            $booking->refresh();
+        }
+
+        $canReportTransfer = in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
             && $booking->payment
             && $booking->payment->status->canTransitionTo(PaymentStatus::PENDING);
 
         if (! $canReportTransfer) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể báo chuyển khoản khi đơn đã được xác nhận và chưa thanh toán.'],
+                'status' => [$booking->status === BookingStatus::CANCELLED
+                    ? 'Đơn đã quá hạn giữ chỗ và tự động bị hủy, vui lòng đặt phòng lại.'
+                    : 'Chỉ có thể báo chuyển khoản khi đơn chưa bị hủy và chưa thanh toán.'],
             ]);
         }
 
-        $oldStatus = $booking->payment->status;
-        $booking->payment->update([
-            'method' => PaymentMethod::BANK_TRANSFER,
-            'status' => PaymentStatus::PENDING,
-        ]);
-        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::PENDING, $customer->id, 'Khách báo đã chuyển khoản, chờ xác nhận.');
+        return DB::transaction(function () use ($bookingId, $customer) {
+            $booking = Booking::with('payment')->whereKey($bookingId)->lockForUpdate()->first();
 
-        return $booking->fresh('payment');
+            if ($booking->status === BookingStatus::CANCELLED) {
+                throw ValidationException::withMessages([
+                    'status' => ['Đơn đã quá hạn giữ chỗ và tự động bị hủy, vui lòng đặt phòng lại.'],
+                ]);
+            }
+
+            if ($booking->status === BookingStatus::PENDING_DEPOSIT) {
+                $oldBookingStatus = $booking->status;
+                $booking->update(['status' => BookingStatus::PENDING, 'deposit_expires_at' => null]);
+                $this->logStatus($booking, $oldBookingStatus, BookingStatus::PENDING, $customer->id, 'Khách báo đã chuyển khoản 100% qua QR — đưa đơn khỏi diện giữ chỗ có hạn, chờ khách sạn đối soát.');
+            }
+
+            $oldStatus = $booking->payment->status;
+            $booking->payment->update([
+                'method' => PaymentMethod::BANK_TRANSFER,
+                'status' => PaymentStatus::PENDING,
+            ]);
+            $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::PENDING, $customer->id, 'Khách báo đã chuyển khoản, chờ xác nhận.');
+
+            return $booking->fresh('payment');
+        });
     }
 
     /**
