@@ -26,45 +26,72 @@
 @endif
 
 @if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
-    <div class="card border-2 border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40" id="deposit-hold-banner">
-        <div class="flex flex-wrap items-center gap-4">
-            <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-amber-500 text-2xl text-white">⏳</div>
-            <div class="flex-1">
-                <h2 class="font-heading text-xl font-bold text-amber-700 dark:text-amber-300">Đặt phòng thành công — chờ bạn đặt cọc/thanh toán</h2>
-                <p class="mt-1 text-sm text-amber-700/80 dark:text-amber-300/80">
-                    Mã đơn <strong>{{ $booking->booking_code }}</strong>. Vui lòng đặt cọc 30% hoặc thanh toán đủ trong
-                    <strong id="deposit-hold-timer"></strong>, nếu không đơn sẽ <strong>tự động hủy</strong> và phòng được nhả lại.
-                </p>
+    <div
+        x-data="{
+            expiresAt: {{ $booking->deposit_expires_at ? $booking->deposit_expires_at->timestamp * 1000 : 'null' }},
+            remaining: '',
+            expired: false,
+            toastOpen: true,
+            tick() {
+                if (!this.expiresAt) return;
+                const ms = this.expiresAt - Date.now();
+                if (ms <= 0) {
+                    this.remaining = '0:00';
+                    this.expired = true;
+                    return;
+                }
+                const m = Math.floor(ms / 60000);
+                const s = Math.floor((ms % 60000) / 1000);
+                this.remaining = m + ':' + String(s).padStart(2, '0');
+            },
+            scrollToPayment() {
+                this.toastOpen = false;
+                document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }"
+        x-init="tick(); if (expiresAt) setInterval(() => tick(), 1000)"
+    >
+        {{-- Toast nổi bật ngay khi vào trang, tách biệt khỏi banner tĩnh bên
+        dưới để khách chắc chắn nhìn thấy hạn đặt cọc dù đang cuộn ở đâu. --}}
+        <div
+            x-show="toastOpen && !expired"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 -translate-y-6 scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 -translate-y-4"
+            class="fixed inset-x-4 top-4 z-50 sm:inset-x-auto sm:right-4 sm:w-[380px]"
+        >
+            <div class="flex items-start gap-3 rounded-2xl border-2 border-amber-300 bg-white p-4 shadow-2xl shadow-amber-500/20 dark:border-amber-700 dark:bg-slate-900">
+                <div class="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-amber-500 text-xl text-white">
+                    <span class="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative">⏳</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="font-heading text-sm font-bold text-slate-900 dark:text-white">Đặt phòng thành công!</p>
+                    <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                        Vui lòng đặt cọc/thanh toán trong <strong class="text-amber-600 dark:text-amber-400" x-text="remaining"></strong> để giữ đơn <strong>{{ $booking->booking_code }}</strong>.
+                    </p>
+                    <button type="button" @click="scrollToPayment()" class="btn-accent btn-sm mt-2.5">Đặt cọc ngay</button>
+                </div>
+                <button type="button" @click="toastOpen = false" aria-label="Đóng thông báo" class="shrink-0 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">✕</button>
+            </div>
+        </div>
+
+        <div class="card border-2 border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40" :class="{ 'opacity-60': expired }">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-amber-500 text-2xl text-white">⏳</div>
+                <div class="flex-1">
+                    <h2 class="font-heading text-xl font-bold text-amber-700 dark:text-amber-300">Đặt phòng thành công — chờ bạn đặt cọc/thanh toán</h2>
+                    <p class="mt-1 text-sm text-amber-700/80 dark:text-amber-300/80">
+                        Mã đơn <strong>{{ $booking->booking_code }}</strong>. Vui lòng đặt cọc 30% hoặc thanh toán đủ trong
+                        <strong x-text="remaining"></strong>, nếu không đơn sẽ <strong>tự động hủy</strong> và phòng được nhả lại.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
-    @if ($booking->deposit_expires_at)
-        <script>
-            (function () {
-                const expiresAt = new Date(@json($booking->deposit_expires_at->toIso8601String())).getTime();
-                const timerEl = document.getElementById('deposit-hold-timer');
-                const bannerEl = document.getElementById('deposit-hold-banner');
-
-                const tick = () => {
-                    const remainingMs = expiresAt - Date.now();
-
-                    if (remainingMs <= 0) {
-                        timerEl.textContent = '0:00';
-                        bannerEl.classList.add('opacity-60');
-                        clearInterval(intervalId);
-                        return;
-                    }
-
-                    const minutes = Math.floor(remainingMs / 60000);
-                    const seconds = Math.floor((remainingMs % 60000) / 1000);
-                    timerEl.textContent = minutes + ':' + String(seconds).padStart(2, '0');
-                };
-
-                tick();
-                const intervalId = setInterval(tick, 1000);
-            })();
-        </script>
-    @endif
 @elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
     <div class="card border-2 border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40">
         <div class="flex flex-wrap items-center gap-4">
@@ -382,61 +409,186 @@
         </div>
     </div>
 @elseif ($booking->canMarkPaymentAsPaid())
-    <div class="card">
+    <div class="card" id="payment-section">
         <span class="section-kicker">Thanh toán</span>
         <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
             @if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
-                Chọn 1 trong 2: đặt cọc 30% hoặc thanh toán đủ qua VNPay, trước khi hết hạn giữ chỗ ở trên.
+                Chọn 1 trong 2: đặt cọc 30% (mô phỏng) hoặc chuyển khoản 100% qua mã QR, trước khi hết hạn giữ chỗ ở trên.
             @elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
                 Đơn đang chờ xác nhận — bạn có thể thanh toán ngay, không cần chờ khách sạn duyệt đơn trước.
             @else
-                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới ("Ví điện tử / Thẻ ngân hàng" chuyển sang cổng VNPay sandbox thật; các hình thức còn lại là demo/thủ công).
+                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (chuyển khoản 100% qua QR sẽ được nhân viên đối soát và xác nhận thủ công; đặt cọc 30% là demo).
             @endif
         </p>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-            @unless ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
-                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                    <div class="mb-3 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">▦</span>
-                        Chuyển khoản ngân hàng
-                    </div>
-                    <div class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
-                        Nội dung chuyển khoản: <strong>{{ $booking->booking_code }}</strong>
-                    </div>
-                    <form method="POST" action="{{ route('customer.bookings.pay-bank-transfer', $booking->id) }}" class="mt-3"
-                        onsubmit="return confirm('Xác nhận bạn đã chuyển khoản cho đơn {{ $booking->booking_code }}?');">
-                        @csrf
-                        <button type="submit" class="btn-outline w-full">Tôi đã chuyển khoản</button>
-                    </form>
-                </div>
-            @endunless
+        @php
+            $outstandingAmount = round((float) $booking->payment->amount - (float) $booking->payment->amount_collected, 2);
+        @endphp
 
-            <div class="flex flex-col gap-3">
+        <div class="grid gap-4">
+            <div
+                x-data="{
+                    showQr: false,
+                    openQr() { this.showQr = true; },
+                    closeQr() { this.showQr = false; }
+                }"
+            >
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                     <div class="mb-2 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">💳</span>
-                        Ví điện tử / Thẻ ngân hàng (VNPay)
+                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">🏦</span>
+                        Chuyển khoản ngân hàng — quét mã QR
                     </div>
-                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển sang cổng thanh toán VNPay (môi trường sandbox) để thanh toán bằng thẻ ATM/thẻ quốc tế/QR.</p>
-                    <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}">
-                        @csrf
-                        <button type="submit" class="btn-primary w-full">Thanh toán qua VNPay</button>
-                    </form>
+                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển khoản <strong>{{ number_format($outstandingAmount, 0, ',', '.') }}đ</strong> (100%) tới tài khoản khách sạn qua mã QR. Sau khi chuyển, nhân viên đối soát và xác nhận đơn.</p>
+                    <button type="button" @click.stop="openQr()" class="btn-primary w-full">Chuyển khoản 100% — quét mã QR</button>
                 </div>
 
-                @if ($booking->canPayDeposit())
-                    <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                        <div class="mb-2 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                            <span class="grid h-9 w-9 place-items-center rounded-lg bg-accent-light text-accent-dark dark:bg-accent/15">🏦</span>
-                            Đặt cọc 30%
+                <form id="bank-transfer-form" method="POST" action="{{ route('customer.bookings.pay-bank-transfer', $booking->id) }}" class="hidden">
+                    @csrf
+                </form>
+
+                {{-- QR chuyển khoản THẬT (VietQR, tài khoản khách sạn cấu hình ở
+                config('services.bank_transfer')) — khác với modal "Đặt cọc 30%"
+                bên dưới (mô phỏng): xác nhận ở đây KHÔNG tự đánh dấu đã thanh
+                toán, chỉ báo "chờ xác nhận" qua BookingService::
+                markBankTransferPending(), nhân viên đối soát sao kê thủ công. --}}
+                <template x-if="showQr">
+                    <div class="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4" @keydown.escape.window="closeQr()">
+                        <div @click.outside="closeQr()" class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+                            <div class="mb-4 flex items-center justify-between">
+                                <div class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                                    <span class="grid h-8 w-8 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">🏦</span>
+                                    {{ config('services.bank_transfer.bank_name') }}
+                                </div>
+                                <button type="button" @click="closeQr()" aria-label="Đóng" class="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">✕</button>
+                            </div>
+
+                            <p class="text-center text-sm font-bold text-slate-900 dark:text-white">Quét mã để chuyển khoản</p>
+                            <p class="mt-1 text-center text-2xl font-extrabold text-primary">{{ number_format($outstandingAmount, 0, ',', '.') }}đ</p>
+
+                            <div class="my-4 grid place-items-center">
+                                <div class="rounded-xl border-4 border-primary p-2">
+                                    <img
+                                        src="https://img.vietqr.io/image/{{ config('services.bank_transfer.bin') }}-{{ config('services.bank_transfer.account_no') }}-qr_only.png?amount={{ (int) round($outstandingAmount) }}&addInfo={{ urlencode($booking->booking_code) }}&accountName={{ urlencode(config('services.bank_transfer.account_name')) }}"
+                                        alt="QR chuyển khoản {{ config('services.bank_transfer.bank_name') }}"
+                                        class="h-[220px] w-[220px] object-contain"
+                                        loading="lazy"
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="space-y-1 rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
+                                <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Ngân hàng</span><strong>{{ config('services.bank_transfer.bank_name') }}</strong></div>
+                                <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Số tài khoản</span><strong class="font-mono">{{ config('services.bank_transfer.account_no') }}</strong></div>
+                                <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Chủ tài khoản</span><strong>{{ config('services.bank_transfer.account_name') }}</strong></div>
+                                <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Nội dung CK</span><strong>{{ $booking->booking_code }}</strong></div>
+                            </div>
+
+                            <p class="mt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">Camera lỗi không quét được mã? Mở app ngân hàng, nhập tay số tài khoản ở trên.</p>
+
+                            <p class="mt-3 rounded-lg bg-amber-50 p-2 text-center text-[11px] leading-relaxed text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                                ⚠️ Đây là chuyển khoản <strong>thật</strong> tới tài khoản khách sạn. Sau khi chuyển xong, bấm "Tôi đã chuyển khoản" — nhân viên sẽ đối soát sao kê và xác nhận đơn, không tự động xác nhận ngay.
+                            </p>
+
+                            <div class="mt-4 flex gap-2.5">
+                                <button type="button" @click="closeQr()" class="btn-outline flex-1">Huỷ</button>
+                                <button type="submit" form="bank-transfer-form" class="btn-primary flex-1">Tôi đã chuyển khoản</button>
+                            </div>
                         </div>
-                        <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ, trả {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ còn lại bằng tiền mặt khi nhận phòng.</p>
-                        <form method="POST" action="{{ route('customer.bookings.pay-deposit', $booking->id) }}"
-                            onsubmit="return confirm('Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ (30%, mô phỏng). Còn lại {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ trả bằng tiền mặt khi nhận phòng. Tiếp tục?');">
+                    </div>
+                </template>
+            </div>
+
+                @if ($booking->canPayDeposit())
+                    <div
+                        x-data="{
+                            showQr: false,
+                            gateway: 'vnpay',
+                            qrSeconds: 300,
+                            qrTimer: null,
+                            openQr() {
+                                this.showQr = true;
+                                this.qrSeconds = 300;
+                                clearInterval(this.qrTimer);
+                                this.qrTimer = setInterval(() => {
+                                    this.qrSeconds = this.qrSeconds > 0 ? this.qrSeconds - 1 : 300;
+                                }, 1000);
+                                this.$nextTick(() => this.drawQr());
+                            },
+                            closeQr() {
+                                this.showQr = false;
+                                clearInterval(this.qrTimer);
+                            },
+                            drawQr() {
+                                homiDrawFakeQr(this.$refs.qrCanvas, '{{ $booking->booking_code }}:' + this.gateway, this.gateway === 'vnpay' ? '#1d4ed8' : '#d6249f');
+                            },
+                            qrLabel() {
+                                const m = Math.floor(this.qrSeconds / 60);
+                                const s = this.qrSeconds % 60;
+                                return m + ':' + String(s).padStart(2, '0');
+                            }
+                        }"
+                    >
+                        <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                            <div class="mb-2 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                                <span class="grid h-9 w-9 place-items-center rounded-lg bg-accent-light text-accent-dark dark:bg-accent/15">🏦</span>
+                                Đặt cọc 30%
+                            </div>
+                            <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Đặt cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ, trả {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ còn lại bằng tiền mặt khi nhận phòng.</p>
+                            <button type="button" @click.stop="openQr()" class="btn-outline w-full">Đặt cọc 30% — quét mã QR</button>
+                        </div>
+
+                        <form id="deposit-form" method="POST" action="{{ route('customer.bookings.pay-deposit', $booking->id) }}" class="hidden">
                             @csrf
-                            <button type="submit" class="btn-outline w-full">Đặt cọc 30%</button>
                         </form>
+
+                        {{-- Modal mô phỏng giao diện quét mã VNPay/MoMo — thuần minh họa,
+                        không gọi API cổng thanh toán thật; xác nhận trong modal submit
+                        thẳng vào form ẩn ở trên (payDepositDemo() vẫn xử lý phía server). --}}
+                        <template x-if="showQr">
+                            <div class="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4" @keydown.escape.window="closeQr()">
+                                <div @click.outside="closeQr()" class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
+                                    <div class="mb-4 flex items-center justify-between">
+                                        <div class="flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                                            <button type="button" @click="gateway = 'vnpay'; drawQr()" class="px-3 py-1.5 text-xs font-bold transition" :class="gateway === 'vnpay' ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'">VNPay</button>
+                                            <button type="button" @click="gateway = 'momo'; drawQr()" class="px-3 py-1.5 text-xs font-bold transition" :class="gateway === 'momo' ? 'bg-pink-600 text-white' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'">MoMo</button>
+                                        </div>
+                                        <button type="button" @click="closeQr()" aria-label="Đóng" class="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">✕</button>
+                                    </div>
+
+                                    <p class="text-center text-sm font-bold text-slate-900 dark:text-white" x-text="gateway === 'vnpay' ? 'Quét mã bằng ứng dụng ngân hàng / VNPay' : 'Quét mã bằng ứng dụng MoMo'"></p>
+                                    <p class="mt-1 text-center text-2xl font-extrabold" :class="gateway === 'vnpay' ? 'text-blue-600' : 'text-pink-600'">{{ number_format($booking->depositAmount(), 0, ',', '.') }}đ</p>
+
+                                    <div class="my-4 grid place-items-center">
+                                        <div class="rounded-xl border-4 p-2 transition-colors" :class="gateway === 'vnpay' ? 'border-blue-600' : 'border-pink-600'">
+                                            <canvas x-ref="qrCanvas" width="200" height="200"></canvas>
+                                        </div>
+                                    </div>
+
+                                    <div class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
+                                        <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Nội dung</span><strong>{{ $booking->booking_code }}</strong></div>
+                                        <div class="mt-1 flex justify-between"><span class="text-slate-500 dark:text-slate-400">Mã QR hết hạn sau</span><strong x-text="qrLabel()"></strong></div>
+                                    </div>
+
+                                    <div class="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                        <span>Đang chờ quét mã</span>
+                                        <span class="flex gap-0.5">
+                                            <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style="animation-delay: 0ms"></span>
+                                            <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style="animation-delay: 150ms"></span>
+                                            <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style="animation-delay: 300ms"></span>
+                                        </span>
+                                    </div>
+
+                                    <p class="mt-3 rounded-lg bg-amber-50 p-2 text-center text-[11px] leading-relaxed text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                                        ⚠️ Đây là giao diện <strong>mô phỏng</strong> để minh họa — không kết nối cổng thanh toán thật, không có giao dịch nào thực sự diễn ra.
+                                    </p>
+
+                                    <div class="mt-4 flex gap-2.5">
+                                        <button type="button" @click="closeQr()" class="btn-outline flex-1">Huỷ</button>
+                                        <button type="submit" form="deposit-form" class="btn-primary flex-1">Đã quét & thanh toán</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 @endif
 
@@ -449,7 +601,6 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400">Mặc định — thanh toán bằng tiền mặt khi nhận phòng, không cần thao tác gì thêm.</p>
                     </div>
                 @endunless
-            </div>
         </div>
     </div>
 @elseif ($booking->payment && $booking->payment->isPaid())
@@ -490,5 +641,73 @@
             </table>
         </div>
     </div>
+@endif
+
+@if ($booking->canPayDeposit())
+    <script>
+        // Vẽ mã QR minh họa (không mã hóa dữ liệu thật, chỉ để giống giao
+        // diện quét mã của cổng thanh toán) — seed theo mã đơn + gateway nên
+        // pattern ổn định giữa các lần vẽ lại, không nhấp nháy ngẫu nhiên.
+        function homiDrawFakeQr(canvas, seedText, accentColor) {
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            const grid = 21;
+            const cell = size / grid;
+
+            let h = 2166136261;
+            for (let i = 0; i < seedText.length; i++) {
+                h ^= seedText.charCodeAt(i);
+                h = Math.imul(h, 16777619);
+            }
+            let seed = h >>> 0;
+            const rand = () => {
+                seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+                let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+
+            ctx.clearRect(0, 0, size, size);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+
+            const drawFinder = (gx, gy) => {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(gx * cell, gy * cell, 7 * cell, 7 * cell);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect((gx + 1) * cell, (gy + 1) * cell, 5 * cell, 5 * cell);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect((gx + 2) * cell, (gy + 2) * cell, 3 * cell, 3 * cell);
+            };
+
+            const inFinderZone = (x, y) => (
+                (x < 8 && y < 8) || (x >= grid - 8 && y < 8) || (x < 8 && y >= grid - 8)
+            );
+
+            for (let y = 0; y < grid; y++) {
+                for (let x = 0; x < grid; x++) {
+                    if (inFinderZone(x, y)) continue;
+                    if (rand() > 0.55) {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(x * cell, y * cell, cell, cell);
+                    }
+                }
+            }
+
+            drawFinder(0, 0);
+            drawFinder(grid - 7, 0);
+            drawFinder(0, grid - 7);
+
+            const badge = size * 0.22;
+            ctx.fillStyle = accentColor;
+            ctx.fillRect((size - badge) / 2, (size - badge) / 2, badge, badge);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${Math.round(badge * 0.32)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(seedText.includes(':momo') ? 'MoMo' : 'VNPay', size / 2, size / 2 + 1);
+        }
+    </script>
 @endif
 @endsection

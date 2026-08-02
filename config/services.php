@@ -48,6 +48,17 @@ return [
         'return_url'  => env('VNPAY_RETURN_URL'),
     ],
 
+    // Tài khoản nhận chuyển khoản ngân hàng — hiển thị QR VietQR + số tài
+    // khoản ở trang thanh toán khách hàng (thay cho cổng VNPay sandbox đang
+    // lỗi). BIN 970422 = MB Bank (danh sách BIN NAPAS chuẩn, không đổi theo
+    // tài khoản cụ thể).
+    'bank_transfer' => [
+        'bin'          => env('BANK_TRANSFER_BIN', '970422'),
+        'account_no'   => env('BANK_TRANSFER_ACCOUNT_NO'),
+        'account_name' => env('BANK_TRANSFER_ACCOUNT_NAME'),
+        'bank_name'    => env('BANK_TRANSFER_BANK_NAME', 'MB Bank (Ngân hàng TMCP Quân đội)'),
+    ],
+
     'facebook' => [
         'client_id'     => env('FACEBOOK_CLIENT_ID'),
         'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
