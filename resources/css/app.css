@@ -462,6 +462,31 @@
         color: #000 !important;
     }
 
+    /* Header/tổng cộng dùng nền màu thương hiệu để đẹp trên màn hình, nhưng
+       trình duyệt thường tắt "in nền màu" theo mặc định — nếu không ép về
+       trắng/đen ở đây thì chữ trắng trên nền trắng sẽ biến mất khi in. */
+    #invoice-document .invoice-header {
+        background: none !important;
+        color: #000 !important;
+        padding: 0 0 10px 0 !important;
+        border-bottom: 2px solid #000;
+    }
+
+    #invoice-document .invoice-header .text-white\/80 {
+        color: #333 !important;
+    }
+
+    #invoice-document .invoice-monogram {
+        background: none !important;
+        border: 1px solid #000 !important;
+        color: #000 !important;
+    }
+
+    #invoice-document .invoice-total-box {
+        background: none !important;
+        border: 1px solid #000 !important;
+    }
+
     .invoice-signatures {
         break-inside: avoid;
     }
