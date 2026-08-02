@@ -94,11 +94,10 @@
                 <input id="early_checkin_surcharge_percent" type="number" min="0" max="100" step="0.1" name="early_checkin_surcharge_percent" value="{{ old('early_checkin_surcharge_percent', $hotel->early_checkin_surcharge_percent) }}">
                 <p class="section-desc">Tự động tính khi khách nhận phòng trước giờ nhận phòng tiêu chuẩn ở trên. Để 0 nếu không thu phí.</p>
             </div>
-            <div class="form-group">
-                <label for="cancellation_hours_before">Phải hủy trước (giờ so với giờ nhận phòng)</label>
-                <input id="cancellation_hours_before" type="number" min="0" max="720" step="1" name="cancellation_hours_before" value="{{ old('cancellation_hours_before', $hotel->cancellation_hours_before) }}">
-                <p class="section-desc">Khách chỉ hủy đơn được nếu còn đủ số giờ này trước giờ nhận phòng đã đặt.</p>
-            </div>
+            {{-- cancellation_hours_before: đã thay bằng bảng phí hủy 4 bậc cố định
+                 trong code (Booking::cancellationFeePercent()), không còn cấu hình
+                 qua admin — ẩn field khỏi form để tránh admin chỉnh mà không thấy
+                 tác dụng gì. Cột DB vẫn giữ nguyên, không xóa dữ liệu. --}}
         </div>
 
         <div class="form-group">

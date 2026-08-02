@@ -34,6 +34,14 @@ class BookingService
      */
     private const MAX_CHILDREN_PER_ROOM = 2;
 
+    /**
+     * Khung thời gian giữ chỗ để khách hoàn tất cọc 30% hoặc thanh toán đủ
+     * kể từ lúc tạo đơn (trạng thái pending_deposit) — quá hạn mà chưa làm
+     * gì thì đơn bị tự động hủy, nhả phòng lại (xem
+     * cancelExpiredDepositBookings(), CancelExpiredDepositBookings command).
+     */
+    public const DEPOSIT_HOLD_MINUTES = 30;
+
     public function __construct(
         private AvailabilityService $availabilityService,
         private PricingService $pricingService,
@@ -115,14 +123,15 @@ class BookingService
                 'note'           => $data['note'] ?? null,
                 'total_amount'   => $total,
                 'discount_amount'=> 0,
-                'status'         => BookingStatus::CONFIRMED,
+                'status'         => BookingStatus::PENDING_DEPOSIT,
+                'deposit_expires_at' => now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
             ]);
 
-            $this->logStatus($booking, null, BookingStatus::CONFIRMED, Auth::id(), 'Admin/staff tạo đơn thủ công — tự động xác nhận.');
+            $this->logStatus($booking, null, BookingStatus::PENDING_DEPOSIT, Auth::id(), 'Admin/staff tạo đơn thủ công — chờ cọc 30% hoặc thanh toán đủ trong ' . self::DEPOSIT_HOLD_MINUTES . ' phút, quá hạn tự hủy.');
 
             // Chỉ báo được nếu đơn có gắn tài khoản khách hàng (đơn nhóm/điện
             // thoại đôi khi không có, xem $data['user_id'] ?? null ở trên).
-            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được xác nhận, bạn có thể thanh toán ngay."));
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được tạo — vui lòng đặt cọc 30% hoặc thanh toán đủ trong " . self::DEPOSIT_HOLD_MINUTES . ' phút, nếu không đơn sẽ tự động hủy.'));
 
             foreach ($lines as $line) {
                 $booking->bookingItems()->create($line);
@@ -268,22 +277,23 @@ class BookingService
                 'note'            => $data['note'] ?? null,
                 'total_amount'    => $total - $discount,
                 'discount_amount' => $discount,
-                'status'          => BookingStatus::CONFIRMED,
+                'status'          => BookingStatus::PENDING_DEPOSIT,
+                'deposit_expires_at' => now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
             ]);
 
-            $this->logStatus($booking, null, BookingStatus::CONFIRMED, $customer->id, 'Khách tạo đơn đặt phòng — tự động xác nhận, không cần chờ admin/staff duyệt.');
+            $this->logStatus($booking, null, BookingStatus::PENDING_DEPOSIT, $customer->id, 'Khách tạo đơn đặt phòng — chờ cọc 30% hoặc thanh toán đủ trong ' . self::DEPOSIT_HOLD_MINUTES . ' phút, quá hạn tự hủy nhả phòng.');
 
             // Thông báo cho admin/staff về đơn mới
             User::whereIn('role', ['admin', 'staff'])->each(
                 fn (User $u) => $u->notify(new NewBookingReceived($booking))
             );
 
-            // Đơn tự động CONFIRMED ngay khi tạo (không còn bước staff duyệt
-            // riêng) — trước đây khách chỉ biết đơn đã xác nhận khi admin/staff
-            // bấm "Xác nhận đơn" (gửi qua confirm()); giờ phải báo ngay tại đây,
-            // nếu không khách không nhận được thông báo nào về việc đơn đã
-            // sẵn sàng thanh toán.
-            $customer->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được xác nhận, bạn có thể thanh toán ngay."));
+            // Đơn KHÔNG còn tự động CONFIRMED ngay khi tạo — khách phải đặt
+            // cọc 30% hoặc thanh toán đủ trong DEPOSIT_HOLD_MINUTES phút,
+            // nếu không đơn tự hủy (xem cancelExpiredDepositBookings()).
+            // Đơn chỉ thật sự CONFIRMED sau khi thanh toán thành công (xem
+            // confirmAfterPayment()).
+            $customer->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được tạo — vui lòng đặt cọc 30% hoặc thanh toán đủ trong " . self::DEPOSIT_HOLD_MINUTES . ' phút, nếu không đơn sẽ tự động hủy.'));
 
             foreach ($lines as $line) {
                 $booking->bookingItems()->create($line);
@@ -348,18 +358,25 @@ class BookingService
             ]);
         }
 
-        $isLate = $booking->isLateCancellation();
+        // Phí hủy theo bậc (Booking::cancellationFeePercent()) chỉ có ý nghĩa
+        // nếu khách đã thực sự nộp (cọc hoặc thanh toán) — đơn đang
+        // pending_deposit CHƯA làm gì cả (payment vẫn UNPAID) cũng nằm trong
+        // canCancelByCustomer() từ giờ, không có gì để giữ lại (dùng
+        // payment->status thay vì amount_collected vì payDepositDemo() không
+        // ghi amount_collected cho phần cọc).
+        $hasPaidAnything = $booking->payment && $booking->payment->status !== PaymentStatus::UNPAID;
+        $feePercent = $hasPaidAnything ? $booking->cancellationFeePercent() : 0;
 
         $oldStatus = $booking->status;
         $booking->update(['status' => BookingStatus::CANCELLED]);
-        $note = $isLate
-            ? 'Khách hủy đơn (trong vòng ' . HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng — mất tiền cọc).'
+        $note = $feePercent > 0
+            ? 'Khách hủy đơn — còn ' . round($booking->hoursUntilCheckIn(), 1) . " giờ tới giờ nhận phòng, phí hủy {$feePercent}% tổng tiền đơn."
             : 'Khách hủy đơn.';
         $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, $customer->id, $note);
 
-        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy." . ($isLate ? ' Đơn hủy trong hạn nên tiền cọc không được hoàn lại.' : '')));
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy." . ($feePercent > 0 ? " Phí hủy {$feePercent}% (theo chính sách hủy), phần còn lại sẽ được hoàn." : '')));
 
-        $refundOk = $this->attemptRefund($booking, $customer->id, $isLate);
+        $refundOk = $this->attemptRefund($booking, $customer->id, $feePercent);
 
         return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refundOk];
     }
@@ -558,6 +575,20 @@ class BookingService
                 ]);
                 $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::PAID, $booking->user_id, 'VNPay xác nhận thanh toán thành công.');
 
+                // Khóa dòng booking trước khi xác nhận — phòng race hiếm gặp:
+                // khách thanh toán thành công đúng lúc command tự hủy đơn quá
+                // hạn (cancelExpiredDepositBookings()) đang xử lý cùng booking.
+                // Nếu booking đã bị hủy trước khi khóa được (phòng có thể đã
+                // bán lại), KHÔNG tự confirm lại — chỉ ghi log để admin đối
+                // soát thủ công, tiền vẫn được ghi nhận đã thu ở Payment.
+                $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->first();
+
+                if ($lockedBooking->status === BookingStatus::CANCELLED) {
+                    $this->logStatus($lockedBooking, $lockedBooking->status, $lockedBooking->status, $booking->user_id, 'VNPay báo thanh toán thành công NHƯNG đơn đã bị tự hủy do quá hạn giữ chỗ trước đó — cần đối soát/hoàn tiền thủ công.');
+                } else {
+                    $this->confirmAfterPayment($lockedBooking, $booking->user_id);
+                }
+
                 $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã thanh toán thành công qua VNPay."));
 
                 return ['booking' => $booking->fresh('payment'), 'success' => true, 'code' => 'ok', 'message' => 'Thanh toán VNPay thành công.'];
@@ -620,15 +651,25 @@ class BookingService
             ]);
         }
 
-        $oldStatus = $booking->payment->status;
-        $booking->payment->update([
-            'method'                   => PaymentMethod::CASH_WITH_DEPOSIT,
-            'status'                   => PaymentStatus::DEPOSIT_PAID,
-            'deposit_amount'           => $booking->depositAmount(),
-            'deposit_transaction_code' => 'DEPOSIT-' . Str::upper(Str::random(10)),
-            'deposit_paid_at'          => now(),
-        ]);
-        $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::DEPOSIT_PAID, $customer->id, 'Khách đặt cọc 30% (mô phỏng), phần còn lại trả tiền mặt khi nhận phòng.');
+        // Khóa dòng booking trong lúc xác nhận cọc — tránh đụng độ với
+        // command tự hủy đơn quá hạn (cancelExpiredDepositBookings()) chạy
+        // đúng lúc khách vừa bấm cọc: bên nào khóa được trước sẽ thắng, bên
+        // sau đọc lại trạng thái mới nhất sau khi bên kia commit.
+        DB::transaction(function () use ($booking, $customer) {
+            $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->first();
+
+            $oldStatus = $booking->payment->status;
+            $booking->payment->update([
+                'method'                   => PaymentMethod::CASH_WITH_DEPOSIT,
+                'status'                   => PaymentStatus::DEPOSIT_PAID,
+                'deposit_amount'           => $booking->depositAmount(),
+                'deposit_transaction_code' => 'DEPOSIT-' . Str::upper(Str::random(10)),
+                'deposit_paid_at'          => now(),
+            ]);
+            $this->logPaymentStatus($booking->payment, $oldStatus, PaymentStatus::DEPOSIT_PAID, $customer->id, 'Khách đặt cọc 30% (mô phỏng), phần còn lại trả tiền mặt khi nhận phòng.');
+
+            $this->confirmAfterPayment($lockedBooking, $customer->id);
+        });
 
         return $booking->fresh('payment');
     }
@@ -739,9 +780,9 @@ class BookingService
             ]);
         }
 
-        if ($newStatus === PaymentStatus::PAID && ! in_array($booking->status, [BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)) {
+        if ($newStatus === PaymentStatus::PAID && ! in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể đánh dấu đã thanh toán khi đơn ở trạng thái đã xác nhận hoặc đã check-in.'],
+                'status' => ['Chỉ có thể đánh dấu đã thanh toán khi đơn ở trạng thái chờ cọc/thanh toán, đã xác nhận hoặc đã check-in.'],
             ]);
         }
 
@@ -768,6 +809,13 @@ class BookingService
                 : ($newStatus === PaymentStatus::REFUNDED ? 0 : $booking->payment->amount_collected),
         ]);
         $this->logPaymentStatus($booking->payment, $oldStatus, $newStatus, Auth::id(), 'Admin/staff cập nhật trạng thái thanh toán.');
+
+        // Admin/staff xác nhận cọc/thanh toán thủ công cho đơn đang chờ
+        // (vd đơn tạo hộ qua điện thoại, khách chuyển khoản trực tiếp) —
+        // cũng phải xác nhận đơn giống như khi khách tự thanh toán online.
+        if (in_array($newStatus, [PaymentStatus::DEPOSIT_PAID, PaymentStatus::PAID], true)) {
+            $this->confirmAfterPayment($booking, Auth::id());
+        }
 
         // Trước đây khách không được báo gì khi admin/staff xác nhận thanh
         // toán hoặc xử lý hoàn tiền thủ công — chỉ đổi trạng thái âm thầm.
@@ -1156,6 +1204,61 @@ class BookingService
         return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refundOk];
     }
 
+    /**
+     * Tự động hủy các đơn còn "pending_deposit" đã quá hạn giữ chỗ
+     * (DEPOSIT_HOLD_MINUTES) mà khách chưa đặt cọc/thanh toán gì — nhả
+     * phòng lại cho khách khác (được xử lý ngầm định qua
+     * BookingStatus::holdingStatuses(), đơn cancelled không còn tính vào
+     * tồn kho). Gọi từ CancelExpiredDepositBookings command (scheduled mỗi
+     * phút — xem routes/console.php).
+     *
+     * Không tự động hoàn tiền (attemptRefund()) vì đơn ở trạng thái này
+     * chưa từng thu được đồng nào (amount_collected luôn bằng 0) — nếu
+     * payment đang kẹt ở PENDING (khách đã redirect sang VNPay nhưng chưa
+     * quay lại/hủy ngang), đưa về UNPAID kèm ghi chú thay vì để treo, tránh
+     * IPN trả về trễ SAU khi đã hủy làm payment bị đánh dấu PAID cho một
+     * đơn đã bị hủy (xem xử lý race tương ứng trong confirmVnpayReturn()).
+     *
+     * @return int Số lượng đơn đã tự hủy.
+     */
+    public function cancelExpiredDepositBookings(): int
+    {
+        $expiredIds = Booking::where('status', BookingStatus::PENDING_DEPOSIT)
+            ->where('deposit_expires_at', '<=', now())
+            ->pluck('id');
+
+        $cancelledCount = 0;
+
+        foreach ($expiredIds as $bookingId) {
+            DB::transaction(function () use ($bookingId, &$cancelledCount) {
+                $booking = Booking::with('payment')->whereKey($bookingId)->lockForUpdate()->first();
+
+                // Re-check sau khi khóa — booking có thể đã được xác nhận
+                // (khách vừa cọc/thanh toán xong) giữa lúc lấy danh sách và
+                // lúc khóa được dòng này.
+                if (! $booking || $booking->status !== BookingStatus::PENDING_DEPOSIT || $booking->deposit_expires_at?->isFuture()) {
+                    return;
+                }
+
+                $oldStatus = $booking->status;
+                $booking->update(['status' => BookingStatus::CANCELLED]);
+                $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, null, 'Tự động hủy do quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) chưa đặt cọc/thanh toán.');
+
+                if ($booking->payment && $booking->payment->status === PaymentStatus::PENDING) {
+                    $oldPaymentStatus = $booking->payment->status;
+                    $booking->payment->update(['status' => PaymentStatus::UNPAID, 'pending_gateway_amount' => null]);
+                    $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::UNPAID, null, 'Đơn tự hủy do quá hạn giữ chỗ, giao dịch thanh toán dở dang bị hủy theo.');
+                }
+
+                $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã tự động hủy do quá hạn " . self::DEPOSIT_HOLD_MINUTES . ' phút chưa đặt cọc/thanh toán.'));
+
+                $cancelledCount++;
+            });
+        }
+
+        return $cancelledCount;
+    }
+
     // ----------------------------------------------------------------
     // PRIVATE
     // ----------------------------------------------------------------
@@ -1244,10 +1347,12 @@ class BookingService
      * nhiều hơn số VNPay thực nhận. Các phương thức khác (chuyển khoản, tiền
      * mặt...) chỉ đánh dấu trạng thái vì tiền được hoàn thủ công ngoài hệ thống.
      *
-     * $forfeitDeposit = true (hủy trong hạn — xem Booking::isLateCancellation())
-     * trừ thẳng Booking::depositAmount() ra khỏi số tiền được hoàn TRƯỚC khi
-     * tính toán, bất kể phương thức thanh toán — tiền cọc luôn bị giữ lại làm
-     * phí hủy trễ, chỉ hoàn phần khách đã trả VƯỢT quá tiền cọc (nếu có).
+     * $feePercent (0/30/50/100 — xem Booking::cancellationFeePercent()) trừ
+     * thẳng % tương ứng của Booking::total_amount ra khỏi số tiền được hoàn
+     * TRƯỚC khi tính toán, bất kể phương thức thanh toán — nhưng KHÔNG bao
+     * giờ vượt quá số tiền đã thực thu (amount_collected): khách chỉ mất tối
+     * đa những gì đã trả, hệ thống không đòi thêm phần thiếu nếu phí hủy tính
+     * ra lớn hơn số tiền cọc/đã trả.
      *
      * @return bool true nếu đã hoàn xong (hoặc không cần hoàn tự động qua
      *              cổng — chuyển khoản/tiền mặt); false nếu ĐÁNG LẼ phải tự
@@ -1256,7 +1361,7 @@ class BookingService
      *              hàm này cần báo rõ cho người dùng biết để xử lý thủ công,
      *              KHÔNG được coi là đã hoàn tiền thành công.
      */
-    private function attemptRefund(Booking $booking, ?int $actorId, bool $forfeitDeposit = false): bool
+    private function attemptRefund(Booking $booking, ?int $actorId, int $feePercent = 0): bool
     {
         $payment = $booking->payment;
 
@@ -1277,16 +1382,18 @@ class BookingService
             return true;
         }
 
-        $forfeitAmount = $forfeitDeposit ? min($collected, $booking->depositAmount()) : 0.0;
+        $forfeitAmount = $feePercent > 0
+            ? min($collected, round((float) $booking->total_amount * $feePercent / 100, 2))
+            : 0.0;
         $refundableTotal = round($collected - $forfeitAmount, 2);
         $forfeitNote = $forfeitAmount > 0
-            ? ' Hủy trong vòng ' . HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng nên giữ lại tiền cọc ' . number_format($forfeitAmount, 0, ',', '.') . 'đ.'
+            ? " Phí hủy {$feePercent}% theo chính sách hủy — giữ lại " . number_format($forfeitAmount, 0, ',', '.') . 'đ.'
             : '';
 
         if ($payment->method === PaymentMethod::ONLINE_VNPAY) {
             if ($refundableTotal <= 0) {
                 $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
-                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hủy đơn — số tiền đã thu không vượt quá tiền cọc, giữ lại toàn bộ, không có phần hoàn.' . $forfeitNote);
+                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hủy đơn — số tiền đã thu không vượt quá phí hủy, giữ lại toàn bộ, không có phần hoàn.' . $forfeitNote);
 
                 return true;
             }
@@ -1361,8 +1468,8 @@ class BookingService
         $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0]);
         $manualNote = match (true) {
             $forfeitAmount <= 0 => 'Tự động hoàn tiền khi hủy đơn.',
-            $refundableTotal <= 0 => 'Hủy đơn trong hạn — giữ lại toàn bộ ' . number_format($forfeitAmount, 0, ',', '.') . 'đ tiền cọc, không có phần hoàn.',
-            default => 'Hủy đơn trong hạn — giữ lại tiền cọc ' . number_format($forfeitAmount, 0, ',', '.') . 'đ, cần hoàn thủ công phần còn lại ' . number_format($refundableTotal, 0, ',', '.') . 'đ cho khách.',
+            $refundableTotal <= 0 => "Hủy đơn — phí hủy {$feePercent}%, giữ lại toàn bộ " . number_format($forfeitAmount, 0, ',', '.') . 'đ, không có phần hoàn.',
+            default => "Hủy đơn — phí hủy {$feePercent}%, giữ lại " . number_format($forfeitAmount, 0, ',', '.') . 'đ, cần hoàn thủ công phần còn lại ' . number_format($refundableTotal, 0, ',', '.') . 'đ cho khách.',
         };
         $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, $manualNote);
 
@@ -1399,6 +1506,30 @@ class BookingService
             'to_status'   => $to->value,
             'note'        => $note,
         ]);
+    }
+
+    /**
+     * Xác nhận đơn ngay sau khi khách/staff hoàn tất cọc 30% hoặc thanh
+     * toán đủ — chuyển pending_deposit → confirmed và xóa hạn giữ chỗ
+     * (deposit_expires_at) vì đơn không còn nguy cơ bị tự hủy nữa. Gọi từ
+     * payDepositDemo(), confirmVnpayReturn() (nhánh thành công) và
+     * updatePaymentStatus() (admin/staff xác nhận thủ công) — dùng chung 1
+     * nơi để cả 3 đường thanh toán đều nhất quán chuyển trạng thái booking.
+     *
+     * Không làm gì nếu đơn không còn ở pending_deposit (đã confirmed/hủy
+     * từ trước) — idempotent, an toàn gọi lại nhiều lần.
+     */
+    private function confirmAfterPayment(Booking $booking, ?int $actorId): void
+    {
+        if ($booking->status !== BookingStatus::PENDING_DEPOSIT) {
+            return;
+        }
+
+        $oldStatus = $booking->status;
+        $booking->update(['status' => BookingStatus::CONFIRMED, 'deposit_expires_at' => null]);
+        $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, $actorId, 'Đơn được xác nhận sau khi cọc/thanh toán thành công.');
+
+        $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được xác nhận."));
     }
 
     private function generateCode(): string

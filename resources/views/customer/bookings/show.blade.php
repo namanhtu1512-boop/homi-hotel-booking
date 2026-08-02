@@ -25,7 +25,47 @@
     </div>
 @endif
 
-@if ($booking->status === \App\Enums\BookingStatus::PENDING)
+@if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
+    <div class="card border-2 border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40" id="deposit-hold-banner">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-amber-500 text-2xl text-white">⏳</div>
+            <div class="flex-1">
+                <h2 class="font-heading text-xl font-bold text-amber-700 dark:text-amber-300">Đặt phòng thành công — chờ bạn đặt cọc/thanh toán</h2>
+                <p class="mt-1 text-sm text-amber-700/80 dark:text-amber-300/80">
+                    Mã đơn <strong>{{ $booking->booking_code }}</strong>. Vui lòng đặt cọc 30% hoặc thanh toán đủ trong
+                    <strong id="deposit-hold-timer"></strong>, nếu không đơn sẽ <strong>tự động hủy</strong> và phòng được nhả lại.
+                </p>
+            </div>
+        </div>
+    </div>
+    @if ($booking->deposit_expires_at)
+        <script>
+            (function () {
+                const expiresAt = new Date(@json($booking->deposit_expires_at->toIso8601String())).getTime();
+                const timerEl = document.getElementById('deposit-hold-timer');
+                const bannerEl = document.getElementById('deposit-hold-banner');
+
+                const tick = () => {
+                    const remainingMs = expiresAt - Date.now();
+
+                    if (remainingMs <= 0) {
+                        timerEl.textContent = '0:00';
+                        bannerEl.classList.add('opacity-60');
+                        clearInterval(intervalId);
+                        return;
+                    }
+
+                    const minutes = Math.floor(remainingMs / 60000);
+                    const seconds = Math.floor((remainingMs % 60000) / 1000);
+                    timerEl.textContent = minutes + ':' + String(seconds).padStart(2, '0');
+                };
+
+                tick();
+                const intervalId = setInterval(tick, 1000);
+            })();
+        </script>
+    @endif
+@elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
     <div class="card border-2 border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40">
         <div class="flex flex-wrap items-center gap-4">
             <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-emerald-500 text-2xl text-white">✓</div>
@@ -257,13 +297,20 @@
 
         @if ($booking->canCancelByCustomer())
             @php
-                // Hủy đơn đã thanh toán đủ giờ kích hoạt hoàn tiền THẬT (attemptRefund())
-                // — báo trước cho khách biết việc này sẽ xảy ra thay vì chỉ hỏi
-                // chung chung như trước khi VNPay còn là mô phỏng.
-                $isLateCancel = $booking->isLateCancellation();
+                // Hủy đơn đã thanh toán/cọc giờ kích hoạt hoàn tiền THẬT (attemptRefund())
+                // — báo trước cho khách biết việc này sẽ xảy ra, kèm % phí hủy
+                // theo bậc giờ hiện tại (Booking::cancellationFeePercent()).
+                $hasPaidAnything = $booking->payment && $booking->payment->status !== \App\Enums\PaymentStatus::UNPAID;
+                $feePercent = $hasPaidAnything ? $booking->cancellationFeePercent() : 0;
+                $paidSoFar = (float) ($booking->payment->amount_collected ?? 0);
+                if ($paidSoFar <= 0 && $booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID) {
+                    $paidSoFar = (float) $booking->payment->deposit_amount;
+                }
+                $estimatedFee = $feePercent > 0 ? min($paidSoFar, round((float) $booking->total_amount * $feePercent / 100)) : 0;
+
                 $cancelConfirmMessage = 'Bạn chắc chắn muốn hủy đơn ' . $booking->booking_code . '?';
-                if ($isLateCancel) {
-                    $cancelConfirmMessage .= ' Hủy trong vòng ' . \App\Models\HotelInfo::instance()->cancellation_hours_before . ' giờ trước giờ nhận phòng sẽ MẤT TIỀN CỌC ' . number_format($booking->depositAmount(), 0, ',', '.') . 'đ, chỉ hoàn phần đã trả vượt quá tiền cọc (nếu có).';
+                if ($estimatedFee > 0) {
+                    $cancelConfirmMessage .= " Phí hủy {$feePercent}% theo chính sách hủy — bạn sẽ mất khoảng " . number_format($estimatedFee, 0, ',', '.') . 'đ, phần còn lại (nếu có) sẽ được hoàn.';
                 } elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PAID) {
                     $cancelConfirmMessage .= $booking->payment->method === \App\Enums\PaymentMethod::ONLINE_VNPAY
                         ? ' Hệ thống sẽ tự động gửi yêu cầu hoàn tiền qua VNPay.'
@@ -275,13 +322,26 @@
                 @csrf
                 <button type="submit" class="btn-danger w-full">Hủy đơn</button>
             </form>
-            @if ($isLateCancel)
+            <div class="mt-2 table-wrapper">
+                <table class="text-xs">
+                    <thead>
+                        <tr>
+                            <th>Hủy trước giờ nhận phòng</th>
+                            <th>Phí hủy</th>
+                            <th>Hoàn tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr @class(['font-bold text-red-500' => $feePercent === 0])><td>≥ 48 giờ</td><td>Miễn phí</td><td>100%</td></tr>
+                        <tr @class(['font-bold text-red-500' => $feePercent === 30])><td>24 – dưới 48 giờ</td><td>30% tổng tiền</td><td>70%</td></tr>
+                        <tr @class(['font-bold text-red-500' => $feePercent === 50])><td>12 – dưới 24 giờ</td><td>50% tổng tiền</td><td>50%</td></tr>
+                        <tr @class(['font-bold text-red-500' => $feePercent === 100])><td>Dưới 12 giờ / sau giờ nhận phòng</td><td>100% tổng tiền</td><td>0%</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            @if ($estimatedFee > 0)
                 <p class="mt-2 text-xs text-red-500">
-                    Đang trong vòng {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ trước giờ nhận phòng — hủy lúc này sẽ mất tiền cọc {{ number_format($booking->depositAmount(), 0, ',', '.') }}đ.
-                </p>
-            @else
-                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    Có thể hủy miễn phí trước {{ \App\Models\HotelInfo::instance()->cancellation_hours_before }} giờ so với giờ nhận phòng.
+                    Hủy ngay bây giờ (phí {{ $feePercent }}%) sẽ mất khoảng {{ number_format($estimatedFee, 0, ',', '.') }}đ đã trả.
                 </p>
             @endif
         @endif
@@ -338,7 +398,9 @@
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
         <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
-            @if ($booking->status === \App\Enums\BookingStatus::PENDING)
+            @if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
+                Chọn 1 trong 2: đặt cọc 30% hoặc thanh toán đủ qua VNPay, trước khi hết hạn giữ chỗ ở trên.
+            @elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
                 Đơn đang chờ xác nhận — bạn có thể thanh toán ngay, không cần chờ khách sạn duyệt đơn trước.
             @else
                 Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới ("Ví điện tử / Thẻ ngân hàng" chuyển sang cổng VNPay sandbox thật; các hình thức còn lại là demo/thủ công).
@@ -346,20 +408,22 @@
         </p>
 
         <div class="grid gap-4 sm:grid-cols-2">
-            <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                <div class="mb-3 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                    <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">▦</span>
-                    Chuyển khoản ngân hàng
+            @unless ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
+                <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                    <div class="mb-3 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">▦</span>
+                        Chuyển khoản ngân hàng
+                    </div>
+                    <div class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
+                        Nội dung chuyển khoản: <strong>{{ $booking->booking_code }}</strong>
+                    </div>
+                    <form method="POST" action="{{ route('customer.bookings.pay-bank-transfer', $booking->id) }}" class="mt-3"
+                        onsubmit="return confirm('Xác nhận bạn đã chuyển khoản cho đơn {{ $booking->booking_code }}?');">
+                        @csrf
+                        <button type="submit" class="btn-outline w-full">Tôi đã chuyển khoản</button>
+                    </form>
                 </div>
-                <div class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed dark:bg-slate-800">
-                    Nội dung chuyển khoản: <strong>{{ $booking->booking_code }}</strong>
-                </div>
-                <form method="POST" action="{{ route('customer.bookings.pay-bank-transfer', $booking->id) }}" class="mt-3"
-                    onsubmit="return confirm('Xác nhận bạn đã chuyển khoản cho đơn {{ $booking->booking_code }}?');">
-                    @csrf
-                    <button type="submit" class="btn-outline w-full">Tôi đã chuyển khoản</button>
-                </form>
-            </div>
+            @endunless
 
             <div class="flex flex-col gap-3">
                 <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -389,13 +453,15 @@
                     </div>
                 @endif
 
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
-                    <div class="mb-1 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">🏨</span>
-                        Thanh toán tại khách sạn
+                @unless ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                        <div class="mb-1 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                            <span class="grid h-9 w-9 place-items-center rounded-lg bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">🏨</span>
+                            Thanh toán tại khách sạn
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Mặc định — thanh toán bằng tiền mặt khi nhận phòng, không cần thao tác gì thêm.</p>
                     </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Mặc định — thanh toán bằng tiền mặt khi nhận phòng, không cần thao tác gì thêm.</p>
-                </div>
+                @endunless
             </div>
         </div>
     </div>

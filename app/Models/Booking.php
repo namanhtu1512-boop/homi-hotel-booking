@@ -28,18 +28,20 @@ class Booking extends Model
         'total_amount',
         'discount_amount',
         'status',
+        'deposit_expires_at',
         'note',
     ];
 
     protected $casts = [
-        'check_in'        => 'date',
-        'check_out'       => 'date',
-        'adults'          => 'integer',
-        'children'        => 'integer',
-        'infants'         => 'integer',
-        'total_amount'    => 'decimal:2',
-        'discount_amount' => 'integer',
-        'status'          => BookingStatus::class,
+        'check_in'           => 'date',
+        'check_out'          => 'date',
+        'adults'             => 'integer',
+        'children'           => 'integer',
+        'infants'            => 'integer',
+        'total_amount'       => 'decimal:2',
+        'discount_amount'    => 'integer',
+        'status'             => BookingStatus::class,
+        'deposit_expires_at' => 'datetime',
     ];
 
     public function user()
@@ -123,10 +125,10 @@ class Booking extends Model
     }
 
     /**
-     * Khách LUÔN được tự hủy đơn ở trạng thái phù hợp (PENDING/CONFIRMED),
-     * bất kể còn bao lâu tới giờ nhận phòng — khác trước đây (chặn hẳn nếu
-     * hủy trễ). Hậu quả của việc hủy trễ là MẤT TIỀN CỌC (xem
-     * isLateCancellation(), BookingService::attemptRefund()) thay vì bị
+     * Khách LUÔN được tự hủy đơn ở trạng thái phù hợp (PENDING/PENDING_DEPOSIT/
+     * CONFIRMED), bất kể còn bao lâu tới giờ nhận phòng — khác trước đây (chặn
+     * hẳn nếu hủy trễ). Hậu quả của việc hủy trễ là PHÍ HỦY theo bậc (xem
+     * cancellationFeePercent(), BookingService::attemptRefund()) thay vì bị
      * chặn không cho hủy.
      */
     public function canCancelByCustomer(): bool
@@ -135,14 +137,31 @@ class Booking extends Model
     }
 
     /**
-     * Hủy trong vòng N giờ trước giờ nhận phòng đã đặt (N =
-     * hotel_info.cancellation_hours_before) — khách vẫn hủy được nhưng MẤT
-     * TIỀN CỌC (xem depositAmount(), BookingService::attemptRefund()), chỉ
-     * hoàn phần đã thu VƯỢT quá tiền cọc (nếu có).
+     * Phí hủy (% trên tổng tiền đơn) theo số giờ còn lại tới giờ nhận phòng
+     * DỰ KIẾN (xem hoursUntilCheckIn()) — càng hủy sát giờ nhận phòng, phí
+     * càng cao. Mốc giờ/mức phí cố định trong code (không cấu hình qua
+     * admin — khác cancellation_hours_before cũ đã bỏ):
+     *
+     *   ≥ 48 giờ           → 0%   (miễn phí, hoàn 100%)
+     *   24 giờ đến < 48 giờ → 30%  (hoàn 70%)
+     *   12 giờ đến < 24 giờ → 50%  (hoàn 50%)
+     *   < 12 giờ (kể cả sau giờ nhận phòng/no-show, hoursUntilCheckIn() âm)
+     *                        → 100% (không hoàn)
+     *
+     * Phí này chỉ là TRẦN tối đa — BookingService::attemptRefund() vẫn giới
+     * hạn số tiền giữ lại KHÔNG VƯỢT QUÁ số tiền khách đã thực trả
+     * (amount_collected), không đòi thêm phần thiếu nếu khách mới chỉ cọc.
      */
-    public function isLateCancellation(): bool
+    public function cancellationFeePercent(): int
     {
-        return $this->hoursUntilCheckIn() < HotelInfo::instance()->cancellation_hours_before;
+        $hours = $this->hoursUntilCheckIn();
+
+        return match (true) {
+            $hours >= 48 => 0,
+            $hours >= 24 => 30,
+            $hours >= 12 => 50,
+            default      => 100,
+        };
     }
 
     /**
@@ -296,19 +315,20 @@ class Booking extends Model
      */
     public function canMarkPaymentAsPaid(): bool
     {
-        return in_array($this->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)
+        return in_array($this->status, [BookingStatus::PENDING, BookingStatus::PENDING_DEPOSIT, BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)
             && $this->payment
             && $this->payment->status->canTransitionTo(PaymentStatus::PAID);
     }
 
     /**
-     * Đặt cọc 30% áp dụng ngay từ khi đơn còn chờ xác nhận (pending) tới khi
-     * đã xác nhận — miễn CHƯA thanh toán/báo chuyển khoản gì cả (chỉ hợp lệ
-     * từ UNPAID — xem PaymentStatus::canTransitionTo()).
+     * Đặt cọc 30% áp dụng ngay từ khi đơn còn chờ xác nhận (pending/
+     * pending_deposit) tới khi đã xác nhận — miễn CHƯA thanh toán/báo
+     * chuyển khoản gì cả (chỉ hợp lệ từ UNPAID — xem
+     * PaymentStatus::canTransitionTo()).
      */
     public function canPayDeposit(): bool
     {
-        return in_array($this->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
+        return in_array($this->status, [BookingStatus::PENDING, BookingStatus::PENDING_DEPOSIT, BookingStatus::CONFIRMED], true)
             && $this->payment
             && $this->payment->status->canTransitionTo(PaymentStatus::DEPOSIT_PAID);
     }
