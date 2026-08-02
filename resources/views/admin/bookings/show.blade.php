@@ -144,10 +144,10 @@
                         <span class="value">{{ $booking->customer_email }}</span>
                     </div>
                 @endif
-                @if ($booking->customer_national_id)
+                @if ($booking->national_id)
                     <div class="info-item">
                         <span class="label">Số CCCD/CMND</span>
-                        <span class="value">{{ $booking->customer_national_id }}</span>
+                        <span class="value">{{ $booking->national_id }}</span>
                     </div>
                 @endif
                 <div class="info-item">

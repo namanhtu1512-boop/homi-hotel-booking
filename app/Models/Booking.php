@@ -24,7 +24,7 @@ class Booking extends Model
         'customer_name',
         'customer_email',
         'customer_phone',
-        'customer_national_id',
+        'national_id',
         'total_amount',
         'discount_amount',
         'status',
