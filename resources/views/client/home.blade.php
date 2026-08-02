@@ -14,11 +14,11 @@
         </div>
         <div>
             <label class="form-label !text-slate-500" for="check_in">Nhận phòng</label>
-            <input id="check_in" type="date" name="check_in" class="input" value="{{ $filters['check_in'] ?? '' }}" min="{{ now()->toDateString() }}">
+            <input id="check_in" type="date" name="check_in" class="input" value="{{ $filters['check_in'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->toDateString() }}">
         </div>
         <div>
             <label class="form-label !text-slate-500" for="check_out">Trả phòng</label>
-            <input id="check_out" type="date" name="check_out" class="input" value="{{ $filters['check_out'] ?? '' }}" min="{{ now()->addDay()->toDateString() }}">
+            <input id="check_out" type="date" name="check_out" class="input" value="{{ $filters['check_out'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->addDay()->toDateString() }}">
         </div>
         <div>
             <label class="form-label !text-slate-500" for="quantity">Số phòng</label>

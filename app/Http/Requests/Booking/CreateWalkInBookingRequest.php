@@ -9,7 +9,7 @@ class CreateWalkInBookingRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
-            'check_in'              => ['required', 'date', 'after_or_equal:today'],
+            'check_in'              => ['required', 'date', 'after_or_equal:' . $this->todayVn()],
             'check_out'             => ['required', 'date', 'after:check_in'],
             'items'                 => ['required', 'array', 'min:1'],
             'items.*.room_type_id'  => ['required', 'integer', 'distinct', 'exists:room_types,id'],

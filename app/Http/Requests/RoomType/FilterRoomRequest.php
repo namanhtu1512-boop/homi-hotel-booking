@@ -39,7 +39,7 @@ class FilterRoomRequest extends BaseFormRequest
             'quantity'     => ['nullable', 'integer', 'min:1', 'max:10'],
             'bed_type'     => ['nullable', 'string', 'max:100'],
             'sort'         => ['nullable', 'in:price_asc,price_desc,rating,newest'],
-            'check_in'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today', 'required_with:check_out'],
+            'check_in'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn(), 'required_with:check_out'],
             'check_out'    => ['nullable', 'date_format:Y-m-d', 'after:check_in', 'required_with:check_in'],
         ];
     }

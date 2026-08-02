@@ -58,7 +58,7 @@ class GroupBookingController extends Controller
         }
 
         $data = $request->validate([
-            'check_in'             => ['required', 'date', 'after_or_equal:today'],
+            'check_in'             => ['required', 'date', 'after_or_equal:' . now('Asia/Ho_Chi_Minh')->toDateString()],
             'check_out'            => ['required', 'date', 'after:check_in'],
             'items'                => ['required', 'array', 'min:1'],
             'items.*.room_type_id' => ['required', 'integer', 'exists:room_types,id'],

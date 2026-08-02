@@ -25,7 +25,7 @@ class FilterRoomTypeRequest extends BaseFormRequest
             'max_price' => ['nullable', 'numeric', 'min:0'],
             'capacity'  => ['nullable', 'integer', 'min:1', 'max:10'],
             'quantity'  => ['nullable', 'integer', 'min:1', 'max:10'],
-            'check_in'  => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'check_in'  => ['nullable', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn()],
             'check_out' => ['nullable', 'date_format:Y-m-d', 'after:check_in'],
             'per_page'  => ['nullable', 'integer', 'min:3', 'max:50'],
         ];

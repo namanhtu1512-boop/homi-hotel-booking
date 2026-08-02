@@ -32,7 +32,7 @@ class RoomChangeRequestController extends Controller
 
         $data = $request->validate([
             'requested_room_type_id' => ['nullable', 'integer', 'exists:room_types,id'],
-            'requested_check_in'     => ['nullable', 'date', 'after_or_equal:today', 'required_with:requested_check_out'],
+            'requested_check_in'     => ['nullable', 'date', 'after_or_equal:' . now('Asia/Ho_Chi_Minh')->toDateString(), 'required_with:requested_check_out'],
             'requested_check_out'    => ['nullable', 'date', 'after:requested_check_in', 'required_with:requested_check_in'],
             'reason'                 => ['nullable', 'string', 'max:1000'],
         ], [], [

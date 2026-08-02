@@ -47,4 +47,16 @@ abstract class BaseFormRequest extends FormRequest
 
         return $value !== '' ? $value : null;
     }
+
+    /**
+     * "Hôm nay" (Y-m-d) theo giờ Việt Nam — dùng cho rule `after_or_equal:`
+     * thay vì literal 'today'. App chạy timezone mặc định UTC (xem
+     * config/app.php), nên 'today' của Laravel lấy theo UTC: trong khung
+     * 00:00–06:59 giờ VN mỗi ngày, UTC vẫn còn là ngày hôm trước, khiến
+     * check_in = "hôm qua" (giờ VN) bị coi là hợp lệ.
+     */
+    protected function todayVn(): string
+    {
+        return now('Asia/Ho_Chi_Minh')->toDateString();
+    }
 }

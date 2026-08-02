@@ -27,7 +27,7 @@ class DateRangeService
         $in  = Carbon::parse($checkIn)->startOfDay();
         $out = Carbon::parse($checkOut)->startOfDay();
 
-        if ($in->lt(Carbon::today())) {
+        if ($in->lt($this->todayVn())) {
             throw ValidationException::withMessages([
                 'check_in' => ['Ngày nhận phòng không được trước hôm nay.'],
             ]);
@@ -76,5 +76,18 @@ class DateRangeService
     public function parse(string $date): CarbonInterface
     {
         return Carbon::parse($date)->startOfDay();
+    }
+
+    /**
+     * "Hôm nay" theo giờ Việt Nam, quy về ngày lịch thuần túy ở timezone mặc
+     * định của app (UTC — xem config/app.php) để so sánh an toàn với $in/$out
+     * (cũng được parse ở timezone mặc định). Không dùng Carbon::today() trực
+     * tiếp: nó lấy "hôm nay" theo UTC, nên trong khung 00:00–06:59 giờ VN mỗi
+     * ngày, UTC vẫn còn là NGÀY HÔM TRƯỚC — khiến check_in = "hôm qua" (giờ
+     * VN) bị coi là hợp lệ. Cùng pattern với Booking::todayForCheckoutComparison().
+     */
+    private function todayVn(): CarbonInterface
+    {
+        return Carbon::createFromFormat('Y-m-d', Carbon::now('Asia/Ho_Chi_Minh')->toDateString())->startOfDay();
     }
 }

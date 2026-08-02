@@ -57,8 +57,8 @@
             <div>
                 <div class="form-label">Thời gian lưu trú</div>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="date" name="check_in" class="input" value="{{ $filters['check_in'] ?? '' }}" min="{{ now()->toDateString() }}">
-                    <input type="date" name="check_out" class="input" value="{{ $filters['check_out'] ?? '' }}" min="{{ now()->addDay()->toDateString() }}">
+                    <input type="date" name="check_in" class="input" value="{{ $filters['check_in'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->toDateString() }}">
+                    <input type="date" name="check_out" class="input" value="{{ $filters['check_out'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->addDay()->toDateString() }}">
                 </div>
             </div>
 

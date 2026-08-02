@@ -399,6 +399,9 @@ class BookingService
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
+        $this->cancelIfDepositExpired($booking->id);
+        $booking->refresh();
+
         if (! $booking->canMarkPaymentAsPaid()) {
             throw ValidationException::withMessages([
                 'status' => ['Chỉ có thể thanh toán khi đơn đã được xác nhận và chưa thanh toán.'],
@@ -584,6 +587,18 @@ class BookingService
                 // soát thủ công, tiền vẫn được ghi nhận đã thu ở Payment.
                 $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->first();
 
+                // Quá hạn giữ chỗ nhưng command quét (cancelExpiredDepositBookings,
+                // chạy mỗi phút) chưa kịp tới lượt xử lý booking này — tự hủy
+                // ngay tại đây thay vì để lọt qua coi như thanh toán hợp lệ.
+                $holdExpired = $lockedBooking->status === BookingStatus::PENDING_DEPOSIT
+                    && $lockedBooking->deposit_expires_at?->isPast();
+
+                if ($holdExpired) {
+                    $oldBookingStatus = $lockedBooking->status;
+                    $lockedBooking->update(['status' => BookingStatus::CANCELLED]);
+                    $this->logStatus($lockedBooking, $oldBookingStatus, BookingStatus::CANCELLED, $booking->user_id, 'Tự động hủy do quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) — VNPay báo thanh toán thành công sau khi đã quá hạn.');
+                }
+
                 if ($lockedBooking->status === BookingStatus::CANCELLED) {
                     $this->logStatus($lockedBooking, $lockedBooking->status, $lockedBooking->status, $booking->user_id, 'VNPay báo thanh toán thành công NHƯNG đơn đã bị tự hủy do quá hạn giữ chỗ trước đó — cần đối soát/hoàn tiền thủ công.');
                 } else {
@@ -646,9 +661,14 @@ class BookingService
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
+        $this->cancelIfDepositExpired($booking->id);
+        $booking->refresh();
+
         if (! $booking->canPayDeposit()) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể đặt cọc khi đơn đã được xác nhận và chưa thanh toán.'],
+                'status' => [$booking->status === BookingStatus::CANCELLED
+                    ? 'Đơn đã quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) và tự động bị hủy, vui lòng đặt phòng lại.'
+                    : 'Chỉ có thể đặt cọc khi đơn đã được xác nhận và chưa thanh toán.'],
             ]);
         }
 
@@ -658,6 +678,12 @@ class BookingService
         // sau đọc lại trạng thái mới nhất sau khi bên kia commit.
         DB::transaction(function () use ($booking, $customer) {
             $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->first();
+
+            if ($lockedBooking->status === BookingStatus::CANCELLED) {
+                throw ValidationException::withMessages([
+                    'status' => ['Đơn đã quá hạn giữ chỗ và tự động bị hủy, vui lòng đặt phòng lại.'],
+                ]);
+            }
 
             $oldStatus = $booking->payment->status;
             $booking->payment->update([
@@ -1231,33 +1257,50 @@ class BookingService
         $cancelledCount = 0;
 
         foreach ($expiredIds as $bookingId) {
-            DB::transaction(function () use ($bookingId, &$cancelledCount) {
-                $booking = Booking::with('payment')->whereKey($bookingId)->lockForUpdate()->first();
-
-                // Re-check sau khi khóa — booking có thể đã được xác nhận
-                // (khách vừa cọc/thanh toán xong) giữa lúc lấy danh sách và
-                // lúc khóa được dòng này.
-                if (! $booking || $booking->status !== BookingStatus::PENDING_DEPOSIT || $booking->deposit_expires_at?->isFuture()) {
-                    return;
-                }
-
-                $oldStatus = $booking->status;
-                $booking->update(['status' => BookingStatus::CANCELLED]);
-                $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, null, 'Tự động hủy do quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) chưa đặt cọc/thanh toán.');
-
-                if ($booking->payment && $booking->payment->status === PaymentStatus::PENDING) {
-                    $oldPaymentStatus = $booking->payment->status;
-                    $booking->payment->update(['status' => PaymentStatus::UNPAID, 'pending_gateway_amount' => null]);
-                    $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::UNPAID, null, 'Đơn tự hủy do quá hạn giữ chỗ, giao dịch thanh toán dở dang bị hủy theo.');
-                }
-
-                $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã tự động hủy do quá hạn " . self::DEPOSIT_HOLD_MINUTES . ' phút chưa đặt cọc/thanh toán.'));
-
+            if ($this->cancelIfDepositExpired($bookingId)) {
                 $cancelledCount++;
-            });
+            }
         }
 
         return $cancelledCount;
+    }
+
+    /**
+     * Hủy 1 đơn nếu đang PENDING_DEPOSIT và đã quá hạn deposit_expires_at.
+     * Dùng chung bởi cancelExpiredDepositBookings() (job quét mỗi phút — xem
+     * routes/console.php) VÀ trực tiếp tại các điểm khách bấm thanh toán
+     * (payDepositDemo/initiateVnpayPayment) — job quét định kỳ có độ trễ tới
+     * gần 1 phút giữa lúc hết hạn và lúc quét tới, đủ để khách vẫn cọc/thanh
+     * toán "thành công" cho một đơn đáng lẽ đã hết hạn nếu chỉ trông chờ job.
+     * Gọi hàm này ngay tại điểm xử lý thanh toán để tự hủy ngay khi phát
+     * hiện quá hạn thay vì chờ job.
+     */
+    private function cancelIfDepositExpired(int $bookingId): bool
+    {
+        return DB::transaction(function () use ($bookingId) {
+            $booking = Booking::with('payment')->whereKey($bookingId)->lockForUpdate()->first();
+
+            // Re-check sau khi khóa — booking có thể đã được xác nhận
+            // (khách vừa cọc/thanh toán xong) giữa lúc lấy danh sách và
+            // lúc khóa được dòng này.
+            if (! $booking || $booking->status !== BookingStatus::PENDING_DEPOSIT || $booking->deposit_expires_at?->isFuture()) {
+                return false;
+            }
+
+            $oldStatus = $booking->status;
+            $booking->update(['status' => BookingStatus::CANCELLED]);
+            $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, null, 'Tự động hủy do quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) chưa đặt cọc/thanh toán.');
+
+            if ($booking->payment && $booking->payment->status === PaymentStatus::PENDING) {
+                $oldPaymentStatus = $booking->payment->status;
+                $booking->payment->update(['status' => PaymentStatus::UNPAID, 'pending_gateway_amount' => null]);
+                $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::UNPAID, null, 'Đơn tự hủy do quá hạn giữ chỗ, giao dịch thanh toán dở dang bị hủy theo.');
+            }
+
+            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã tự động hủy do quá hạn " . self::DEPOSIT_HOLD_MINUTES . ' phút chưa đặt cọc/thanh toán.'));
+
+            return true;
+        });
     }
 
     // ----------------------------------------------------------------
