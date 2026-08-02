@@ -322,26 +322,13 @@
                 @csrf
                 <button type="submit" class="btn-danger w-full">Hủy đơn</button>
             </form>
-            <div class="mt-2 table-wrapper">
-                <table class="text-xs">
-                    <thead>
-                        <tr>
-                            <th>Hủy trước giờ nhận phòng</th>
-                            <th>Phí hủy</th>
-                            <th>Hoàn tiền</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr @class(['font-bold text-red-500' => $feePercent === 0])><td>≥ 48 giờ</td><td>Miễn phí</td><td>100%</td></tr>
-                        <tr @class(['font-bold text-red-500' => $feePercent === 30])><td>24 – dưới 48 giờ</td><td>30% tổng tiền</td><td>70%</td></tr>
-                        <tr @class(['font-bold text-red-500' => $feePercent === 50])><td>12 – dưới 24 giờ</td><td>50% tổng tiền</td><td>50%</td></tr>
-                        <tr @class(['font-bold text-red-500' => $feePercent === 100])><td>Dưới 12 giờ / sau giờ nhận phòng</td><td>100% tổng tiền</td><td>0%</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            @if ($estimatedFee > 0)
+            @if ($feePercent > 0)
                 <p class="mt-2 text-xs text-red-500">
-                    Hủy ngay bây giờ (phí {{ $feePercent }}%) sẽ mất khoảng {{ number_format($estimatedFee, 0, ',', '.') }}đ đã trả.
+                    Hủy ngay bây giờ: phí hủy {{ $feePercent }}%{{ $estimatedFee > 0 ? ' (khoảng ' . number_format($estimatedFee, 0, ',', '.') . 'đ)' : '' }}, hoàn {{ 100 - $feePercent }}%.
+                </p>
+            @else
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Hủy ngay bây giờ: miễn phí, hoàn 100% (nếu đã thanh toán).
                 </p>
             @endif
         @endif
