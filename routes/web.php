@@ -129,6 +129,15 @@ Route::post('/admin/logout', [AuthWebController::class, 'adminLogout'])
     ->middleware('auth')
     ->name('admin.logout');
 
+// Staff login — cổng riêng, tách biệt hoàn toàn với admin (route/view/session
+// context riêng, xem RoleMiddleware::loginRouteFor()).
+Route::get('/staff/login', [AuthWebController::class, 'showStaffLogin'])->name('staff.login');
+Route::post('/staff/login', [AuthWebController::class, 'staffLogin'])->middleware('throttle:5,1')->name('staff.login.post');
+
+Route::post('/staff/logout', [AuthWebController::class, 'staffLogout'])
+    ->middleware('auth')
+    ->name('staff.logout');
+
 // ---------------------------------------------------------------
 // CUSTOMER — authenticated customers
 // ---------------------------------------------------------------

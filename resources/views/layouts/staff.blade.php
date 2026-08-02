@@ -49,7 +49,7 @@
 
             <div class="mt-auto border-t border-white/10 pt-4">
                 <a href="{{ route('home') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/5 hover:text-white">← Về trang khách hàng</a>
-                <form method="POST" action="{{ route('admin.logout') }}" class="mt-2">
+                <form method="POST" action="{{ route('staff.logout') }}" class="mt-2">
                     @csrf
                     <button type="submit" class="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">Đăng xuất</button>
                 </form>

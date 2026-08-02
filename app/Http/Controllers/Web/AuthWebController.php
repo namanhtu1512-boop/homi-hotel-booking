@@ -112,7 +112,7 @@ class AuthWebController extends Controller
 
     public function showAdminLogin()
     {
-        if (Auth::check() && in_array(Auth::user()->role, ['admin', 'staff']) && session('login_context') === 'admin') {
+        if (Auth::check() && Auth::user()->role === 'admin' && session('login_context') === 'admin') {
             return $this->redirectByRole(Auth::user());
         }
 
@@ -142,7 +142,17 @@ class AuthWebController extends Controller
                 ->onlyInput('email');
         }
 
-        if (!in_array($user->role, ['admin', 'staff'])) {
+        // Khu vực admin và staff tách biệt hoàn toàn — staff đăng nhập nhầm
+        // ở đây được hướng sang đúng cổng thay vì bị chặn không rõ lý do.
+        if ($user->role === 'staff') {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản nhân viên vui lòng đăng nhập tại khu vực nhân viên.'])
+                ->onlyInput('email');
+        }
+
+        if ($user->role !== 'admin') {
             Auth::logout();
 
             return back()
@@ -164,5 +174,69 @@ class AuthWebController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('admin.login');
+    }
+
+    public function showStaffLogin()
+    {
+        if (Auth::check() && Auth::user()->role === 'staff' && session('login_context') === 'staff') {
+            return $this->redirectByRole(Auth::user());
+        }
+
+        return view('auth.staff-login');
+    }
+
+    public function staffLogin(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        if (!Auth::attempt($data)) {
+            return back()
+                ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])
+                ->onlyInput('email');
+        }
+
+        $user = Auth::user();
+
+        if ($user->status !== 'active') {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản đang bị khóa hoặc chưa hoạt động.'])
+                ->onlyInput('email');
+        }
+
+        if ($user->role === 'admin') {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản quản trị viên vui lòng đăng nhập tại khu vực quản trị.'])
+                ->onlyInput('email');
+        }
+
+        if ($user->role !== 'staff') {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'Tài khoản này không có quyền truy cập khu vực nhân viên.'])
+                ->onlyInput('email');
+        }
+
+        $request->session()->regenerate();
+        $request->session()->put('login_context', 'staff');
+
+        return $this->redirectByRole($user);
+    }
+
+    public function staffLogout(Request $request)
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('staff.login');
     }
 }

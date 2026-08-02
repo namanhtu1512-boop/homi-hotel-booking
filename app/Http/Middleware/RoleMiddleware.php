@@ -19,9 +19,7 @@ class RoleMiddleware
                 ], 401);
             }
 
-            $isAdminRoute = in_array('admin', $roles) || in_array('staff', $roles);
-
-            return redirect()->route($isAdminRoute ? 'admin.login' : 'login');
+            return redirect()->route($this->loginRouteFor($roles));
         }
 
         if ($user->status === 'locked') {
@@ -34,8 +32,6 @@ class RoleMiddleware
             }
             abort(403, 'Tài khoản của bạn đã bị khóa.');
         }
-
-        $isAdminRoute = in_array('admin', $roles) || in_array('staff', $roles);
 
         if (! in_array($user->role, $roles, true)) {
             if ($request->expectsJson()) {
@@ -54,7 +50,13 @@ class RoleMiddleware
             return redirect()->route($redirectRoute);
         }
 
-        if ($isAdminRoute && $request->hasSession() && $request->session()->get('login_context') !== 'admin') {
+        // Admin và staff có phiên đăng nhập tách biệt (login_context 'admin'
+        // / 'staff') — chặn phiên đăng nhập từ khu vực này bị dùng để truy
+        // cập khu vực kia dù cùng nằm trong nhóm role được phép (vd route
+        // API role:admin,staff chấp nhận cả hai context).
+        $allowedContexts = array_values(array_intersect($roles, ['admin', 'staff']));
+
+        if ($allowedContexts && $request->hasSession() && ! in_array($request->session()->get('login_context'), $allowedContexts, true)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -62,9 +64,27 @@ class RoleMiddleware
                 ], 403);
             }
 
-            return redirect()->route('admin.login');
+            return redirect()->route($this->loginRouteFor($roles));
         }
 
         return $next($request);
+    }
+
+    /**
+     * Route đăng nhập tương ứng với nhóm role được phép của route hiện tại.
+     * Ưu tiên staff.login khi route chỉ dành riêng cho staff; admin.login
+     * cho route admin hoặc route dùng chung admin+staff (API).
+     */
+    private function loginRouteFor(array $roles): string
+    {
+        if (in_array('staff', $roles, true) && ! in_array('admin', $roles, true)) {
+            return 'staff.login';
+        }
+
+        if (in_array('admin', $roles, true)) {
+            return 'admin.login';
+        }
+
+        return 'login';
     }
 }

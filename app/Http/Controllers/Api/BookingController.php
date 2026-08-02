@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\FormatsBookingForApi;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
-use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Services\AvailabilityService;
 use App\Services\BookingService;
 use App\Traits\ApiResponse;
@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 class BookingController extends Controller
 {
     use ApiResponse;
+    use FormatsBookingForApi;
 
     public function __construct(
         private BookingService $bookingService,
@@ -80,83 +81,6 @@ class BookingController extends Controller
     }
 
     // ----------------------------------------------------------------
-    // ADMIN / STAFF ROUTES
-    // ----------------------------------------------------------------
-
-    /**
-     * GET /api/v1/admin/bookings
-     * Danh sách tất cả đơn (admin/staff) — tái dùng nguyên bộ filter đã có
-     * ở BookingService::adminList() (status, payment_status, customer_name,
-     * room_type_id, created_from/to, check_in_from/to...).
-     */
-    public function adminIndex(Request $request): JsonResponse
-    {
-        $bookings = $this->bookingService->adminList($request->all());
-
-        return $this->success($bookings->through(fn ($booking) => $this->formatBooking($booking)));
-    }
-
-    /**
-     * GET /api/v1/admin/bookings/{booking}
-     * Chi tiết đơn (admin/staff).
-     */
-    public function adminShow(int $booking): JsonResponse
-    {
-        $bookingModel = $this->bookingService->findForAdmin($booking);
-
-        return $this->success($this->formatBooking($bookingModel));
-    }
-
-    /**
-     * PUT /api/v1/admin/bookings/{booking}/status
-     * Admin/staff xác nhận/hủy/hoàn thành đơn — chỉ 3 hướng chuyển hợp lệ
-     * này được phép qua API, khớp đúng 3 action riêng biệt bên Blade
-     * (confirm/cancel/complete). Rule chuyển trạng thái hợp lệ nằm ở
-     * BookingService (canConfirm/canCancelByAdmin/canComplete).
-     */
-    public function updateStatus(Request $request, int $booking): JsonResponse
-    {
-        $data = $request->validate([
-            'status' => ['required', 'string', 'in:confirmed,cancelled,completed'],
-        ], [], [
-            'status' => 'trạng thái',
-        ]);
-
-        $bookingModel = $this->bookingService->findForAdmin($booking);
-
-        if ($data['status'] === 'cancelled') {
-            $result = $this->bookingService->cancelByAdmin($bookingModel);
-
-            $message = $result['refund_ok']
-                ? 'Cập nhật trạng thái thành công.'
-                : 'Đã hủy đơn, nhưng hoàn tiền tự động không thành công — cần xử lý hoàn tiền thủ công.';
-
-            return $this->success($this->formatBooking($result['booking']), $message);
-        }
-
-        $updated = match ($data['status']) {
-            'confirmed' => $this->bookingService->confirm($bookingModel),
-            'completed' => $this->bookingService->complete($bookingModel),
-        };
-
-        return $this->success($this->formatBooking($updated), 'Cập nhật trạng thái thành công.');
-    }
-
-    /**
-     * PUT /api/v1/admin/bookings/{booking}/payment
-     * Admin/staff cập nhật trạng thái thanh toán mô phỏng (unpaid → paid,
-     * paid → refunded) — tái dùng UpdatePaymentStatusRequest đã dùng ở Blade.
-     */
-    public function updatePayment(UpdatePaymentStatusRequest $request, int $booking): JsonResponse
-    {
-        $bookingModel = $this->bookingService->findForAdmin($booking);
-
-        $updated = $this->bookingService->updatePaymentStatus($bookingModel, $request->validated('status'));
-
-        return $this->success($this->formatBooking($updated), 'Cập nhật thanh toán thành công.');
-    }
-
-    // ----------------------------------------------------------------
     // PUBLIC ROUTES
     // ----------------------------------------------------------------
 
@@ -180,60 +104,5 @@ class BookingController extends Controller
         );
 
         return $this->success($result);
-    }
-
-    // ----------------------------------------------------------------
-    // PRIVATE
-    // ----------------------------------------------------------------
-
-    private function formatBooking($booking): array
-    {
-        return [
-            'id'              => $booking->id,
-            'booking_code'    => $booking->booking_code,
-            'check_in'        => $booking->check_in->toDateString(),
-            'check_out'       => $booking->check_out->toDateString(),
-            'nights'          => $booking->nights,
-            'customer_name'   => $booking->customer_name,
-            'customer_phone'  => $booking->customer_phone,
-            'customer_email'  => $booking->customer_email,
-            'total_amount'    => $booking->total_amount,
-            'discount_amount' => $booking->discount_amount,
-            'status'          => $booking->status->value,
-            'status_label'    => $booking->status->label(),
-            'note'            => $booking->note,
-            'items'           => $booking->bookingItems->map(fn ($item) => [
-                'room_type_id'    => $item->room_type_id,
-                'room_type_name'  => $item->roomType?->name,
-                'quantity'        => $item->quantity,
-                'adults'          => $item->adults,
-                'children'        => $item->children,
-                'infants'         => $item->infants,
-                'price_per_night' => $item->price_per_night,
-                'nights'          => $item->nights,
-                'subtotal'        => $item->subtotal,
-                'child_surcharge' => $item->child_surcharge,
-                'price_breakdown' => $item->price_breakdown,
-            ])->all(),
-            'promotions' => $booking->promotions->map(fn ($promo) => [
-                'code'            => $promo->code,
-                'discount_amount' => (int) $promo->pivot->discount_amount,
-            ])->all(),
-            'services' => $booking->serviceItems->map(fn ($item) => [
-                'service_id'   => $item->service_id,
-                'service_name' => $item->service?->name,
-                'quantity'     => $item->quantity,
-                'unit_price'   => $item->unit_price,
-                'subtotal'     => $item->subtotal,
-            ])->all(),
-            'payment' => $booking->payment ? [
-                'status'        => $booking->payment->status->value,
-                'status_label'  => $booking->payment->status->label(),
-                'method'        => $booking->payment->method->value,
-                'method_label'  => $booking->payment->method->label(),
-                'amount'        => $booking->payment->amount,
-            ] : null,
-            'created_at' => $booking->created_at->toIso8601String(),
-        ];
     }
 }

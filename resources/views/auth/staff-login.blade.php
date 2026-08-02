@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập quản trị · Homi</title>
+    <title>Đăng nhập nhân viên · Homi</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --primary-soft: #dbeafe;
-            --sidebar-bg: #0b1530;
+            --primary: #0d9488;
+            --primary-dark: #0f766e;
+            --sidebar-bg: #042f2e;
             --white: #ffffff;
             --text: #1f2a44;
             --muted: #6c7a96;
-            --border: #d6e4ff;
+            --border: #ccf0ea;
             --danger: #d93025;
             --radius-lg: 20px;
             --radius-md: 14px;
@@ -42,11 +41,11 @@
         .login-side {
             width: 340px;
             flex-shrink: 0;
-            background: linear-gradient(160deg, #112060 0%, #0b1530 100%);
+            background: linear-gradient(160deg, #0f4c47 0%, #042f2e 100%);
             padding: 40px 32px;
             display: flex;
             flex-direction: column;
-            color: #b9c6e8;
+            color: #b7e4dd;
         }
 
         .brand {
@@ -76,7 +75,7 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            color: var(--primary);
+            color: #5eead4;
             margin-bottom: 10px;
         }
 
@@ -91,7 +90,7 @@
         .side-desc {
             font-size: 14px;
             line-height: 1.75;
-            color: #8899bb;
+            color: #8fc9c0;
         }
 
         .side-features {
@@ -117,7 +116,7 @@
 
         .side-feature p {
             font-size: 12px;
-            color: #8899bb;
+            color: #8fc9c0;
             line-height: 1.5;
         }
 
@@ -188,7 +187,7 @@
 
         input:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(30, 94, 255, 0.10);
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
             background: var(--white);
         }
 
@@ -237,30 +236,30 @@
                 Homi
             </div>
 
-            <div class="side-kicker">Khu vực quản trị</div>
-            <div class="side-title">Cổng đăng nhập dành cho Quản trị viên</div>
-            <p class="side-desc">Trang này chỉ dành cho tài khoản quản trị viên hệ thống.</p>
+            <div class="side-kicker">Khu vực nhân viên</div>
+            <div class="side-title">Cổng đăng nhập dành cho Nhân viên</div>
+            <p class="side-desc">Trang này chỉ dành cho tài khoản nhân viên vận hành khách sạn.</p>
 
             <div class="side-features">
                 <div class="side-feature">
-                    <h4>Quản lý khách sạn</h4>
-                    <p>Cập nhật thông tin, tiện ích và trạng thái hoạt động.</p>
+                    <h4>Đặt phòng & Check-in/out</h4>
+                    <p>Quản lý đơn đặt phòng, nhận/trả phòng cho khách.</p>
                 </div>
                 <div class="side-feature">
-                    <h4>Loại phòng & Đặt phòng</h4>
-                    <p>Quản lý danh mục phòng, tồn kho và lịch sử booking.</p>
+                    <h4>Thanh toán</h4>
+                    <p>Cập nhật trạng thái thanh toán các đơn.</p>
                 </div>
                 <div class="side-feature">
-                    <h4>Quản lý người dùng</h4>
-                    <p>Xem danh sách và kiểm soát trạng thái tài khoản.</p>
+                    <h4>Yêu cầu của khách</h4>
+                    <p>Xử lý đổi phòng, nhận sớm/trả muộn.</p>
                 </div>
             </div>
         </div>
 
         <div class="login-form-area">
             <div class="form-kicker">Xác thực</div>
-            <div class="form-title">Đăng nhập quản trị</div>
-            <p class="form-desc">Nhập thông tin tài khoản admin để tiếp tục.</p>
+            <div class="form-title">Đăng nhập nhân viên</div>
+            <p class="form-desc">Nhập thông tin tài khoản nhân viên để tiếp tục.</p>
 
             @if ($errors->any())
                 <div class="alert-danger">
@@ -270,13 +269,13 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('admin.login.post') }}" class="form-grid">
+            <form method="POST" action="{{ route('staff.login.post') }}" class="form-grid">
                 @csrf
 
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input id="email" type="email" name="email" value="{{ old('email') }}"
-                        placeholder="admin@homi.test" required autofocus>
+                        placeholder="staff@homi.test" required autofocus>
                 </div>
 
                 <div class="form-group">
@@ -288,7 +287,7 @@
             </form>
 
             <div class="form-footer">
-                Là nhân viên? <a href="{{ route('staff.login') }}">Đăng nhập tại đây</a>
+                Là quản trị viên? <a href="{{ route('admin.login') }}">Đăng nhập tại đây</a>
             </div>
         </div>
     </div>
