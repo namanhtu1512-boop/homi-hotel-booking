@@ -413,11 +413,11 @@
         <span class="section-kicker">Thanh toán</span>
         <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
             @if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
-                Chọn 1 trong 2: đặt cọc 30% (mô phỏng) hoặc chuyển khoản 100% qua mã QR, trước khi hết hạn giữ chỗ ở trên.
+                Chọn 1 trong các hình thức: đặt cọc 30% (mô phỏng), thanh toán qua VNPay, hoặc chuyển khoản 100% qua mã QR, trước khi hết hạn giữ chỗ ở trên.
             @elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
                 Đơn đang chờ xác nhận — bạn có thể thanh toán ngay, không cần chờ khách sạn duyệt đơn trước.
             @else
-                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (chuyển khoản 100% qua QR sẽ được nhân viên đối soát và xác nhận thủ công; đặt cọc 30% là demo).
+                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (VNPay xác nhận tự động; chuyển khoản 100% qua QR sẽ được nhân viên đối soát và xác nhận thủ công; đặt cọc 30% là demo).
             @endif
         </p>
 
@@ -496,6 +496,18 @@
                         </div>
                     </div>
                 </template>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                <div class="mb-2 flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">💳</span>
+                    Ví điện tử / Thẻ ngân hàng (VNPay)
+                </div>
+                <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển sang cổng thanh toán VNPay (môi trường sandbox) để thanh toán bằng thẻ ATM/thẻ quốc tế/QR — xác nhận tự động ngay khi giao dịch thành công.</p>
+                <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}">
+                    @csrf
+                    <button type="submit" class="btn-primary w-full">Thanh toán qua VNPay</button>
+                </form>
             </div>
 
                 @if ($booking->canPayDeposit())
