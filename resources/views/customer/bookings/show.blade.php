@@ -236,7 +236,7 @@
             @if ($booking->payment->deposit_paid_at)
                 <div class="info-item">
                     <span class="label">Đã đặt cọc</span>
-                    <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->format('d/m/Y H:i') }}</span>
+                    <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Còn lại (tiền mặt khi nhận phòng)</span>
@@ -642,7 +642,7 @@
                 <tbody>
                     @foreach ($booking->payment->statusLogs as $log)
                         <tr>
-                            <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
+                            <td>{{ $log->created_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</td>
                             <td>{{ $log->from_status?->label() ?? '—' }}</td>
                             <td>{{ $log->to_status->label() }}</td>
                             <td>{{ $log->changedBy?->name ?? 'Khách hàng' }}</td>

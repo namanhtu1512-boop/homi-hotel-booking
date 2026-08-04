@@ -343,6 +343,15 @@ class Booking extends Model
     }
 
     /**
+     * Gia hạn thời gian thuê phòng chỉ hợp lệ trong thời gian khách đang lưu
+     * trú (đã check-in, chưa check-out) — xem BookingService::extendStay().
+     */
+    public function canExtendStay(): bool
+    {
+        return $this->status === BookingStatus::CHECKED_IN;
+    }
+
+    /**
      * Số tiền cọc (30% tổng đơn), làm tròn tới đồng.
      */
     public function depositAmount(): float

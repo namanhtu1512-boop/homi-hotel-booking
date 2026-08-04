@@ -37,7 +37,7 @@
         <div class="text-right">
             <div class="font-heading text-2xl font-extrabold tracking-wide">HÓA ĐƠN</div>
             <div class="mt-1 text-sm text-white/80">Số: INV-{{ $booking->booking_code }}</div>
-            <div class="text-sm text-white/80">Ngày: {{ now()->format('d/m/Y') }}</div>
+            <div class="text-sm text-white/80">Ngày: {{ now('Asia/Ho_Chi_Minh')->format('d/m/Y') }}</div>
         </div>
     </div>
 
@@ -218,7 +218,7 @@
                         @if ($booking->payment->paid_at)
                             <div class="flex items-center justify-between sm:justify-end sm:gap-2">
                                 <span class="text-slate-500 dark:text-slate-400">Thời gian thanh toán</span>
-                                <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->paid_at->format('d/m/Y H:i') }}</span>
+                                <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
                             </div>
                         @endif
                     @elseif ($booking->payment->deposit_paid_at)

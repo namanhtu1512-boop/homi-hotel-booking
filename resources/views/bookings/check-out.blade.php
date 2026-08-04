@@ -69,7 +69,7 @@
             </p>
         @else
             <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Đã thanh toán lúc {{ $invoice->paid_at?->format('d/m/Y H:i') }}.
+                Đã thanh toán lúc {{ $invoice->paid_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}.
             </p>
         @endif
     @endif

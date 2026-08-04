@@ -58,7 +58,7 @@
         @if ($earlyCheckinRequest->status !== 'pending')
             <div class="info-item">
                 <span class="label">Xử lý bởi</span>
-                <span class="value">{{ $earlyCheckinRequest->handledByUser->name ?? '—' }} lúc {{ $earlyCheckinRequest->handled_at?->format('d/m/Y H:i') }}</span>
+                <span class="value">{{ $earlyCheckinRequest->handledByUser->name ?? '—' }} lúc {{ $earlyCheckinRequest->handled_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
             </div>
             @if ($earlyCheckinRequest->staff_note)
                 <div class="info-item">

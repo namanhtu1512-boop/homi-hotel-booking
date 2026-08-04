@@ -69,7 +69,7 @@
         @if ($roomChangeRequest->status !== 'pending')
             <div class="info-item">
                 <span class="label">Xử lý bởi</span>
-                <span class="value">{{ $roomChangeRequest->handledByUser->name ?? '—' }} lúc {{ $roomChangeRequest->handled_at?->format('d/m/Y H:i') }}</span>
+                <span class="value">{{ $roomChangeRequest->handledByUser->name ?? '—' }} lúc {{ $roomChangeRequest->handled_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
             </div>
             @if ($roomChangeRequest->staff_note)
                 <div class="info-item">

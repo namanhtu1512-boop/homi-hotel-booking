@@ -65,7 +65,7 @@ class ChatController extends Controller
                 'image_url'  => $msg->image_path ? asset('storage/' . $msg->image_path) : null,
                 'is_mine'    => true,
                 'sender'     => $msg->sender?->name,
-                'created_at' => $msg->created_at->format('H:i d/m'),
+                'created_at' => $msg->created_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m'),
             ]);
         }
 
@@ -87,7 +87,7 @@ class ChatController extends Controller
                 'image_url'  => $m->image_path ? asset('storage/' . $m->image_path) : null,
                 'is_mine'    => $m->sender_id !== $customerId,
                 'sender'     => $m->sender?->name,
-                'created_at' => $m->created_at->format('H:i d/m'),
+                'created_at' => $m->created_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m'),
             ]),
         ]);
     }

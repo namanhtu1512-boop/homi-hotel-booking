@@ -260,6 +260,9 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         // BookingService::addServiceItem()/addSurcharge()).
         Route::post('/{id}/services',  [AdminBookingController::class, 'addService'])->name('services.store');
         Route::post('/{id}/surcharge', [AdminBookingController::class, 'addSurcharge'])->name('surcharge.store');
+
+        Route::get('/{id}/extend-stay/preview', [AdminBookingController::class, 'previewExtendStay'])->name('extend-stay.preview');
+        Route::post('/{id}/extend-stay',         [AdminBookingController::class, 'extendStay'])->name('extend-stay.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
@@ -405,6 +408,9 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
 
         Route::post('/{id}/services',  [StaffBookingController::class, 'addService'])->name('services.store');
         Route::post('/{id}/surcharge', [StaffBookingController::class, 'addSurcharge'])->name('surcharge.store');
+
+        Route::get('/{id}/extend-stay/preview', [StaffBookingController::class, 'previewExtendStay'])->name('extend-stay.preview');
+        Route::post('/{id}/extend-stay',         [StaffBookingController::class, 'extendStay'])->name('extend-stay.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {

@@ -21,7 +21,7 @@
                     @if ($message->image_path)
                         <img src="{{ asset('storage/' . $message->image_path) }}" alt="ảnh" class="mt-2 max-w-[240px] rounded-lg cursor-pointer" onclick="window.open(this.src)">
                     @endif
-                    <div class="mt-1 text-xs opacity-60">{{ $message->created_at->format('H:i d/m') }}</div>
+                    <div class="mt-1 text-xs opacity-60">{{ $message->created_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m') }}</div>
                 </div>
             </div>
         @empty

@@ -6,14 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\AddBookingServiceRequest;
 use App\Http\Requests\Booking\AddSurchargeRequest;
 use App\Http\Requests\Booking\CreateWalkInBookingRequest;
+use App\Http\Requests\Booking\ExtendStayRequest;
 use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
 use App\Services\RoomService;
 use App\Services\ServiceService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class BookingController extends Controller
@@ -221,5 +224,30 @@ class BookingController extends Controller
         return redirect()
             ->route('admin.bookings.show', $id)
             ->with('success', "Đã thêm phụ phí phát sinh cho đơn {$booking->booking_code}.");
+    }
+
+    public function previewExtendStay(int $id, Request $request): JsonResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+
+        try {
+            $preview = $this->bookingService->previewExtendStay($booking, (string) $request->query('new_check_out', ''));
+
+            return response()->json(['ok' => true] + $preview);
+        } catch (ValidationException $e) {
+            return response()->json(['ok' => false, 'message' => collect($e->errors())->flatten()->first()], 422);
+        }
+    }
+
+    public function extendStay(int $id, ExtendStayRequest $request): RedirectResponse
+    {
+        $booking = $this->bookingService->findForAdmin($id);
+        $result = $this->bookingService->extendStay($booking, $request->validated('new_check_out'));
+
+        $this->auditLog->log('booking.extended', $booking, "Gia hạn đơn \"{$booking->booking_code}\" thêm {$result['nights_added']} đêm.");
+
+        return redirect()
+            ->route('admin.bookings.show', $id)
+            ->with('success', "Đã gia hạn đơn {$booking->booking_code} thêm {$result['nights_added']} đêm — phát sinh " . number_format($result['extra_amount'], 0, ',', '.') . 'đ, thu khi trả phòng.');
     }
 }

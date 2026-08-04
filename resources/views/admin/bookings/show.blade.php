@@ -154,6 +154,23 @@
                     <span class="label">Tổng số khách</span>
                     <span class="value">{{ $booking->adults }} người lớn{{ $booking->children ? ', ' . $booking->children . ' trẻ em' : '' }}{{ $booking->infants ? ', ' . $booking->infants . ' sơ sinh' : '' }}</span>
                 </div>
+                @if ($booking->discount_amount > 0)
+                    <div class="info-item">
+                        <span class="label">Tạm tính (trước giảm)</span>
+                        <span class="value">{{ number_format($booking->total_amount + $booking->discount_amount, 0, ',', '.') }}đ</span>
+                    </div>
+                    @forelse ($booking->promotions as $promo)
+                        <div class="info-item">
+                            <span class="label">Giảm giá ({{ $promo->code }})</span>
+                            <span class="value text-accent">-{{ number_format($promo->pivot->discount_amount, 0, ',', '.') }}đ</span>
+                        </div>
+                    @empty
+                        <div class="info-item">
+                            <span class="label">Giảm giá {{ $booking->promotion ? '(' . $booking->promotion->code . ')' : '' }}</span>
+                            <span class="value text-accent">-{{ number_format($booking->discount_amount, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endforelse
+                @endif
                 <div class="info-item">
                     <span class="label">Tổng tiền</span>
                     <span class="value">{{ number_format($booking->total_amount, 0, ',', '.') }}đ</span>
@@ -183,7 +200,7 @@
                     @if ($booking->payment->deposit_paid_at)
                         <div class="info-item">
                             <span class="label">Đã đặt cọc</span>
-                            <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->format('d/m/Y H:i') }}</span>
+                            <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
                         </div>
                         <div class="info-item">
                             <span class="label">Còn lại thu tiền mặt</span>
@@ -193,7 +210,7 @@
                     @if ($booking->payment->paid_at)
                         <div class="info-item">
                             <span class="label">Đã thanh toán lúc</span>
-                            <span class="value">{{ $booking->payment->paid_at->format('d/m/Y H:i') }}</span>
+                            <span class="value">{{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
                         </div>
                     @endif
                     @if ($booking->payment->surcharge_amount > 0)
@@ -309,6 +326,14 @@
                             <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
                             <button type="submit" class="btn btn-outline btn-sm">➕ Thêm phụ phí phát sinh</button>
                         </form>
+
+                        <form method="POST" action="{{ route('admin.bookings.extend-stay.store', $booking->id) }}" id="extend-stay-form" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"
+                              onsubmit="return confirm('Xác nhận gia hạn tới ngày ' + document.getElementById('extend-checkout').value + '?')">
+                            @csrf
+                            <input type="date" name="new_check_out" id="extend-checkout" class="input" style="width:auto;" min="{{ $booking->check_out->copy()->addDay()->toDateString() }}" required>
+                            <span id="extend-preview" style="font-size: 12px; color: #64748b;"></span>
+                            <button type="submit" class="btn btn-outline btn-sm">📅 Gia hạn thời gian thuê phòng</button>
+                        </form>
                     </div>
                 @endif
 
@@ -355,7 +380,7 @@
                 <tbody>
                     @foreach ($booking->statusLogs as $log)
                         <tr>
-                            <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
+                            <td>{{ $log->created_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</td>
                             <td>{{ $log->from_status?->label() ?? '—' }}</td>
                             <td>{{ $log->to_status->label() }}</td>
                             <td>{{ $log->changedBy?->name ?? 'Khách hàng' }}</td>
@@ -383,7 +408,7 @@
                 <tbody>
                     @foreach ($booking->payment->statusLogs as $log)
                         <tr>
-                            <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
+                            <td>{{ $log->created_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</td>
                             <td>{{ $log->from_status?->label() ?? '—' }}</td>
                             <td>{{ $log->to_status->label() }}</td>
                             <td>{{ $log->changedBy?->name ?? 'Khách hàng' }}</td>
@@ -395,4 +420,40 @@
         </div>
     @endif
 </div>
+
+@if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
+    @push('scripts')
+        <script>
+            (function () {
+                const extendInput   = document.getElementById('extend-checkout');
+                const extendPreview = document.getElementById('extend-preview');
+                const previewUrl    = '{{ route('admin.bookings.extend-stay.preview', $booking->id) }}';
+
+                extendInput?.addEventListener('change', async () => {
+                    if (! extendInput.value) return;
+
+                    extendPreview.style.color = '';
+                    extendPreview.textContent = 'Đang kiểm tra phòng trống...';
+
+                    try {
+                        const res  = await fetch(`${previewUrl}?new_check_out=${extendInput.value}`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await res.json();
+
+                        if (data.ok) {
+                            extendPreview.textContent = `Thêm ${data.nights_added} đêm — phí thêm: ${Number(data.extra_amount).toLocaleString('vi-VN')}đ`;
+                        } else {
+                            extendPreview.style.color = '#dc2626';
+                            extendPreview.textContent = data.message;
+                        }
+                    } catch (e) {
+                        extendPreview.style.color = '#dc2626';
+                        extendPreview.textContent = 'Không kiểm tra được, vui lòng thử lại.';
+                    }
+                });
+            })();
+        </script>
+    @endpush
+@endif
 @endsection

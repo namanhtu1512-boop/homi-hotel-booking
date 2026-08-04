@@ -25,7 +25,7 @@
                         <tr>
                             <td>{{ $row['customer']->name ?? 'Khách #' . $row['customer']?->id }}</td>
                             <td style="max-width: 360px;">{{ \Illuminate\Support\Str::limit($row['last_message']->body ?? '', 80) }}</td>
-                            <td>{{ $row['last_message']?->created_at->format('H:i d/m') }}</td>
+                            <td>{{ $row['last_message']?->created_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m') }}</td>
                             <td>
                                 @if ($row['unread_count'] > 0)
                                     <span class="badge badge-orange">{{ $row['unread_count'] }}</span>

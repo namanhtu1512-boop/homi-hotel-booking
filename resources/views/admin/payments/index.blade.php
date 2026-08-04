@@ -60,7 +60,7 @@
                             <td>{{ number_format($payment->amount, 0, ',', '.') }}đ</td>
                             <td><span class="badge {{ $payment->booking->status->badgeClass() }}">{{ $payment->booking->status->label() }}</span></td>
                             <td><span class="badge {{ $payment->status->badgeClass() }}">{{ $payment->status->label() }}</span></td>
-                            <td>{{ $payment->paid_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                            <td>{{ $payment->paid_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') ?? '—' }}</td>
                             <td>
                                 <div class="action-row">
                                     @if ($payment->booking->canMarkPaymentAsPaid())

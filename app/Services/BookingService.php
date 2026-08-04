@@ -789,7 +789,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
+        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
             ->findOrFail($bookingId);
     }
 
@@ -981,6 +981,138 @@ class BookingService
     }
 
     /**
+     * Xem trước (không ghi DB) chi phí + tình trạng phòng nếu gia hạn đơn
+     * đang lưu trú tới ngày trả phòng mới — dùng cho preview real-time (JS
+     * fetch khi lễ tân đổi ngày) VÀ làm bước tính toán dùng chung bên trong
+     * extendStay(). Xem computeExtension() để biết chi tiết validate.
+     *
+     * @return array{nights_added: int, extra_amount: float, new_check_out: string}
+     */
+    public function previewExtendStay(Booking $booking, string $newCheckOut): array
+    {
+        $extension = $this->computeExtension($booking, $newCheckOut);
+
+        return [
+            'nights_added'  => $extension['nights_added'],
+            'extra_amount'  => $extension['extra_amount'],
+            'new_check_out' => $newCheckOut,
+        ];
+    }
+
+    /**
+     * Lễ tân/admin gia hạn thời gian thuê phòng cho đơn ĐANG lưu trú
+     * (checked_in) — khách muốn ở thêm đêm, xử lý trực tiếp tại quầy (không
+     * qua luồng gửi yêu cầu/duyệt như RoomChangeRequest/LateCheckoutRequest,
+     * vì đây là khách đang có mặt tại khách sạn).
+     *
+     * Số đêm thêm ghi vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService)
+     * — giống addServiceItem()/addSurcharge(), KHÔNG đụng booking.total_amount/
+     * payment (tiền phòng gốc), chỉ thu 1 lần lúc checkOut().
+     *
+     * @return array{booking: Booking, nights_added: int, extra_amount: float}
+     */
+    public function extendStay(Booking $booking, string $newCheckOut): array
+    {
+        $extension = $this->computeExtension($booking, $newCheckOut);
+
+        return DB::transaction(function () use ($booking, $newCheckOut, $extension) {
+            foreach ($extension['items'] as $line) {
+                $line['item']->update([
+                    'nights'          => $line['item']->nights + $extension['nights_added'],
+                    'subtotal'        => $line['item']->subtotal + $line['pricing']['room_subtotal'],
+                    'child_surcharge' => $line['item']->child_surcharge + $line['pricing']['child_surcharge'],
+                    'price_breakdown' => array_merge($line['item']->price_breakdown ?? [], $line['pricing']['nightly_breakdown']),
+                ]);
+
+                $this->incidentalInvoiceService->addItem(
+                    $booking,
+                    'surcharge',
+                    "Gia hạn thêm {$extension['nights_added']} đêm phòng {$line['item']->roomType->name} (đến " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . ')',
+                    $line['pricing']['total_price']
+                );
+            }
+
+            $booking->update([
+                'check_out' => $newCheckOut,
+                'nights'    => $booking->nights + $extension['nights_added'],
+            ]);
+
+            $amountText = number_format($extension['extra_amount'], 0, ',', '.') . 'đ';
+            $booking->user?->notify(new BookingStatusChanged(
+                $booking,
+                "Đơn {$booking->booking_code} đã được gia hạn thêm {$extension['nights_added']} đêm, tới ngày " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . ". Phí phát sinh {$amountText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng."
+            ));
+
+            return [
+                'booking'      => $booking->fresh(['bookingItems.roomType', 'incidentalInvoice.items']),
+                'nights_added' => $extension['nights_added'],
+                'extra_amount' => $extension['extra_amount'],
+            ];
+        });
+    }
+
+    /**
+     * Validate + tính toán chung cho previewExtendStay()/extendStay() —
+     * KHÔNG ghi DB, chỉ đọc + tính. Tách riêng để 2 hàm public không lặp lại
+     * cùng logic validate/pricing (preview JSON và hành động thật phải luôn
+     * tính ra cùng 1 kết quả cho cùng input).
+     *
+     * @return array{nights_added: int, extra_amount: float, items: array<int, array{item: BookingItem, pricing: array}>}
+     */
+    private function computeExtension(Booking $booking, string $newCheckOut): array
+    {
+        if ($booking->status !== BookingStatus::CHECKED_IN) {
+            throw ValidationException::withMessages([
+                'new_check_out' => ['Chỉ có thể gia hạn cho đơn đang lưu trú (đã check-in).'],
+            ]);
+        }
+
+        $oldCheckOut = $booking->check_out->toDateString();
+
+        if ($newCheckOut <= $oldCheckOut) {
+            throw ValidationException::withMessages([
+                'new_check_out' => ["Ngày trả phòng mới phải sau ngày trả phòng hiện tại ({$booking->check_out->format('d/m/Y')})."],
+            ]);
+        }
+
+        $items = $booking->bookingItems()->with('roomType')->get();
+
+        $errors = [];
+        foreach ($items as $item) {
+            $availability = $this->availabilityService->check(
+                $item->room_type_id, $oldCheckOut, $newCheckOut, $item->quantity, null, $booking->id
+            );
+
+            if (! $availability['can_book']) {
+                $errors[] = "Phòng \"{$item->roomType->name}\" không đủ trống để gia hạn tới ngày " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . '.';
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['new_check_out' => $errors]);
+        }
+
+        $nightsAdded = null;
+        $extraAmount = 0.0;
+        $lines       = [];
+
+        foreach ($items as $item) {
+            $pricing = $this->pricingService->calculate($item->roomType, $oldCheckOut, $newCheckOut, $item->quantity, $item->children);
+
+            $nightsAdded ??= $pricing['nights'];
+            $extraAmount += $pricing['total_price'];
+
+            $lines[] = ['item' => $item, 'pricing' => $pricing];
+        }
+
+        return [
+            'nights_added' => $nightsAdded,
+            'extra_amount' => $extraAmount,
+            'items'        => $lines,
+        ];
+    }
+
+    /**
      * Check-in thật — gán số phòng vật lý cụ thể cho từng dòng đơn (đúng
      * số lượng `quantity` của dòng, phòng phải cùng room_type và hiện
      * không có khách). $roomAssignments khóa theo booking_item_id, giá
@@ -1152,8 +1284,22 @@ class BookingService
     }
 
     /**
-     * Check-out — chuyển trạng thái + tự động đánh dấu các phòng đã gán
-     * cần dọn (dirty), để buồng phòng biết cần xử lý trước khi nhận khách kế tiếp.
+     * Check-out — chuyển thẳng sang COMPLETED (bỏ qua trạng thái trung gian
+     * CHECKED_OUT) + tự động đánh dấu các phòng đã gán cần dọn (dirty), để
+     * buồng phòng biết cần xử lý trước khi nhận khách kế tiếp.
+     *
+     * Trước đây trả phòng chỉ chuyển sang CHECKED_OUT, còn lại phải đợi
+     * admin/staff bấm thêm nút "Đánh dấu hoàn thành" (complete()) mới sang
+     * COMPLETED — nhưng canComplete() không có điều kiện gì khác ngoài
+     * CHECKED_OUT + đã thanh toán đủ (điều kiện này canCheckOut() đã đảm bảo
+     * TRƯỚC khi cho trả phòng), nên bước thủ công này không có tác dụng
+     * nghiệp vụ nào thêm — chỉ tạo ra 1 bước dễ bị nhân viên quên bấm. Hậu
+     * quả thực tế: ReviewService::reviewableItems()/create() chỉ cho đánh
+     * giá khi status===COMPLETED, nên khách trả phòng xong không bao giờ
+     * thấy nút "Viết đánh giá" cho tới khi có người nhớ vào bấm hoàn thành.
+     * Gộp thẳng vào đây để khách trả phòng xong là đánh giá được ngay.
+     * complete()/canComplete() vẫn giữ lại (không xóa) để xử lý các đơn cũ
+     * còn kẹt ở CHECKED_OUT từ trước khi có thay đổi này.
      *
      * Phụ phí trả phòng muộn (nếu có) đã được ghi nhận từ trước, lúc
      * LateCheckoutRequestService::approve() duyệt yêu cầu của khách — không
@@ -1188,12 +1334,12 @@ class BookingService
             $this->incidentalInvoiceService->markPaid($booking, Auth::user());
 
             $oldStatus = $booking->status;
-            $booking->update(['status' => BookingStatus::CHECKED_OUT]);
+            $booking->update(['status' => BookingStatus::COMPLETED]);
 
             $note = $isEarly
                 ? "Khách trả phòng SỚM hơn dự kiến (còn " . $booking->nightsRemainingForEarlyCheckout() . " đêm chưa sử dụng, ngày đặt trả phòng: {$booking->check_out->format('d/m/Y')})."
                 : 'Khách trả phòng.';
-            $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_OUT, Auth::id(), $note);
+            $this->logStatus($booking, $oldStatus, BookingStatus::COMPLETED, Auth::id(), $note);
 
             $roomIds = BookingItemRoom::whereIn('booking_item_id', $booking->bookingItems->pluck('id'))->pluck('room_id');
             Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
