@@ -1,0 +1,133 @@
+<mxfile host="65bd71144e">
+    <diagram id="dang-nhap-adm" name="Sơ đồ hoạt động: Đăng nhập Quản trị viên">
+        <mxGraphModel dx="604" dy="552" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="560" pageHeight="1090" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title1" value="Sơ đồ hoạt động: Đăng nhập Quản trị viên" style="text;html=1;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" width="480" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="lane_adm" value="QUẢN TRỊ VIÊN  (/admin/login)" style="swimlane;whiteSpace=wrap;html=1;startSize=36;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="40" width="480" height="980" as="geometry"/>
+                </mxCell>
+                <mxCell id="start_adm" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="175" y="80" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="input_adm" value="Nhập email &amp; mật khẩu&#xa;tại /admin/login" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="150" width="220" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="dec1_adm" value="Đúng thông tin đăng nhập&#xa;&amp; chưa vượt giới hạn thử&#xa;(tối đa 5 lần / phút)?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="250" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="err1_adm" value="Sai email/mật khẩu&#xa;hoặc quá nhiều lần thử" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="260" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="dec2_adm" value="Tài khoản đang ở&#xa;trạng thái active?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="380" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="err2_adm" value="Tài khoản bị khóa hoặc&#xa;chưa kích hoạt&#xa;(tự động đăng xuất)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="390" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="dec3_adm" value="Role = staff?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="510" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="err3_adm" value="Yêu cầu đăng nhập tại&#xa;khu vực nhân viên&#xa;(tự động đăng xuất)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="520" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="dec4_adm" value="Role = admin?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="640" width="240" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="err4_adm" value="Không có quyền truy cập&#xa;khu vực quản trị&#xa;(tự động đăng xuất)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="650" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="session_adm" value="Tạo session mới&#xa;(login_context = admin)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="770" width="220" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="redirect_adm" value="Chuyển hướng đến&#xa;/admin/dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="850" width="220" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="end_adm" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="175" y="930" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="endi_adm" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="181" y="936" width="18" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="start_adm" target="input_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="input_adm" target="dec1_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_3" value="Đúng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dec1_adm" target="dec2_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_4" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dec2_adm" target="dec3_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="session_adm" target="redirect_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="redirect_adm" target="end_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_b1" value="Sai" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="dec1_adm" target="err1_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_b2" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="dec2_adm" target="err2_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_b3" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="dec3_adm" target="err3_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_5" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dec3_adm" target="dec4_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_6" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="dec4_adm" target="session_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_b4" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="dec4_adm" target="err4_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_adm_loop1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.227;entryY=0;entryDx=0;entryDy=0;" parent="1" source="err1_adm" target="input_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="295"/>
+                            <mxPoint x="500" y="120"/>
+                            <mxPoint x="130" y="120"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_adm_loop2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.364;entryY=0;entryDx=0;entryDy=0;" parent="1" source="err2_adm" target="input_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="425"/>
+                            <mxPoint x="500" y="140"/>
+                            <mxPoint x="160" y="140"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_adm_loop3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="err3_adm" target="input_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="555"/>
+                            <mxPoint x="500" y="130"/>
+                            <mxPoint x="190" y="130"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_adm_loop4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.636;entryY=0;entryDx=0;entryDy=0;" parent="1" source="err4_adm" target="input_adm" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="500" y="685"/>
+                            <mxPoint x="500" y="110"/>
+                            <mxPoint x="220" y="110"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="caption1" value="Hình 3.4.2b – Sơ đồ hoạt động chức năng đăng nhập Quản trị viên" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1040" width="480" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -1,0 +1,100 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="d6" name="Sơ đồ hoạt động: Quản lý dịch vụ phát sinh">
+    <mxGraphModel dx="900" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="420" pageHeight="1490" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="d6_title" value="Sơ đồ hoạt động: Quản lý dịch vụ phát sinh" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="420" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d6_start_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="40" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_2" value="Admin mở /admin/services&#10;(chỉ admin có quyền CRUD, staff không có)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="110" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_3" value="Tạo/sửa dịch vụ: tên, giá, khung giờ&#10;phục vụ (available_from–available_until),&#10;trạng thái active/hidden" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="234" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_4" value="Trong thời gian khách lưu trú,&#10;Staff/Admin gắn dịch vụ vào đơn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="382" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d6_d_5" value="Đơn đang ở trạng thái&#10;check_in?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="506" width="340" height="118" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_6" value="Từ chối — chỉ áp dụng&#10;cho đơn đang lưu trú" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="664" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d6_d_7" value="Dịch vụ khả dụng tại thời điểm&#10;hiện tại? (isAvailableAt kiểm&#10;tra khung giờ)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="788" width="340" height="146" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_8" value="Từ chối — ngoài khung giờ&#10;phục vụ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="974" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_9" value="Ghi vào booking_services +&#10;incidental_invoice_items (type = service)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1098" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d6_p_10" value="Giá dịch vụ cộng vào hoá đơn phát sinh,&#10;tổng hợp khi check-out (không cộng thẳng&#10;vào total_amount ban đầu)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1222" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d6_endo_11" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="1370" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d6_endi_12" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="201.0" y="1376" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="d6_e_13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_start_1" target="d6_p_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_p_2" target="d6_p_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_p_3" target="d6_p_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_p_4" target="d6_d_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_17" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_d_5" target="d6_p_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_18" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_d_5" target="d6_d_7">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="565.0" />
+<mxPoint x="420" y="768" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_19" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_d_7" target="d6_p_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_20" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_d_7" target="d6_p_9">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="861.0" />
+<mxPoint x="420" y="1078" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_p_9" target="d6_p_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_e_22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d6_p_10" target="d6_endo_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d6_cap" value="Hình 3.4.13 – Sơ đồ hoạt động chức năng quản lý dịch vụ phát sinh" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1425" width="420" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

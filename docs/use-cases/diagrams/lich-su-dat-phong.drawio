@@ -1,0 +1,89 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="d1" name="Sơ đồ hoạt động: Xem lịch sử đặt phòng (khách hàng)">
+    <mxGraphModel dx="900" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="420" pageHeight="1256" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="d1_title" value="Sơ đồ hoạt động: Xem lịch sử đặt phòng (khách hàng)" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="420" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d1_start_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="40" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_2" value="Customer mở /customer/bookings&#10;(đã đăng nhập, role = customer)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="110" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_3" value="BookingService::myBookings()&#10;Truy vấn Booking theo user_id, kèm&#10;bookingItems.roomType và payment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="234" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_4" value="Lọc theo status nếu khách chọn&#10;(BookingStatus)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="382" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_5" value="Hiển thị danh sách: mã đơn, loại phòng,&#10;ngày ở, tổng tiền, trạng thái đơn &amp;&#10;thanh toán (mới nhất trước, 10 đơn/trang)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="506" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_6" value="Chọn 1 đơn để xem chi tiết" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="654" width="300" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d1_d_7" value="Gate::authorize('view')&#10;Đúng chủ sở hữu đơn?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="754" width="340" height="118" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_8" value="Từ chối truy cập (403/404)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="912" width="300" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d1_p_9" value="Xem /customer/bookings/{id}&#10;hoặc hoá đơn /invoice" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1012" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d1_endo_10" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="1136" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d1_endi_11" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="201.0" y="1142" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="d1_e_12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_start_1" target="d1_p_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_p_2" target="d1_p_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_p_3" target="d1_p_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_p_4" target="d1_p_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_p_5" target="d1_p_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_p_6" target="d1_d_7">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_18" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_d_7" target="d1_p_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_19" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_d_7" target="d1_p_9">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="796.0" />
+<mxPoint x="420" y="1116" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_e_20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1_p_9" target="d1_endo_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d1_cap" value="Hình 3.4.6 – Sơ đồ hoạt động chức năng xem lịch sử đặt phòng (khách hàng)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1191" width="420" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

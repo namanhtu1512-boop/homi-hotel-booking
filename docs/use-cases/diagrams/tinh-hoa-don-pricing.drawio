@@ -1,0 +1,108 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="d2" name="Sơ đồ hoạt động: Tính toán hoá đơn (PricingService &amp; BookingService)">
+    <mxGraphModel dx="900" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="420" pageHeight="1390" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="d2_title" value="Sơ đồ hoạt động: Tính toán hoá đơn (PricingService &amp; BookingService)" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="420" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d2_start_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="40" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_2" value="Lấy giá cơ bản (room_types.price_per_night)&#10;— PricingService" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="110" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d2_d_3" value="Có seasonal_rate áp dụng&#10;cho khoảng ngày này?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="234" width="340" height="118" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_4" value="Cộng/trừ % phụ thu theo mùa&#10;(SeasonalRateService)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="392" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_5" value="Cộng phụ thu cuối tuần nếu có&#10;(Thứ 6–7, hotel_info.weekend_surcharge_percent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="516" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_6" value="Cộng phụ thu trẻ em theo số lượng children&#10;(hotel_info.child_surcharge_per_night)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="640" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_7" value="Ghi chi tiết từng thành phần giá vào&#10;price_breakdown (JSON) — hết phạm vi PricingService" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="764" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d2_d_8" value="Khách có mã khuyến mãi hợp lệ?&#10;(PromotionService::findValidManyByCodes)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="888" width="340" height="118" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_9" value="BookingService áp dụng giảm giá lần lượt&#10;từng promotion, lưu vào booking_promotions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1046" width="300" height="84" as="geometry" />
+</mxCell>
+<mxCell id="d2_p_10" value="Chốt tổng tiền (booking.total_amount)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1170" width="300" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d2_endo_11" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="1270" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d2_endi_12" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="201.0" y="1276" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="d2_e_13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_start_1" target="d2_p_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_2" target="d2_d_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_15" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_d_3" target="d2_p_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_4" target="d2_p_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_17" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_d_3" target="d2_p_5">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="293.0" />
+<mxPoint x="420" y="536" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_5" target="d2_p_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_6" target="d2_p_7">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_7" target="d2_d_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_21" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_d_8" target="d2_p_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_9" target="d2_p_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_23" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_d_8" target="d2_p_10">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="947.0" />
+<mxPoint x="420" y="1150" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_e_24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2_p_10" target="d2_endo_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d2_cap" value="Hình 3.4.7 – Sơ đồ hoạt động chức năng tính toán hoá đơn (PricingService &amp; BookingService)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1325" width="420" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
