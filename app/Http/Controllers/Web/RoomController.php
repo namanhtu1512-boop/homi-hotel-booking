@@ -113,6 +113,7 @@ class RoomController extends Controller
             'seasonalRate'      => $seasonalRate,
             'discountedPrice'   => $discountedPrice,
             'discountLabel'     => $discountLabel,
+            'amenityTiers'      => $this->roomTypeService->amenityTiers($roomType),
         ]);
     }
 }

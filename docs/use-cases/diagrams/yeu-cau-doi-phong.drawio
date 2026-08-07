@@ -1,0 +1,122 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="b4" name="Sơ đồ hoạt động: Yêu cầu đổi phòng">
+    <mxGraphModel dx="1000" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="1506" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="b4_title" value="Sơ đồ hoạt động: Yêu cầu đổi phòng" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="900" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b4_lane_0" value="Khách hàng" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="40" y="40" width="260" height="1406" as="geometry" />
+</mxCell>
+<mxCell id="b4_lane_1" value="Nhân viên" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="300" y="40" width="280" height="1406" as="geometry" />
+</mxCell>
+<mxCell id="b4_lane_2" value="Hệ thống" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="580" y="40" width="320" height="1406" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="155.0" y="90" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_2" value="Khách gửi yêu cầu đổi phòng từ đơn&#10;của mình (chỉ khi booking đang&#10;pending/confirmed, chưa check-in,&#10;và chỉ có 1 booking_item)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="155" width="220" height="126" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_3" value="Tạo room_change_requests&#10;(status = pending)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="600.0" y="316" width="280" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_4" value="Nhân viên xem danh sách&#10;yêu cầu chờ duyệt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="320.0" y="433" width="240" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_5" value="Chấp nhận yêu cầu?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="305.0" y="550" width="270" height="90" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_6" value="reject(): status = rejected,&#10;gửi lý do từ chối cho khách" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="310.0" y="675" width="260" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_7" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="425.0" y="787" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_8" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="431.0" y="793" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_9" value="approve(): kiểm tra lại sức chứa/&#10;phòng trống, tính lại giá qua&#10;PricingService" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="600.0" y="675" width="280" height="104" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_10" value="Cập nhật booking_items (loại phòng,&#10;giá, đêm, subtotal) và bookings&#10;(ngày, tổng tiền)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="600.0" y="852" width="280" height="104" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_11" value="Giá thay đổi &amp; đã&#10;thanh toán đủ (PAID)?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="585.0" y="991" width="310" height="116" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_12" value="Mở lại payment = pending&#10;(KHÔNG tự thu/hoàn chênh lệch —&#10;nhân viên xử lý thủ công)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="600.0" y="1142" width="280" height="104" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_13" value="Gửi thông báo kết quả cho khách hàng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1281" width="220" height="60" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_14" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="155.0" y="1376" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b4_v_15" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="161.0" y="1382" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="b4_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_1" target="b4_v_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_2" target="b4_v_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_3" target="b4_v_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_4" target="b4_v_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_20" value="Từ chối" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_5" target="b4_v_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_21" value="Chấp nhận" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_5" target="b4_v_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_9" target="b4_v_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_10" target="b4_v_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_24" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_11" target="b4_v_12">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_25" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_11" target="b4_v_13">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="950" y="1049.0" />
+<mxPoint x="950" y="1396" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_12" target="b4_v_13">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_e_27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4_v_13" target="b4_v_14">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b4_cap" value="Hình 3.7.9 – Sơ đồ hoạt động chức năng yêu cầu đổi phòng" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1461" width="900" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -12,4 +12,9 @@ class Amenity extends Model
     {
         return $this->belongsToMany(HotelInfo::class, 'hotel_info_amenity');
     }
+
+    public function roomTypes()
+    {
+        return $this->belongsToMany(RoomType::class, 'room_type_amenity');
+    }
 }

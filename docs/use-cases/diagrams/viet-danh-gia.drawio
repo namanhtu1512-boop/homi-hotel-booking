@@ -1,0 +1,86 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="b9" name="Sơ đồ hoạt động: Viết đánh giá">
+    <mxGraphModel dx="1000" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="740" pageHeight="962" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="b9_title" value="Sơ đồ hoạt động: Viết đánh giá" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="740" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b9_lane_0" value="Khách" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="40" y="40" width="320" height="862" as="geometry" />
+</mxCell>
+<mxCell id="b9_lane_1" value="Hệ thống" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="360" y="40" width="380" height="862" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="185.0" y="90" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_2" value="Khách bấm viết đánh giá từ đơn của&#10;mình (/customer/reviews/create)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="155" width="280" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_3" value="Đơn thuộc về khách, đã completed,&#10;&amp; chưa có đánh giá cho loại phòng này?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="380.0" y="272" width="340" height="116" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_4" value="Từ chối — chưa đủ điều kiện&#10;hoặc đã đánh giá rồi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="420.0" y="423" width="260" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_5" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="535.0" y="535" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_6" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="541.0" y="541" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_7" value="Nhập điểm (1–5), nội dung,&#10;tối đa 5 ảnh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="423" width="280" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_8" value="Lưu review (status=visible — đăng&#10;công khai NGAY, không cần duyệt trước)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="380.0" y="600" width="340" height="82" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_9" value="Admin chỉ có thể ẩn/hiện đánh&#10;giá SAU khi đăng (post-hoc),&#10;không có bước duyệt trước." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;dashed=1;fontStyle=2;fontSize=11;align=left;verticalAlign=top;spacing=6;" vertex="1" parent="1">
+<mxGeometry x="420.0" y="717" width="260" height="80" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_10" value="Hiển thị đánh giá công khai" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="290.0" y="717" width="340" height="60" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_11" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="185.0" y="832" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="b9_v_12" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="191.0" y="838" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="b9_e_13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_1" target="b9_v_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_e_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_2" target="b9_v_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_e_15" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_3" target="b9_v_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_e_16" value="Có" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_3" target="b9_v_7">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_7" target="b9_v_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_e_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_8" target="b9_v_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_e_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b9_v_10" target="b9_v_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="b9_cap" value="Hình 3.7.18 – Sơ đồ hoạt động chức năng viết đánh giá" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="917" width="740" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

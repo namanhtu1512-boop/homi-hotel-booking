@@ -16,7 +16,6 @@ class VNPayService
     private string $hashSecret;
     private string $payUrl;
     private string $apiUrl;
-    private string $returnUrl;
 
     public function __construct()
     {
@@ -24,7 +23,6 @@ class VNPayService
         $this->hashSecret = (string) config('services.vnpay.hash_secret');
         $this->payUrl     = (string) config('services.vnpay.pay_url');
         $this->apiUrl     = (string) config('services.vnpay.api_url');
-        $this->returnUrl  = (string) config('services.vnpay.return_url');
     }
 
     /**
@@ -40,7 +38,7 @@ class VNPayService
     /**
      * Tạo URL redirect sang cổng thanh toán VNPay.
      */
-    public function buildPaymentUrl(string $txnRef, float $amount, string $orderInfo, string $ipAddress): string
+    public function buildPaymentUrl(string $txnRef, float $amount, string $orderInfo, string $ipAddress, string $returnUrl): string
     {
         $params = [
             'vnp_Version'    => '2.1.0',
@@ -52,7 +50,7 @@ class VNPayService
             'vnp_OrderInfo'  => $orderInfo,
             'vnp_OrderType'  => 'other',
             'vnp_Locale'     => 'vn',
-            'vnp_ReturnUrl'  => $this->returnUrl,
+            'vnp_ReturnUrl'  => $returnUrl,
             'vnp_IpAddr'     => $ipAddress,
             // VNPay luôn hiểu vnp_CreateDate/vnp_ExpireDate theo giờ Việt Nam
             // (UTC+7) bất kể server chạy múi giờ nào — app này chạy UTC

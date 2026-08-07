@@ -1,0 +1,107 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="d3" name="Sơ đồ hoạt động: Quản lý hoá đơn phát sinh nội bộ">
+    <mxGraphModel dx="900" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="700" pageHeight="1462" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="d3_title" value="Sơ đồ hoạt động: Quản lý hoá đơn phát sinh nội bộ" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="700" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d3_start_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="40" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_2" value="Trong thời gian khách lưu trú&#10;(booking.status = checked_in),&#10;Staff/Admin thêm dịch vụ hoặc phụ thu" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="110" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d3_d_3" value="Loại phát sinh?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="258" width="340" height="90" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_4" value="Dịch vụ: BookingService::addServiceItem()&#10;kiểm tra khung giờ phục vụ (isAvailableAt),&#10;ghi vào booking_services" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="388" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_5" value="Phụ thu: BookingService::addSurcharge()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="536" width="300" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_6" value="Ghi vào incidental_invoice_items&#10;(type = service/surcharge), cộng dồn&#10;incidental_invoices.total_amount (status = open)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="636" width="300" height="108" as="geometry" />
+</mxCell>
+<mxCell id="d3_note_7" value="Lưu ý: KHÔNG dùng&#10;payments.surcharge_amount —&#10;trường này đã ngưng sử dụng&#10;(dead field, luôn = 0)." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;dashed=1;fontStyle=2;fontSize=11;align=left;verticalAlign=top;spacing=6;" vertex="1" parent="1">
+<mxGeometry x="400" y="646" width="260" height="90" as="geometry" />
+</mxCell>
+<mxCell id="d3_d_8" value="Khi check-out:&#10;Đã thanh toán đủ?&#10;(payment.status = paid)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="784" width="340" height="146" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_9" value="Chưa đủ: Chặn check-out, báo lỗi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="970" width="300" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_10" value="Đủ: IncidentalInvoiceService::markPaid()&#10;chốt hoá đơn phát sinh = paid,&#10;booking.status = checked_out,&#10;room.housekeeping_status = dirty" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1070" width="300" height="132" as="geometry" />
+</mxCell>
+<mxCell id="d3_p_11" value="Hiển thị hoá đơn tổng hợp cuối cùng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1242" width="300" height="60" as="geometry" />
+</mxCell>
+<mxCell id="d3_endo_12" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="1342" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="d3_endi_13" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="201.0" y="1348" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="d3_e_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_start_1" target="d3_p_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_p_2" target="d3_d_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_16" value="Dịch vụ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_d_3" target="d3_p_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_p_4" target="d3_p_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_18" value="Phụ thu" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_d_3" target="d3_p_5">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="303.0" />
+<mxPoint x="420" y="556" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_p_5" target="d3_p_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_p_6" target="d3_d_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_21" value="Chưa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_d_8" target="d3_p_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_22" value="Đủ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_d_8" target="d3_p_10">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="420" y="857.0" />
+<mxPoint x="420" y="1050" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_p_10" target="d3_p_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_e_24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3_p_11" target="d3_endo_12">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="d3_cap" value="Hình 3.4.8 – Sơ đồ hoạt động chức năng quản lý hoá đơn phát sinh nội bộ" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1397" width="700" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
