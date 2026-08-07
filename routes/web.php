@@ -34,6 +34,9 @@ use App\Http\Controllers\Web\Customer\ReviewController as CustomerReviewControll
 use App\Http\Controllers\Web\Customer\RoomChangeRequestController as CustomerRoomChangeRequestController;
 use App\Http\Controllers\Web\Admin\RoomChangeRequestController as AdminRoomChangeRequestController;
 use App\Http\Controllers\Web\Staff\RoomChangeRequestController as StaffRoomChangeRequestController;
+use App\Http\Controllers\Web\Customer\ExtraBedRequestController as CustomerExtraBedRequestController;
+use App\Http\Controllers\Web\Admin\ExtraBedRequestController as AdminExtraBedRequestController;
+use App\Http\Controllers\Web\Staff\ExtraBedRequestController as StaffExtraBedRequestController;
 use App\Http\Controllers\Web\Customer\EarlyCheckinRequestController as CustomerEarlyCheckinRequestController;
 use App\Http\Controllers\Web\Admin\EarlyCheckinRequestController as AdminEarlyCheckinRequestController;
 use App\Http\Controllers\Web\Staff\EarlyCheckinRequestController as StaffEarlyCheckinRequestController;
@@ -169,6 +172,11 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
 
         Route::get('/{id}/room-change',  [CustomerRoomChangeRequestController::class, 'create'])->name('room-change.create');
         Route::post('/{id}/room-change', [CustomerRoomChangeRequestController::class, 'store'])->name('room-change.store');
+
+        // Yêu cầu giường phụ không tự khách "tạo" (tự sinh ra khi đặt phòng
+        // thiếu giường phụ, xem BookingService::create()) — chỉ cần 1 action
+        // để khách phản hồi phương án đã được gợi ý.
+        Route::post('/{id}/extra-bed/resolve', [CustomerExtraBedRequestController::class, 'resolve'])->name('extra-bed.resolve');
 
         Route::get('/{id}/early-checkin',  [CustomerEarlyCheckinRequestController::class, 'create'])->name('early-checkin.create');
         Route::post('/{id}/early-checkin', [CustomerEarlyCheckinRequestController::class, 'store'])->name('early-checkin.store');
@@ -344,6 +352,12 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/reject',  [AdminRoomChangeRequestController::class, 'reject'])->name('reject');
     });
 
+    Route::prefix('extra-bed-requests')->name('extra-bed-requests.')->group(function () {
+        Route::get('/',              [AdminExtraBedRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [AdminExtraBedRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/resolve', [AdminExtraBedRequestController::class, 'resolve'])->name('resolve');
+    });
+
     Route::prefix('early-checkin-requests')->name('early-checkin-requests.')->group(function () {
         Route::get('/',              [AdminEarlyCheckinRequestController::class, 'index'])->name('index');
         Route::get('/{id}',          [AdminEarlyCheckinRequestController::class, 'show'])->name('show');
@@ -438,6 +452,12 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/{id}',          [StaffRoomChangeRequestController::class, 'show'])->name('show');
         Route::post('/{id}/approve', [StaffRoomChangeRequestController::class, 'approve'])->name('approve');
         Route::post('/{id}/reject',  [StaffRoomChangeRequestController::class, 'reject'])->name('reject');
+    });
+
+    Route::prefix('extra-bed-requests')->name('extra-bed-requests.')->group(function () {
+        Route::get('/',              [StaffExtraBedRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [StaffExtraBedRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/resolve', [StaffExtraBedRequestController::class, 'resolve'])->name('resolve');
     });
 
     Route::prefix('early-checkin-requests')->name('early-checkin-requests.')->group(function () {

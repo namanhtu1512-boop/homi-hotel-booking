@@ -89,9 +89,12 @@
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                         <td>{{ $item->nights }}</td>
                         <td>
-                            {{ number_format($item->subtotal + $item->child_surcharge, 0, ',', '.') }}đ
+                            {{ number_format($item->subtotal + $item->child_surcharge + $item->extra_bed_surcharge, 0, ',', '.') }}đ
                             @if ($item->child_surcharge > 0)
                                 <div class="text-xs text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->child_surcharge, 0, ',', '.') }}đ phụ thu trẻ em)</div>
+                            @endif
+                            @if ($item->extra_bed_surcharge > 0)
+                                <div class="text-xs text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->extra_bed_surcharge, 0, ',', '.') }}đ phụ thu giường phụ)</div>
                             @endif
                         </td>
                     </tr>
@@ -300,6 +303,26 @@
                                 ({{ $latestLateCheckout->hours_late }} giờ, {{ number_format($latestLateCheckout->fee_amount, 0, ',', '.') }}đ)
                                 <span class="badge {{ $lcoBadge }}">{{ $lcoLabel }}</span>
                                 — <a href="{{ route('admin.late-checkout-requests.show', $latestLateCheckout->id) }}">Xem</a>
+                            </span>
+                        </div>
+                    </div>
+                @endif
+
+                @php
+                    $latestExtraBed = $booking->extraBedRequests->sortByDesc('created_at')->first();
+                @endphp
+                @if ($latestExtraBed)
+                    @php
+                        $ebBadge = ['pending' => 'badge-orange', 'waitlisted' => 'badge-blue', 'resolved' => 'badge-green'][$latestExtraBed->status] ?? 'badge-green';
+                        $ebLabel = ['pending' => 'Chờ xử lý', 'waitlisted' => 'Waitlist', 'resolved' => 'Đã xử lý'][$latestExtraBed->status] ?? $latestExtraBed->status;
+                    @endphp
+                    <div class="info-list mt-3">
+                        <div class="info-item">
+                            <span class="label">Yêu cầu giường phụ</span>
+                            <span class="value">
+                                Cần {{ $latestExtraBed->requested_extra_beds }}, còn {{ $latestExtraBed->available_extra_beds }}
+                                <span class="badge {{ $ebBadge }}">{{ $ebLabel }}</span>
+                                — <a href="{{ route('admin.extra-bed-requests.show', $latestExtraBed->id) }}">Xem</a>
                             </span>
                         </div>
                     </div>

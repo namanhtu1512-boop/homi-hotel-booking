@@ -37,6 +37,8 @@ class HotelInfo extends Model
         'child_surcharge_per_night',
         'early_checkin_surcharge_percent',
         'cancellation_hours_before',
+        'extra_beds_total',
+        'extra_bed_surcharge_per_night',
     ];
 
     protected $casts = [
@@ -46,6 +48,8 @@ class HotelInfo extends Model
         'child_surcharge_per_night' => 'integer',
         'early_checkin_surcharge_percent' => 'decimal:2',
         'cancellation_hours_before' => 'integer',
+        'extra_beds_total'          => 'integer',
+        'extra_bed_surcharge_per_night' => 'integer',
         'latitude'                  => 'decimal:7',
         'longitude'                 => 'decimal:7',
     ];

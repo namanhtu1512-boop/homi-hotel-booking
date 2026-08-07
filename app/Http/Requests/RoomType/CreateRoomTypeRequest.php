@@ -14,6 +14,7 @@ class CreateRoomTypeRequest extends BaseFormRequest
     {
         return [
             'name'            => ['required', 'string', 'max:255'],
+            'category'        => ['nullable', 'in:standard,superior,deluxe,family,suite'],
             'description'     => ['nullable', 'string', 'max:5000'],
             'price_per_night' => ['required', 'numeric', 'min:0'],
             'capacity'        => ['required', 'integer', 'min:1', 'max:255'],

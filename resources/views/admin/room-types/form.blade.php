@@ -28,6 +28,17 @@
             <input id="name" type="text" name="name" value="{{ old('name', $roomType->name ?? '') }}" required>
         </div>
 
+        <div class="form-group">
+            <label for="category">Nhóm loại phòng</label>
+            <select id="category" name="category">
+                <option value="">— Không phân nhóm —</option>
+                @foreach (['standard' => 'Standard', 'superior' => 'Superior', 'deluxe' => 'Deluxe', 'family' => 'Family', 'suite' => 'Suite'] as $value => $label)
+                    <option value="{{ $value }}" @selected(old('category', $roomType->category ?? '') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <p class="section-desc">Chỉ Superior/Deluxe/Suite hiện tùy chọn "Cần giường phụ" cho khách khi đặt phòng.</p>
+        </div>
+
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group">
                 <label for="price_per_night">Giá / đêm (VNĐ) *</label>

@@ -112,6 +112,7 @@ class RoomTypeController extends Controller
     {
         $data = $request->validate([
             'name'            => ['required', 'string', 'max:255'],
+            'category'        => ['nullable', 'in:standard,superior,deluxe,family,suite'],
             'description'     => ['nullable', 'string', 'max:5000'],
             'price_per_night' => ['required', 'numeric', 'min:0'],
             'capacity'        => ['required', 'integer', 'min:1', 'max:255'],
@@ -122,6 +123,7 @@ class RoomTypeController extends Controller
             'images_text'     => ['nullable', 'string', $this->eachImageLineMax500()],
         ], [], [
             'name'            => 'tên loại phòng',
+            'category'        => 'nhóm loại phòng',
             'description'     => 'mô tả',
             'price_per_night' => 'giá theo đêm',
             'capacity'        => 'sức chứa',

@@ -6,6 +6,7 @@ use App\Models\Banner;
 use App\Models\Booking;
 use App\Models\ContactMessage;
 use App\Models\EarlyCheckinRequest;
+use App\Models\ExtraBedRequest;
 use App\Models\GroupBookingRequest;
 use App\Models\HotelInfo;
 use App\Models\LateCheckoutRequest;
@@ -73,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('contactNewCount', ContactMessage::where('status', 'new')->count());
             $view->with('groupBookingNewCount', GroupBookingRequest::where('status', 'new')->count());
             $view->with('roomChangeNewCount', RoomChangeRequest::where('status', 'pending')->count());
+            $view->with('extraBedNewCount', ExtraBedRequest::where('status', 'pending')->count());
             $view->with('earlyCheckinNewCount', EarlyCheckinRequest::where('status', 'pending')->count());
             $view->with('lateCheckoutNewCount', LateCheckoutRequest::where('status', 'pending')->count());
             $user = Auth::user();

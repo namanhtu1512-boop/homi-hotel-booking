@@ -15,6 +15,7 @@ class StoreBookingRequest extends BaseFormRequest
             'items.*.adults'       => ['required', 'integer', 'min:1', 'max:50'],
             'items.*.children'     => ['nullable', 'integer', 'min:0', 'max:50'],
             'items.*.infants'      => ['nullable', 'integer', 'min:0', 'max:50'],
+            'items.*.extra_bed'    => ['nullable', 'boolean'],
             'check_in'             => ['required', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn()],
             'check_out'            => ['required', 'date_format:Y-m-d'],
             'customer_name'        => ['required', 'string', 'max:100'],

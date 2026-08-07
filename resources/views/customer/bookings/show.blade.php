@@ -25,6 +25,39 @@
     </div>
 @endif
 
+@if ($booking->status === \App\Enums\BookingStatus::PENDING_CONSULTATION)
+    @php
+        $extraBedRequest = $booking->pendingExtraBedRequest();
+        $extraBedAlternatives = $extraBedRequest->suggested_alternatives ?? [];
+        $extraBedMissing = $extraBedRequest ? $extraBedRequest->requested_extra_beds - $extraBedRequest->available_extra_beds : null;
+    @endphp
+    <div class="alert alert-warning">
+        <div class="mb-2 font-bold">
+            ⏳ Đơn đang chờ tư vấn — giường phụ tạm thời không đủ trong khoảng ngày bạn chọn{{ $extraBedMissing ? " (thiếu {$extraBedMissing} giường)" : '' }}.
+        </div>
+        <p class="mb-3 text-sm">Khách sạn cũng đang được thông báo để hỗ trợ bạn. Vui lòng chọn 1 phương án bên dưới, hoặc chờ nhân viên liên hệ trực tiếp:</p>
+
+        @if ($extraBedRequest && ! empty($extraBedAlternatives))
+            <div class="grid gap-2 sm:grid-cols-2">
+                @foreach ($extraBedAlternatives as $alt)
+                    <form method="POST" action="{{ route('customer.bookings.extra-bed.resolve', $booking->id) }}" class="space-y-1.5">
+                        @csrf
+                        <input type="hidden" name="choice" value="{{ $alt['type'] }}">
+                        @if ($alt['type'] === 'upgrade_room' && ! empty($alt['options']))
+                            <select name="room_type_id" class="input" required>
+                                @foreach ($alt['options'] as $opt)
+                                    <option value="{{ $opt['room_type_id'] }}">{{ $opt['name'] }} ({{ $opt['capacity'] }} khách/phòng)</option>
+                                @endforeach
+                            </select>
+                        @endif
+                        <button type="submit" class="btn-outline w-full text-center">{{ $alt['label'] }}</button>
+                    </form>
+                @endforeach
+            </div>
+        @endif
+    </div>
+@endif
+
 @if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
     <div
         x-data="{
@@ -139,9 +172,12 @@
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                         <td>{{ $item->nights }}</td>
                         <td>
-                            {{ number_format($item->subtotal + $item->child_surcharge, 0, ',', '.') }}đ
+                            {{ number_format($item->subtotal + $item->child_surcharge + $item->extra_bed_surcharge, 0, ',', '.') }}đ
                             @if ($item->child_surcharge > 0)
                                 <div class="text-xs text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->child_surcharge, 0, ',', '.') }}đ phụ thu trẻ em)</div>
+                            @endif
+                            @if ($item->extra_bed_surcharge > 0)
+                                <div class="text-xs text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->extra_bed_surcharge, 0, ',', '.') }}đ phụ thu giường phụ)</div>
                             @endif
                         </td>
                     </tr>

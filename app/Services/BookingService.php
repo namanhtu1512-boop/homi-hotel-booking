@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Events\ExtraBedUnavailable;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\BookingItemRoom;
 use App\Models\BookingStatusLog;
+use App\Models\ExtraBedRequest;
 use App\Models\HotelInfo;
 use App\Models\Payment;
 use App\Models\Room;
@@ -49,6 +51,7 @@ class BookingService
         private RoomHoldService $roomHoldService,
         private VNPayService $vnPayService,
         private IncidentalInvoiceService $incidentalInvoiceService,
+        private ExtraBedInventoryService $extraBedInventoryService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -177,7 +180,7 @@ class BookingService
         // chống race condition, chỉ báo dòng đầu tiên nếu trúng race hiếm gặp.
         $this->checkAvailabilityForAllItems($data['items'], $roomTypes, $data['check_in'], $data['check_out'], $holdSessionId);
 
-        return DB::transaction(function () use ($customer, $data, $roomTypes, $holdSessionId) {
+        $booking = DB::transaction(function () use ($customer, $data, $roomTypes, $holdSessionId) {
             // Khóa các loại phòng liên quan theo thứ tự id tăng dần (tránh
             // deadlock khi 2 đơn cùng khóa nhiều loại phòng chung) TRƯỚC khi
             // tính lại availability. SELECT ... FOR UPDATE luôn đọc dữ liệu
@@ -194,6 +197,13 @@ class BookingService
             $totalChildren  = 0;
             $totalInfants   = 0;
             $lines          = [];
+
+            // Dòng nào cần giường phụ (vượt sức chứa gốc, đã qua
+            // validateGuestCapacity() nên chắc chắn category hỗ trợ + khách
+            // đã tick) — map index trong $lines => số giường phụ cần (tối đa
+            // 1/phòng). Quyết định CẤP hay không dựa trên tồn kho thật diễn
+            // ra SAU vòng lặp này (xem dưới), không phải ở đây.
+            $extraBedByIndex = [];
 
             foreach ($data['items'] as $item) {
                 $roomType = $roomTypes[(int) $item['room_type_id']];
@@ -228,18 +238,64 @@ class BookingService
                 $totalChildren  += $children;
                 $totalInfants   += $infants;
 
+                // Dùng đúng số CẦN THẬT SỰ (extraBedsNeeded(), khác nhau theo
+                // category — xem doc-block hàm đó), không phải $quantity —
+                // trước đây gán cứng $quantity khiến 1 dòng nhiều phòng nhưng
+                // chỉ thiếu 1 giường vẫn bị cấp/trừ pool dư ra theo đúng số phòng.
+                $extraBedCount = $this->extraBedsNeeded($roomType, $quantity, $adults, $children);
+                if ($extraBedCount > 0) {
+                    $extraBedByIndex[count($lines)] = $extraBedCount;
+                }
+
                 $lines[] = [
-                    'room_type_id'    => $roomType->id,
-                    'quantity'        => $quantity,
-                    'adults'          => $adults,
-                    'children'        => $children,
-                    'infants'         => $infants,
-                    'price_per_night' => $pricing['unit_price'],
-                    'nights'          => $pricing['nights'],
-                    'subtotal'        => $pricing['room_subtotal'],
-                    'child_surcharge' => $pricing['child_surcharge'],
-                    'price_breakdown' => $pricing['nightly_breakdown'],
+                    'room_type_id'        => $roomType->id,
+                    'quantity'            => $quantity,
+                    'adults'              => $adults,
+                    'children'            => $children,
+                    'infants'             => $infants,
+                    'extra_beds'          => 0, // chỉ set thật sau khi biết tồn kho giường phụ, xem dưới
+                    'extra_bed_surcharge' => 0, // idem — cộng vào $total dưới nếu được cấp
+                    'price_per_night'     => $pricing['unit_price'],
+                    'nights'              => $pricing['nights'],
+                    'subtotal'            => $pricing['room_subtotal'],
+                    'child_surcharge'     => $pricing['child_surcharge'],
+                    'price_breakdown'     => $pricing['nightly_breakdown'],
                 ];
+            }
+
+            // Giường phụ dùng chung 1 pool toàn khách sạn (hotel_info) — khóa
+            // dòng cấu hình duy nhất đó để trừ pool an toàn khi nhiều đơn tạo
+            // cùng lúc, cùng khuôn với việc khóa RoomType phía trên.
+            $extraBedsNeeded    = array_sum($extraBedByIndex);
+            $pendingConsultation = false;
+            $extraBedAvailableSnapshot = 0;
+
+            if ($extraBedsNeeded > 0) {
+                HotelInfo::query()->lockForUpdate()->first();
+                $extraBedAvailableSnapshot = $this->extraBedInventoryService->countAvailable($data['check_in'], $data['check_out']);
+
+                if ($extraBedAvailableSnapshot >= $extraBedsNeeded) {
+                    // Phụ thu giường phụ (hotel_info.extra_bed_surcharge_per_night ×
+                    // số giường × số đêm) — tính qua PricingService để không lặp lại
+                    // công thức, cùng cách child_surcharge đã làm.
+                    foreach ($extraBedByIndex as $idx => $count) {
+                        $roomType = $roomTypes[(int) $lines[$idx]['room_type_id']];
+                        $extraBedPricing = $this->pricingService->calculate(
+                            $roomType, $data['check_in'], $data['check_out'],
+                            $lines[$idx]['quantity'], $lines[$idx]['children'], $count
+                        );
+
+                        $lines[$idx]['extra_beds']         = $count;
+                        $lines[$idx]['extra_bed_surcharge'] = $extraBedPricing['extra_bed_surcharge'];
+                        $total += $extraBedPricing['extra_bed_surcharge'];
+                    }
+                } else {
+                    // Không đủ — đơn KHÔNG bị chặn, chuyển "chờ tư vấn" thay
+                    // vì hết phòng thật sự (xem BookingStatus::PENDING_CONSULTATION,
+                    // ExtraBedUnavailable event dispatch sau khi transaction
+                    // này commit ở cuối method).
+                    $pendingConsultation = true;
+                }
             }
 
             $promotions = collect();
@@ -278,13 +334,19 @@ class BookingService
                 'note'            => $data['note'] ?? null,
                 'total_amount'    => $total - $discount,
                 'discount_amount' => $discount,
-                'status'          => BookingStatus::PENDING_DEPOSIT,
-                'deposit_expires_at' => now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
+                'status'          => $pendingConsultation ? BookingStatus::PENDING_CONSULTATION : BookingStatus::PENDING_DEPOSIT,
+                'deposit_expires_at' => $pendingConsultation ? null : now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
             ]);
 
-            $this->logStatus($booking, null, BookingStatus::PENDING_DEPOSIT, $customer->id, 'Khách tạo đơn đặt phòng — chờ cọc 30% hoặc thanh toán đủ trong ' . self::DEPOSIT_HOLD_MINUTES . ' phút, quá hạn tự hủy nhả phòng.');
+            if ($pendingConsultation) {
+                $this->logStatus($booking, null, BookingStatus::PENDING_CONSULTATION, $customer->id, "Giường phụ không đủ trong khoảng ngày đã chọn (cần {$extraBedsNeeded}, còn {$extraBedAvailableSnapshot}) — chờ khách/nhân viên chọn phương án.");
+            } else {
+                $this->logStatus($booking, null, BookingStatus::PENDING_DEPOSIT, $customer->id, 'Khách tạo đơn đặt phòng — chờ cọc 30% hoặc thanh toán đủ trong ' . self::DEPOSIT_HOLD_MINUTES . ' phút, quá hạn tự hủy nhả phòng.');
+            }
 
-            // Thông báo cho admin/staff về đơn mới
+            // Thông báo cho admin/staff về đơn mới (luôn gửi, bất kể có
+            // pending_consultation hay không — ExtraBedUnavailableNotification
+            // ở dưới là thông báo THỨ 2, riêng, chỉ báo phần thiếu giường phụ).
             User::whereIn('role', ['admin', 'staff'])->each(
                 fn (User $u) => $u->notify(new NewBookingReceived($booking))
             );
@@ -293,11 +355,28 @@ class BookingService
             // cọc 30% hoặc thanh toán đủ trong DEPOSIT_HOLD_MINUTES phút,
             // nếu không đơn tự hủy (xem cancelExpiredDepositBookings()).
             // Đơn chỉ thật sự CONFIRMED sau khi thanh toán thành công (xem
-            // confirmAfterPayment()).
-            $customer->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được tạo — vui lòng đặt cọc 30% hoặc thanh toán đủ trong " . self::DEPOSIT_HOLD_MINUTES . ' phút, nếu không đơn sẽ tự động hủy.'));
+            // confirmAfterPayment()). Nhánh pending_consultation không có
+            // đồng hồ đặt cọc — đơn chờ tư vấn cho tới khi được resolve.
+            $customerMessage = $pendingConsultation
+                ? "Đơn {$booking->booking_code} hiện đang chờ tư vấn — số giường phụ bạn yêu cầu tạm thời không đủ trong khoảng ngày này. Vui lòng chọn 1 phương án ở trang chi tiết đơn; khách sạn cũng đang được thông báo để hỗ trợ bạn."
+                : "Đơn {$booking->booking_code} đã được tạo — vui lòng đặt cọc 30% hoặc thanh toán đủ trong " . self::DEPOSIT_HOLD_MINUTES . ' phút, nếu không đơn sẽ tự động hủy.';
+            $customer->notify(new BookingStatusChanged($booking, $customerMessage));
 
-            foreach ($lines as $line) {
-                $booking->bookingItems()->create($line);
+            $createdItems = [];
+            foreach ($lines as $idx => $line) {
+                $createdItems[$idx] = $booking->bookingItems()->create($line);
+            }
+
+            if ($pendingConsultation) {
+                $firstIndex = array_key_first($extraBedByIndex);
+
+                ExtraBedRequest::create([
+                    'booking_id'            => $booking->id,
+                    'booking_item_id'       => $createdItems[$firstIndex]->id,
+                    'requested_extra_beds'  => $extraBedsNeeded,
+                    'available_extra_beds'  => $extraBedAvailableSnapshot,
+                    'status'                => 'pending',
+                ]);
             }
 
             foreach ($promoLines as $promoLine) {
@@ -318,8 +397,19 @@ class BookingService
                 $this->roomHoldService->releaseForSession($holdSessionId);
             }
 
-            return $booking->load(['bookingItems.roomType', 'serviceItems.service', 'payment']);
+            return $booking->load(['bookingItems.roomType', 'serviceItems.service', 'payment', 'extraBedRequests']);
         });
+
+        // Bắn SAU KHI transaction đã commit — không dispatch bên trong
+        // DB::transaction() ở trên để tránh listener (đặc biệt
+        // NotifyStaffExtraBedUnavailable, chạy qua queue) xử lý 1 booking có
+        // thể bị rollback nếu có lỗi phát sinh sau đó trong cùng transaction.
+        $pendingExtraBedRequest = $booking->pendingExtraBedRequest();
+        if ($booking->status === BookingStatus::PENDING_CONSULTATION && $pendingExtraBedRequest) {
+            event(new ExtraBedUnavailable($booking, $pendingExtraBedRequest));
+        }
+
+        return $booking;
     }
 
     public function myBookings(User $customer, array $filters = [], int $perPage = 10): LengthAwarePaginator
@@ -337,7 +427,7 @@ class BookingService
 
     public function findForCustomer(int $bookingId, User $customer): Booking
     {
-        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
+        $booking = Booking::with(['bookingItems.roomType.images', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'promotions', 'roomChangeRequests', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
             ->findOrFail($bookingId);
 
         Gate::forUser($customer)->authorize('view', $booking);
@@ -796,7 +886,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items'])
+        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
             ->findOrFail($bookingId);
     }
 
@@ -1505,6 +1595,28 @@ class BookingService
      *
      * @param  array<int, array{room_type_id: mixed, quantity: mixed, adults?: mixed, children?: mixed}>  $items
      */
+    /**
+     * Số giường phụ CẦN để hợp thức hóa số khách khai báo — ý nghĩa khác
+     * nhau theo category:
+     *   - Family: giường phụ tăng thêm giới hạn trẻ em CƠ BẢN (2/phòng), độc
+     *     lập với người lớn — phòng đủ lớn (2 giường đôi) để nhận thêm trẻ em
+     *     ngoài số người lớn đã ở mức tối đa, không liên quan sức chứa tổng.
+     *   - Superior/Deluxe/Suite: giường phụ bù phần TỔNG khách (người lớn +
+     *     trẻ em) vượt sức chứa phòng — phòng nhỏ (capacity 2) nên người lớn
+     *     đã chiếm gần hết chỗ, trẻ em dư ra phải bù bằng giường phụ.
+     *   - Standard: không áp dụng (không nằm trong RoomType::supportsExtraBed()).
+     * Luôn trả về số THẬT SỰ cần (không giới hạn ở $quantity) — nơi gọi tự so
+     * với $quantity (tối đa 1 giường/phòng) để quyết có hợp lệ hay không.
+     */
+    private function extraBedsNeeded(RoomType $roomType, int $quantity, int $adults, int $children): int
+    {
+        if ($roomType->category === 'family') {
+            return max(0, $children - (self::MAX_CHILDREN_PER_ROOM * $quantity));
+        }
+
+        return max(0, ($adults + $children) - ($roomType->capacity * $quantity));
+    }
+
     private function validateGuestCapacity(array $items, \Illuminate\Support\Collection $roomTypes): void
     {
         foreach ($items as $index => $item) {
@@ -1514,6 +1626,36 @@ class BookingService
             $children = (int) ($item['children'] ?? 0);
             $capacity = $roomType->capacity * $quantity;
             $maxChildren = self::MAX_CHILDREN_PER_ROOM * $quantity;
+            $isFamily = $roomType->category === 'family';
+
+            // Người lớn LUÔN bị chặn cứng theo capacity, kể cả Family — giường
+            // phụ KHÔNG bao giờ được dùng để nhét thêm người lớn, chỉ dành cho
+            // trẻ em (6-11 tuổi) ngủ riêng 1 giường. Không có ngoại lệ nào.
+            if ($adults > $capacity) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} người lớn ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn. Giường phụ chỉ dành cho trẻ em (6-11 tuổi), không dùng để thêm người lớn — vui lòng đặt thêm phòng hoặc đổi loại phòng lớn hơn."],
+                ]);
+            }
+
+            // Family: người lớn và trẻ em xét RIÊNG (không cộng chung vào 1
+            // sức chứa như các category khác) — xem extraBedsNeeded().
+            if ($isFamily) {
+                $needed = $this->extraBedsNeeded($roomType, $quantity, $adults, $children);
+
+                if ($needed > 0) {
+                    if (! empty($item['extra_bed']) && $needed <= $quantity) {
+                        continue;
+                    }
+
+                    $hint = ' Tick "Cần giường phụ" để tăng lên tối đa ' . ($maxChildren + $quantity) . ' trẻ em/phòng.';
+
+                    throw ValidationException::withMessages([
+                        "items.{$index}.children" => ["Phòng \"{$roomType->name}\" tối đa {$maxChildren} trẻ em (6-11 tuổi)/phòng × {$quantity} phòng, nhưng khai báo {$children} trẻ em." . $hint],
+                    ]);
+                }
+
+                continue;
+            }
 
             if ($children > $maxChildren) {
                 throw ValidationException::withMessages([
@@ -1522,8 +1664,28 @@ class BookingService
             }
 
             if ($adults + $children > $capacity) {
+                // Tới đây $adults đã chắc chắn <= $capacity (kiểm tra trên) nên
+                // phần vượt chỉ có thể do trẻ em — đúng ý nghĩa "giường phụ
+                // dành cho trẻ em" khi bù qua nhánh dưới.
+                $excess = $this->extraBedsNeeded($roomType, $quantity, $adults, $children);
+
+                // Category có nhánh giường phụ (Superior/Deluxe/Suite — xem
+                // RoomType::supportsExtraBed()) được bù phần trẻ em vượt qua
+                // giường phụ (tối đa 1 giường/phòng) NẾU khách đã tick "Cần
+                // giường phụ" cho dòng này — không throw, để BookingService::
+                // create() tự quyết CONFIRMED hay PENDING_CONSULTATION dựa
+                // trên tồn kho thật (ở đây chỉ xác nhận ĐIỀU KIỆN được phép
+                // yêu cầu).
+                if ($roomType->supportsExtraBed() && ! empty($item['extra_bed']) && $excess <= $quantity) {
+                    continue;
+                }
+
+                $hint = $roomType->supportsExtraBed()
+                    ? ' Tick "Cần giường phụ" nếu muốn bù phần trẻ em vượt sức chứa bằng giường phụ.'
+                    : '';
+
                 throw ValidationException::withMessages([
-                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn + {$children} trẻ em (trẻ sơ sinh dưới 6 tuổi không tính vào sức chứa)."],
+                    "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn + {$children} trẻ em (trẻ sơ sinh dưới 6 tuổi không tính vào sức chứa)." . $hint],
                 ]);
             }
         }

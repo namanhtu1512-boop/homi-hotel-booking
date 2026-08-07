@@ -41,6 +41,8 @@
                                                 data-price="{{ (float) $type->price_per_night }}"
                                                 data-price-today="{{ (float) ($todayPrices[$type->id] ?? $type->price_per_night) }}"
                                                 data-capacity="{{ (int) $type->capacity }}"
+                                                data-category="{{ $type->category }}"
+                                                data-extra-bed="{{ $type->supportsExtraBed() ? '1' : '0' }}"
                                                 @selected((string) ($row['room_type_id'] ?? '') === (string) $type->id)>
                                             {{ $type->name }} — {{ number_format($type->price_per_night, 0, ',', '.') }}đ/đêm ({{ $type->capacity }} khách/phòng)
                                         </option>
@@ -67,6 +69,12 @@
 
                                 <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
                             </div>
+
+                            <label class="item-extra-bed-wrap mt-2 hidden items-center gap-1.5 text-xs font-bold">
+                                <input type="checkbox" name="items[{{ $i }}][extra_bed]" class="item-extra-bed" value="1"
+                                       @checked(! empty($row['extra_bed'])) onchange="updateEstimate()">
+                                Cần giường phụ? <span class="font-normal text-slate-400">(chỉ dành cho trẻ em 6-11 tuổi vượt sức chứa, không dùng cho người lớn, tối đa 1 giường/phòng, phụ thu {{ number_format($extraBedSurchargePerNight, 0, ',', '.') }}đ/giường/đêm)</span>
+                            </label>
 
                             <div class="item-capacity-warning mt-1.5 hidden text-xs font-semibold text-red-500"></div>
                         </div>
@@ -187,8 +195,8 @@
             <span class="section-kicker">Lưu ý</span>
             <ul class="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 <li>Bạn có thể chọn <strong>nhiều loại phòng</strong> trong cùng một đơn (dùng chung ngày nhận/trả).</li>
-                <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em/sơ sinh riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng). Người lớn ≥12 tuổi, trẻ em 6-11 tuổi (tối đa 2 trẻ/phòng), trẻ sơ sinh 0-5 tuổi ở miễn phí và không tính vào sức chứa.</li>
-                <li>Đơn đặt phòng được <strong>xác nhận ngay</strong> sau khi đặt — bạn có thể thanh toán luôn mà không cần chờ admin duyệt.</li>
+                <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em/sơ sinh riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng). Người lớn ≥12 tuổi <strong>luôn bị giới hạn đúng bằng sức chứa, không có ngoại lệ</strong>; trẻ em 6-11 tuổi (tối đa 2 trẻ/phòng) nếu vượt giới hạn có thể bù thêm 1 trẻ bằng <strong>giường phụ</strong> có phụ thu (áp dụng phòng Superior/Deluxe/Suite/Family — riêng Family, người lớn tối đa 4 và trẻ em tối đa 2-3 (nếu có giường phụ) được tính <strong>độc lập</strong> với nhau, không cộng chung vào 1 sức chứa như các loại phòng khác); trẻ sơ sinh 0-5 tuổi ở miễn phí và không tính vào sức chứa.</li>
+                <li>Đơn đặt phòng được <strong>xác nhận ngay</strong> sau khi đặt — bạn có thể thanh toán luôn mà không cần chờ admin duyệt (trừ khi đơn cần giường phụ nhưng tạm hết, khi đó đơn sẽ ở trạng thái "chờ tư vấn" để bạn chọn phương án khác).</li>
                 <li>Mã giảm giá (nếu có) sẽ được trừ trực tiếp vào tổng tiền đơn.</li>
                 <li>Dịch vụ thêm (ăn sáng, giặt ủi...) được đặt <strong>sau khi nhận phòng</strong>, không chọn ở bước này.</li>
                 <li>Để hủy đơn, vào <strong>Đơn của tôi</strong> và chọn Hủy đơn trước ngày nhận phòng.</li>
@@ -206,7 +214,9 @@
                     <option value="{{ $type->id }}"
                             data-price="{{ (float) $type->price_per_night }}"
                             data-price-today="{{ (float) ($todayPrices[$type->id] ?? $type->price_per_night) }}"
-                            data-capacity="{{ (int) $type->capacity }}">
+                            data-capacity="{{ (int) $type->capacity }}"
+                            data-category="{{ $type->category }}"
+                            data-extra-bed="{{ $type->supportsExtraBed() ? '1' : '0' }}">
                         {{ $type->name }} — {{ number_format($type->price_per_night, 0, ',', '.') }}đ/đêm ({{ $type->capacity }} khách/phòng)
                     </option>
                 @endforeach
@@ -232,6 +242,11 @@
             <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
         </div>
 
+        <label class="item-extra-bed-wrap mt-2 hidden items-center gap-1.5 text-xs font-bold">
+            <input type="checkbox" name="items[__INDEX__][extra_bed]" class="item-extra-bed" value="1" onchange="updateEstimate()">
+            Cần giường phụ? <span class="font-normal text-slate-400">(chỉ dành cho trẻ em 6-11 tuổi vượt sức chứa, không dùng cho người lớn, tối đa 1 giường/phòng, phụ thu {{ number_format($extraBedSurchargePerNight, 0, ',', '.') }}đ/giường/đêm)</span>
+        </label>
+
         <div class="item-capacity-warning mt-1.5 hidden text-xs font-semibold text-red-500"></div>
     </div>
 </template>
@@ -247,6 +262,7 @@
     const boxEl      = document.getElementById('price-estimate');
     const totalEl    = document.getElementById('price-total');
     const detailEl   = document.getElementById('price-detail');
+    const extraBedSurchargePerNight = {{ (int) $extraBedSurchargePerNight }};
 
     function fmt(n) { return Math.round(n).toLocaleString('vi-VN') + 'đ'; }
 
@@ -285,27 +301,90 @@
             // khi kỳ nghỉ vắt qua nhiều mức giá/cuối tuần khác nhau.
             const price    = opt ? (parseFloat(opt.dataset.priceToday ?? opt.dataset.price) || 0) : 0;
             const capacityPerRoom = opt ? (parseInt(opt.dataset.capacity) || 0) : 0;
+            const supportsExtraBed = opt ? (opt.dataset.extraBed === '1') : false;
+            const isFamily = opt ? (opt.dataset.category === 'family') : false;
             const capacity = capacityPerRoom * qty;
             const guests   = adults + children; // trẻ sơ sinh (infants) không tính vào sức chứa
             const maxChildren = 2 * qty;
+            // Family: người lớn/trẻ em xét RIÊNG, giường phụ chỉ tăng giới hạn
+            // trẻ em — khác Superior/Deluxe/Suite (giường phụ bù TỔNG khách
+            // vượt sức chứa). Khớp BookingService::extraBedsNeeded().
+            const excess = isFamily ? (children - maxChildren) : (guests - capacity);
 
             total += price * nights * qty;
 
-            const hintEl = row.querySelector('.item-capacity-hint');
-            const warnEl = row.querySelector('.item-capacity-warning');
+            const hintEl        = row.querySelector('.item-capacity-hint');
+            const warnEl        = row.querySelector('.item-capacity-warning');
+            const extraBedWrap  = row.querySelector('.item-extra-bed-wrap');
+            const extraBedInput = row.querySelector('.item-extra-bed');
 
-            if (capacityPerRoom > 0) {
+            if (isFamily) {
+                hintEl.textContent = `(tối đa ${capacity} người lớn, tối đa ${maxChildren} trẻ em/phòng cho ${qty} phòng này, chưa kể sơ sinh)`;
+            } else if (capacityPerRoom > 0) {
                 hintEl.textContent = `(tối đa ${capacity} khách cho ${qty} phòng này, chưa kể sơ sinh)`;
             } else {
                 hintEl.textContent = '';
             }
 
-            if (children > maxChildren) {
+            // Chỉ Superior/Deluxe/Suite (RoomType::supportsExtraBed()) mới có
+            // tùy chọn giường phụ — ẩn hẳn checkbox + bỏ tick nếu đổi sang loại
+            // phòng khác, tránh gửi extra_bed=1 "mồ côi" không hợp lệ với
+            // BookingService::validateGuestCapacity().
+            if (extraBedWrap) {
+                if (supportsExtraBed) {
+                    extraBedWrap.classList.remove('hidden');
+                    extraBedWrap.classList.add('flex');
+                } else {
+                    extraBedWrap.classList.add('hidden');
+                    extraBedWrap.classList.remove('flex');
+                    if (extraBedInput) extraBedInput.checked = false;
+                }
+            }
+
+            const extraBedChecked = !!(extraBedInput && extraBedInput.checked);
+            // Người lớn LUÔN bị chặn cứng theo capacity — giường phụ không
+            // bao giờ bù được cho người lớn, chỉ dành cho trẻ em (khớp
+            // BookingService::validateGuestCapacity()).
+            const adultsWithinCapacity = capacityPerRoom === 0 || adults <= capacity;
+
+            // Chỉ cộng phụ thu vào ước tính khi đủ điều kiện bù qua giường phụ
+            // (đúng điều kiện server dùng để không chặn ở validateGuestCapacity())
+            // — số giường THẬT SỰ được cấp vẫn do BookingService::create() quyết
+            // theo tồn kho lúc đặt, đây chỉ là ước tính hiển thị trước.
+            if (supportsExtraBed && extraBedChecked && adultsWithinCapacity && excess <= qty && excess > 0) {
+                total += extraBedSurchargePerNight * qty * nights;
+            }
+
+            if (capacityPerRoom > 0 && adults > capacity) {
+                warnEl.textContent = `Vượt số người lớn: tối đa ${capacity} người lớn cho ${qty} phòng này. Giường phụ chỉ dành cho trẻ em (6-11 tuổi), không dùng để thêm người lớn.`;
+                warnEl.classList.remove('hidden');
+            } else if (isFamily) {
+                // Family: trẻ em vượt giới hạn cơ bản (2/phòng) bù được bằng
+                // giường phụ (tăng lên tối đa 3/phòng), độc lập với người lớn.
+                if (children > maxChildren) {
+                    if (extraBedChecked && excess <= qty) {
+                        warnEl.classList.add('hidden');
+                    } else {
+                        warnEl.textContent = `Vượt giới hạn trẻ em: tối đa ${maxChildren} trẻ em (6-11 tuổi)/phòng × ${qty} phòng. Tick "Cần giường phụ" ở trên để tăng lên tối đa ${maxChildren + qty} trẻ em.`;
+                        warnEl.classList.remove('hidden');
+                    }
+                } else {
+                    warnEl.classList.add('hidden');
+                }
+            } else if (children > maxChildren) {
                 warnEl.textContent = `Vượt giới hạn trẻ em: tối đa 2 trẻ em (6-11 tuổi)/phòng × ${qty} phòng = ${maxChildren}.`;
                 warnEl.classList.remove('hidden');
             } else if (capacityPerRoom > 0 && guests > capacity) {
-                warnEl.textContent = `Vượt sức chứa: ${guests} khách > tối đa ${capacity} khách của loại phòng này.`;
-                warnEl.classList.remove('hidden');
+                if (supportsExtraBed && extraBedChecked && excess <= qty) {
+                    // Đủ điều kiện bù qua giường phụ — không chặn ở đây, server
+                    // sẽ tự quyết xác nhận ngay hay chuyển "chờ tư vấn" tùy tồn kho.
+                    warnEl.classList.add('hidden');
+                } else {
+                    warnEl.textContent = supportsExtraBed
+                        ? `Vượt sức chứa: ${guests} khách > tối đa ${capacity} khách của loại phòng này. Tick "Cần giường phụ" ở trên để bù phần trẻ em vượt.`
+                        : `Vượt sức chứa: ${guests} khách > tối đa ${capacity} khách của loại phòng này.`;
+                    warnEl.classList.remove('hidden');
+                }
             } else {
                 warnEl.classList.add('hidden');
             }

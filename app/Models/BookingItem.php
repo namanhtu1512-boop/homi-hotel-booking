@@ -16,21 +16,25 @@ class BookingItem extends Model
         'adults',
         'children',
         'infants',
+        'extra_beds',
         'price_per_night',
         'nights',
         'subtotal',
         'child_surcharge',
+        'extra_bed_surcharge',
         'price_breakdown',
     ];
 
     protected $casts = [
-        'adults'          => 'integer',
-        'children'        => 'integer',
-        'infants'         => 'integer',
-        'price_per_night' => 'decimal:2',
-        'subtotal'        => 'decimal:2',
-        'child_surcharge' => 'decimal:2',
-        'price_breakdown' => 'array',
+        'adults'               => 'integer',
+        'children'             => 'integer',
+        'infants'              => 'integer',
+        'extra_beds'           => 'integer',
+        'price_per_night'      => 'decimal:2',
+        'subtotal'             => 'decimal:2',
+        'child_surcharge'      => 'decimal:2',
+        'extra_bed_surcharge'  => 'decimal:2',
+        'price_breakdown'      => 'array',
     ];
 
     public function booking()
@@ -46,6 +50,11 @@ class BookingItem extends Model
     public function bookingItemRooms()
     {
         return $this->hasMany(BookingItemRoom::class);
+    }
+
+    public function extraBedRequests()
+    {
+        return $this->hasMany(ExtraBedRequest::class);
     }
 
     /**
