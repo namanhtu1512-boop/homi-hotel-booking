@@ -71,6 +71,8 @@
             </p>
         </div>
 
+        @include('partials._room-amenities', ['roomType' => $roomType, 'amenityTiers' => $amenityTiers])
+
         @if ($hotel->amenities->isNotEmpty())
             <div class="card">
                 @include('partials._amenities-list', ['amenities' => $hotel->amenities, 'title' => 'Tiện nghi khách sạn'])

@@ -475,11 +475,18 @@ class BookingService
             return [$txnRef, $outstanding];
         });
 
+        // route() dùng root URL của request HIỆN TẠI (không phải APP_URL tĩnh
+        // trong .env) — khách vào bằng host nào (localhost, 127.0.0.1, LAN
+        // IP...) thì VNPay sẽ redirect về đúng host đó, tránh mất session
+        // cookie (cookie theo host) khi quay lại từ VNPay và bị đá ra trang
+        // đăng nhập dù thanh toán đã thành công (IPN vẫn ghi nhận đúng, chỉ
+        // riêng lượt redirect trình duyệt bị lệch host).
         $paymentUrl = $this->vnPayService->buildPaymentUrl(
             $txnRef,
             $outstanding,
             'Thanh toan booking ' . $booking->booking_code,
             $ipAddress,
+            route('payment.vnpay.return'),
         );
 
         return ['booking' => $booking, 'payment_url' => $paymentUrl];

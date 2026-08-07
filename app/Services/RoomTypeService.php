@@ -186,8 +186,47 @@ class RoomTypeService
     public function findActive(int $id): RoomType
     {
         return RoomType::where('status', 'active')
-            ->with('images')
+            ->with(['images', 'amenities'])
             ->findOrFail($id);
+    }
+
+    /**
+     * Gắn "độ hiếm" cho từng tiện nghi của $roomType, dựa trên số loại phòng
+     * active khác cũng sở hữu tiện nghi đó — không hard-code theo tên phòng,
+     * nên vẫn đúng nếu dữ liệu tiện nghi thay đổi sau này:
+     *   - exclusive: chỉ mình phòng này có
+     *   - premium:   một số phòng có, không phải tất cả
+     *   - standard:  phòng nào cũng có (tiện nghi cơ bản)
+     * Trả về collection ['amenity' => Amenity, 'tier' => string], tier hiếm
+     * nhất xếp lên đầu.
+     */
+    public function amenityTiers(RoomType $roomType): \Illuminate\Support\Collection
+    {
+        $totalActive = RoomType::active()->count();
+
+        $roomCounts = DB::table('room_type_amenity')
+            ->join('room_types', 'room_types.id', '=', 'room_type_amenity.room_type_id')
+            ->where('room_types.status', 'active')
+            ->groupBy('amenity_id')
+            ->selectRaw('amenity_id, COUNT(DISTINCT room_type_amenity.room_type_id) as room_count')
+            ->pluck('room_count', 'amenity_id');
+
+        $tierOrder = ['exclusive' => 0, 'premium' => 1, 'standard' => 2];
+
+        return $roomType->amenities
+            ->map(function ($amenity) use ($roomCounts, $totalActive) {
+                $count = (int) ($roomCounts[$amenity->id] ?? 1);
+
+                $tier = match (true) {
+                    $count <= 1 => 'exclusive',
+                    $count < $totalActive => 'premium',
+                    default => 'standard',
+                };
+
+                return ['amenity' => $amenity, 'tier' => $tier];
+            })
+            ->sortBy(fn ($row) => $tierOrder[$row['tier']])
+            ->values();
     }
 
     public function create(array $data): RoomType

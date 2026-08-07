@@ -45,7 +45,6 @@ return [
         'hash_secret' => env('VNPAY_HASH_SECRET'),
         'pay_url'     => env('VNPAY_PAY_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
         'api_url'     => env('VNPAY_API_URL', 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction'),
-        'return_url'  => env('VNPAY_RETURN_URL'),
     ],
 
     // Tài khoản nhận chuyển khoản ngân hàng — hiển thị QR VietQR + số tài
