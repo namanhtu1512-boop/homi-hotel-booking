@@ -13,6 +13,7 @@ class RoomType extends Model
     protected $fillable = [
         'name',
         'slug',
+        'category',
         'description',
         'price_per_night',
         'capacity',
@@ -22,6 +23,21 @@ class RoomType extends Model
         'status',
         'is_featured',
     ];
+
+    /**
+     * Category có nhánh "giường phụ" trong nghiệp vụ — Standard giới hạn cứng
+     * người lớn, không có giường phụ. Ý nghĩa giường phụ khác nhau giữa
+     * Superior/Deluxe/Suite (bù phần khách vượt TỔNG sức chứa phòng) và
+     * Family (tăng thêm 1 trẻ em NGOÀI giới hạn 2 trẻ/phòng cơ bản, không
+     * đụng tới sức chứa người lớn) — xem
+     * BookingService::extraBedsNeeded()/validateGuestCapacity().
+     */
+    private const EXTRA_BED_CATEGORIES = ['superior', 'deluxe', 'suite', 'family'];
+
+    public function supportsExtraBed(): bool
+    {
+        return in_array($this->category, self::EXTRA_BED_CATEGORIES, true);
+    }
 
     protected $casts = [
         'price_per_night' => 'decimal:2',

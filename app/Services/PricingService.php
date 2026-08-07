@@ -15,10 +15,10 @@ class PricingService
     /**
      * Tính giá 1 dòng đặt phòng theo từng đêm: giá gốc -> điều chỉnh theo
      * mùa (nếu có rate áp dụng đêm đó) -> phụ thu cuối tuần (thứ Sáu/Bảy,
-     * tính trên giá ĐÃ điều chỉnh mùa). Phụ thu trẻ em tính riêng theo
-     * hotel_info (toàn khách sạn, không theo từng đêm/loại phòng).
+     * tính trên giá ĐÃ điều chỉnh mùa). Phụ thu trẻ em/giường phụ tính riêng
+     * theo hotel_info (toàn khách sạn, không theo từng đêm/loại phòng).
      */
-    public function calculate(RoomType $roomType, string $checkIn, string $checkOut, int $quantity, int $children = 0): array
+    public function calculate(RoomType $roomType, string $checkIn, string $checkOut, int $quantity, int $children = 0, int $extraBeds = 0): array
     {
         $in  = Carbon::parse($checkIn);
         $out = Carbon::parse($checkOut);
@@ -69,15 +69,17 @@ class PricingService
 
         $roomSubtotal  *= $quantity;
         $childSurcharge = (float) $hotel->child_surcharge_per_night * $children * $nights;
+        $extraBedSurcharge = (float) $hotel->extra_bed_surcharge_per_night * $extraBeds * $nights;
 
         return [
-            'nights'            => $nights,
-            'unit_price'        => (float) $roomType->price_per_night,
-            'quantity'          => $quantity,
-            'room_subtotal'     => $roomSubtotal,
-            'child_surcharge'   => $childSurcharge,
-            'total_price'       => $roomSubtotal + $childSurcharge,
-            'nightly_breakdown' => $breakdown,
+            'nights'              => $nights,
+            'unit_price'          => (float) $roomType->price_per_night,
+            'quantity'            => $quantity,
+            'room_subtotal'       => $roomSubtotal,
+            'child_surcharge'     => $childSurcharge,
+            'extra_bed_surcharge' => $extraBedSurcharge,
+            'total_price'         => $roomSubtotal + $childSurcharge + $extraBedSurcharge,
+            'nightly_breakdown'   => $breakdown,
         ];
     }
 

@@ -14,6 +14,7 @@ class UpdateRoomTypeRequest extends BaseFormRequest
     {
         return [
             'name'            => ['sometimes', 'string', 'max:255'],
+            'category'        => ['nullable', 'in:standard,superior,deluxe,family,suite'],
             'description'     => ['nullable', 'string', 'max:5000'],
             'price_per_night' => ['sometimes', 'numeric', 'min:0'],
             'capacity'        => ['sometimes', 'integer', 'min:1', 'max:255'],

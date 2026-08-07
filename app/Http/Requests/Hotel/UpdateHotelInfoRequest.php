@@ -24,6 +24,8 @@ class UpdateHotelInfoRequest extends BaseFormRequest
             'child_surcharge_per_night'       => ['nullable', 'numeric', 'min:0'],
             'early_checkin_surcharge_percent' => ['nullable', 'numeric', 'between:0,100'],
             'cancellation_hours_before'       => ['nullable', 'integer', 'min:0', 'max:720'],
+            'extra_beds_total'                => ['nullable', 'integer', 'min:0', 'max:100'],
+            'extra_bed_surcharge_per_night'   => ['nullable', 'integer', 'min:0'],
         ];
     }
 
@@ -45,6 +47,8 @@ class UpdateHotelInfoRequest extends BaseFormRequest
             'child_surcharge_per_night'       => 'phụ thu trẻ em/đêm',
             'early_checkin_surcharge_percent' => 'phụ thu nhận phòng sớm (%)',
             'cancellation_hours_before'       => 'số giờ phải hủy trước',
+            'extra_beds_total'                => 'tổng số giường phụ',
+            'extra_bed_surcharge_per_night'   => 'phụ thu giường phụ/đêm',
         ];
     }
 }

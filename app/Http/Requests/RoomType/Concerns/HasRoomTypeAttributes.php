@@ -12,6 +12,7 @@ trait HasRoomTypeAttributes
     {
         return [
             'name'            => 'tên loại phòng',
+            'category'        => 'nhóm loại phòng',
             'description'     => 'mô tả',
             'price_per_night' => 'giá theo đêm',
             'capacity'        => 'sức chứa',

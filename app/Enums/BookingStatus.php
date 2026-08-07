@@ -4,24 +4,26 @@ namespace App\Enums;
 
 enum BookingStatus: string
 {
-    case PENDING         = 'pending';
-    case PENDING_DEPOSIT = 'pending_deposit';
-    case CONFIRMED       = 'confirmed';
-    case CANCELLED       = 'cancelled';
-    case CHECKED_IN      = 'checked_in';
-    case CHECKED_OUT     = 'checked_out';
-    case COMPLETED       = 'completed';
+    case PENDING              = 'pending';
+    case PENDING_DEPOSIT      = 'pending_deposit';
+    case PENDING_CONSULTATION = 'pending_consultation';
+    case CONFIRMED            = 'confirmed';
+    case CANCELLED            = 'cancelled';
+    case CHECKED_IN           = 'checked_in';
+    case CHECKED_OUT          = 'checked_out';
+    case COMPLETED            = 'completed';
 
     public function label(): string
     {
         return match($this) {
-            self::PENDING         => 'Chờ xác nhận',
-            self::PENDING_DEPOSIT => 'Chờ đặt cọc/thanh toán',
-            self::CONFIRMED       => 'Đã xác nhận',
-            self::CANCELLED       => 'Đã hủy',
-            self::CHECKED_IN      => 'Đang lưu trú',
-            self::CHECKED_OUT     => 'Đã trả phòng',
-            self::COMPLETED       => 'Hoàn thành',
+            self::PENDING              => 'Chờ xác nhận',
+            self::PENDING_DEPOSIT      => 'Chờ đặt cọc/thanh toán',
+            self::PENDING_CONSULTATION => 'Chờ tư vấn (giường phụ)',
+            self::CONFIRMED            => 'Đã xác nhận',
+            self::CANCELLED            => 'Đã hủy',
+            self::CHECKED_IN           => 'Đang lưu trú',
+            self::CHECKED_OUT          => 'Đã trả phòng',
+            self::COMPLETED            => 'Hoàn thành',
         };
     }
 
@@ -31,7 +33,7 @@ enum BookingStatus: string
     public function badgeClass(): string
     {
         return match($this) {
-            self::PENDING, self::PENDING_DEPOSIT => 'badge-orange',
+            self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION => 'badge-orange',
             self::CONFIRMED, self::CHECKED_IN => 'badge-blue',
             self::CHECKED_OUT, self::COMPLETED => 'badge-green',
             self::CANCELLED   => 'badge-red',
@@ -40,16 +42,18 @@ enum BookingStatus: string
 
     /**
      * Các trạng thái đang "giữ phòng" — dùng để tính availability.
-     * pending + pending_deposit + confirmed + checked_in đều chiếm slot
-     * phòng — pending_deposit vẫn giữ chỗ trong lúc chờ khách cọc/thanh
-     * toán (xem BookingService::DEPOSIT_HOLD_MINUTES), chỉ nhả ra khi
-     * chuyển sang confirmed hoặc bị tự hủy (cancelled).
+     * pending + pending_deposit + pending_consultation + confirmed +
+     * checked_in đều chiếm slot phòng — pending_consultation vẫn giữ PHÒNG
+     * dù giường phụ chưa được cấp (xem ExtraBedInventoryService, cột
+     * booking_items.extra_beds giữ 0 cho tới khi resolve), chỉ nhả ra khi
+     * chuyển sang confirmed hoặc bị hủy.
      */
     public static function holdingStatuses(): array
     {
         return [
             self::PENDING->value,
             self::PENDING_DEPOSIT->value,
+            self::PENDING_CONSULTATION->value,
             self::CONFIRMED->value,
             self::CHECKED_IN->value,
         ];
@@ -57,7 +61,7 @@ enum BookingStatus: string
 
     public function canCancelByCustomer(): bool
     {
-        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::CONFIRMED], true);
+        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::CONFIRMED], true);
     }
 
     public function canCancelByAdmin(): bool
@@ -65,7 +69,7 @@ enum BookingStatus: string
         // Bao gồm cả CHECKED_IN — khách đã nhận phòng nhưng cần hủy giữa
         // chừng (rời sớm, sự cố...) vẫn phải hủy được, kèm hoàn tiền nếu đã
         // thanh toán đủ (xem BookingService::cancelByAdmin()).
-        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::CONFIRMED, self::CHECKED_IN], true);
+        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::CONFIRMED, self::CHECKED_IN], true);
     }
 
     public function canConfirm(): bool

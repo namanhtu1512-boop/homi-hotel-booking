@@ -96,6 +96,22 @@ class Booking extends Model
         return $this->hasMany(RoomChangeRequest::class);
     }
 
+    public function extraBedRequests()
+    {
+        return $this->hasMany(ExtraBedRequest::class);
+    }
+
+    /**
+     * Yêu cầu giường phụ đang chờ xử lý của đơn này (tối đa 1 tại 1 thời
+     * điểm — ExtraBedInventoryService::countAvailable() không tính booking
+     * đang pending_consultation vào pool nên không thể phát sinh yêu cầu thứ 2
+     * trong lúc yêu cầu đầu chưa resolve).
+     */
+    public function pendingExtraBedRequest(): ?ExtraBedRequest
+    {
+        return $this->extraBedRequests->firstWhere('status', 'pending');
+    }
+
     public function earlyCheckinRequests()
     {
         return $this->hasMany(EarlyCheckinRequest::class);

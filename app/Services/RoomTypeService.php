@@ -236,6 +236,7 @@ class RoomTypeService
         $roomType = RoomType::create([
             'name'           => $data['name'],
             'slug'           => $this->uniqueSlug($data['name']),
+            'category'       => $data['category'] ?? null,
             'description'    => $data['description'] ?? null,
             'price_per_night' => $data['price_per_night'],
             'capacity'        => $data['capacity'],
@@ -262,7 +263,7 @@ class RoomTypeService
         // array_intersect_key (không phải array_filter loại bỏ null) — để admin
         // xóa field tùy chọn (description/bed_type/area) về rỗng thì giá trị
         // null vẫn được ghi xuống DB thay vì bị bỏ qua.
-        $updatable = ['name', 'description', 'price_per_night', 'capacity', 'bed_type', 'area', 'total_rooms', 'is_featured'];
+        $updatable = ['name', 'category', 'description', 'price_per_night', 'capacity', 'bed_type', 'area', 'total_rooms', 'is_featured'];
         $fields = array_intersect_key($data, array_flip($updatable));
 
         if (isset($data['name'])) {

@@ -98,6 +98,16 @@
                  trong code (Booking::cancellationFeePercent()), không còn cấu hình
                  qua admin — ẩn field khỏi form để tránh admin chỉnh mà không thấy
                  tác dụng gì. Cột DB vẫn giữ nguyên, không xóa dữ liệu. --}}
+            <div class="form-group">
+                <label for="extra_beds_total">Tổng số giường phụ (toàn khách sạn)</label>
+                <input id="extra_beds_total" type="number" min="0" name="extra_beds_total" value="{{ old('extra_beds_total', $hotel->extra_beds_total) }}">
+                <p class="section-desc">Dùng chung cho mọi phòng Superior/Deluxe/Suite trong cùng khoảng ngày — hết thì đơn mới chuyển "chờ tư vấn" thay vì bị chặn.</p>
+            </div>
+            <div class="form-group">
+                <label for="extra_bed_surcharge_per_night">Phụ thu giường phụ (VNĐ/giường/đêm)</label>
+                <input id="extra_bed_surcharge_per_night" type="number" min="0" name="extra_bed_surcharge_per_night" value="{{ old('extra_bed_surcharge_per_night', $hotel->extra_bed_surcharge_per_night) }}">
+                <p class="section-desc">Cộng thẳng vào tổng tiền đơn khi giường phụ được cấp lúc đặt phòng, tính theo đúng số đêm ở.</p>
+            </div>
         </div>
 
         <div class="form-group">

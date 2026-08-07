@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Services\AvailabilityService;
 use App\Services\BookingService;
+use App\Services\HotelInfoService;
 use App\Services\PricingService;
 use App\Services\RoomHoldService;
 use App\Services\RoomTypeService;
@@ -22,6 +23,7 @@ class BookingController extends Controller
         private readonly AvailabilityService $availabilityService,
         private readonly RoomHoldService $roomHoldService,
         private readonly PricingService $pricingService,
+        private readonly HotelInfoService $hotelInfoService,
     ) {}
 
     public function create(Request $request): View
@@ -77,9 +79,13 @@ class BookingController extends Controller
                     // Tính giá thật (gồm điều chỉnh theo mùa, tăng lẫn giảm) để
                     // hiển thị ngay khi khách kiểm tra phòng trống — tránh giá
                     // tạm tính phía JS (chỉ dựa trên giá gốc) làm khách hiểu nhầm.
+                    // extraBeds chỉ là ƯỚC TÍNH hiển thị (1/phòng nếu tick) — số
+                    // thật sự được CẤP do BookingService::create() quyết theo tồn
+                    // kho lúc đặt, có thể khác nếu giường phụ hết ngay lúc đó.
+                    $extraBeds = (! empty($item['extra_bed']) && $roomType?->supportsExtraBed()) ? $quantity : 0;
                     $pricing = $roomType
                         ? $this->pricingService->calculate(
-                            $roomType, $checkIn, $checkOut, $quantity, max(0, (int) ($item['children'] ?? 0))
+                            $roomType, $checkIn, $checkOut, $quantity, max(0, (int) ($item['children'] ?? 0)), $extraBeds
                         )
                         : null;
 
@@ -105,13 +111,14 @@ class BookingController extends Controller
         }
 
         return view('customer.booking.create', [
-            'roomTypes'      => $roomTypes,
-            'items'          => $items,
-            'checkIn'        => $checkIn,
-            'checkOut'       => $checkOut,
-            'availabilities' => $availabilities,
-            'holdExpiresAt'  => $holdExpiresAt,
-            'todayPrices'    => $todayPrices,
+            'roomTypes'                 => $roomTypes,
+            'items'                     => $items,
+            'checkIn'                   => $checkIn,
+            'checkOut'                  => $checkOut,
+            'availabilities'            => $availabilities,
+            'holdExpiresAt'             => $holdExpiresAt,
+            'todayPrices'               => $todayPrices,
+            'extraBedSurchargePerNight' => (int) $this->hotelInfoService->current()->extra_bed_surcharge_per_night,
         ]);
     }
 
@@ -132,6 +139,7 @@ class BookingController extends Controller
                 'quantity'     => max(1, (int) ($item['quantity'] ?? 1)),
                 'adults'       => max(1, (int) ($item['adults'] ?? 1)),
                 'children'     => max(0, (int) ($item['children'] ?? 0)),
+                'extra_bed'    => ! empty($item['extra_bed']),
             ], $rawItems));
         }
 
@@ -140,6 +148,7 @@ class BookingController extends Controller
             'quantity'     => max(1, (int) $request->query('quantity', 1)),
             'adults'       => max(1, (int) $request->query('adults', 1)),
             'children'     => max(0, (int) $request->query('children', 0)),
+            'extra_bed'    => $request->boolean('extra_bed'),
         ]];
     }
 

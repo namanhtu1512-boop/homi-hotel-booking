@@ -1,0 +1,58 @@
+@extends('layouts.staff')
+
+@section('title', 'Yêu cầu giường phụ · Homi Staff')
+@section('page_title', 'Yêu cầu giường phụ')
+@section('page_subtitle', 'Đơn thiếu giường phụ lúc đặt phòng — chọn phương án thay khách hoặc chờ khách tự chọn.')
+
+@section('content')
+<div class="card">
+    <form method="GET" class="filter-bar">
+        <select name="status" onchange="this.form.submit()">
+            <option value="">Tất cả trạng thái</option>
+            <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>Chờ xử lý</option>
+            <option value="waitlisted" @selected(($filters['status'] ?? '') === 'waitlisted')>Đang chờ (waitlist)</option>
+            <option value="resolved" @selected(($filters['status'] ?? '') === 'resolved')>Đã xử lý</option>
+        </select>
+    </form>
+
+    @if ($requests->isEmpty())
+        <div class="empty-box">Chưa có yêu cầu giường phụ nào.</div>
+    @else
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Đơn</th>
+                        <th>Khách</th>
+                        <th>Loại phòng</th>
+                        <th>Thiếu</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($requests as $request)
+                        <tr>
+                            <td>{{ $request->booking->booking_code }}</td>
+                            <td>{{ $request->booking->customer_name }}</td>
+                            <td>{{ $request->bookingItem->roomType->name ?? '—' }}</td>
+                            <td>{{ $request->requested_extra_beds - $request->available_extra_beds }}</td>
+                            <td>
+                                @php
+                                    $statusBadge = ['pending' => 'badge-orange', 'waitlisted' => 'badge-blue', 'resolved' => 'badge-green'][$request->status] ?? 'badge-green';
+                                    $statusLabel = ['pending' => 'Chờ xử lý', 'waitlisted' => 'Waitlist', 'resolved' => 'Đã xử lý'][$request->status] ?? $request->status;
+                                @endphp
+                                <span class="badge {{ $statusBadge }}">{{ $statusLabel }}</span>
+                            </td>
+                            <td>
+                                <a href="{{ route('staff.extra-bed-requests.show', $request->id) }}" class="btn btn-outline btn-sm">Xem</a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 16px;">{{ $requests->links() }}</div>
+    @endif
+</div>
+@endsection

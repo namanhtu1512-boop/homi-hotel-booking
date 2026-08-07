@@ -91,7 +91,7 @@
                             <td class="text-center">{{ $item->quantity }}</td>
                             <td class="text-right">{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                             <td class="text-center">{{ $item->nights }}</td>
-                            <td class="text-right font-bold">{{ number_format($item->subtotal + $item->child_surcharge, 0, ',', '.') }}đ</td>
+                            <td class="text-right font-bold">{{ number_format($item->subtotal + $item->child_surcharge + $item->extra_bed_surcharge, 0, ',', '.') }}đ</td>
                         </tr>
                     @endforeach
                 </tbody>
