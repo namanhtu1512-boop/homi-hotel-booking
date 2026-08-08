@@ -27,6 +27,7 @@
                     <tr>
                         <th>Số phòng</th>
                         <th>Loại phòng</th>
+                        <th>Nhận / trả phòng</th>
                         <th>Trạng thái dọn phòng</th>
                         <th>Hành động</th>
                     </tr>
@@ -36,6 +37,22 @@
                         <tr>
                             <td>{{ $room->room_number }}</td>
                             <td>{{ $room->roomType->name ?? '—' }}</td>
+                            <td>
+                                @php $occ = $room->occupancy_status; @endphp
+                                @if ($occ['state'] === 'overdue')
+                                    <a href="{{ route('admin.bookings.show', $occ['booking']->id) }}" class="badge badge-red">
+                                        Quá giờ trả phòng! Nhận {{ $occ['since']->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m') }}
+                                    </a>
+                                @elseif ($occ['state'] === 'occupied')
+                                    <a href="{{ route('admin.bookings.show', $occ['booking']->id) }}" class="badge badge-blue">
+                                        Đang ở — nhận {{ $occ['since']->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m') }}
+                                    </a>
+                                @elseif ($occ['state'] === 'checked_out_today')
+                                    <span class="badge badge-green">Đã trả phòng {{ $occ['checked_out_at']->timezone('Asia/Ho_Chi_Minh')->format('H:i') }}</span>
+                                @else
+                                    <span class="badge badge-gray">Trống</span>
+                                @endif
+                            </td>
                             <td>
                                 <form method="POST" action="{{ route('admin.rooms.update-housekeeping', $room->id) }}" class="filter-bar">
                                     @csrf

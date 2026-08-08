@@ -20,3 +20,13 @@ Schedule::command('room-holds:cleanup')->everyFiveMinutes();
 // bù trễ IPN/return VNPay tới sau khi hold đã hết hạn (xem
 // BookingService::processBookingExpiry()).
 Schedule::command('bookings:cancel-expired-deposits')->everyMinute();
+
+// Phát hiện đơn quá giờ trả phòng chuẩn (hoặc giờ đã duyệt trả muộn) mà khách
+// CHƯA trả phòng — thông báo chuông cho admin/staff (xem
+// BookingService::flagOverdueCheckouts()). 15 phút là đủ: đây là cảnh báo vận
+// hành, không phải hành động tự động thu tiền/hủy đơn nên không cần sát phút
+// như bookings:cancel-expired-deposits ở trên; dedup qua
+// overdue_checkout_notified_at nên chạy lặp lại không spam thông báo trùng.
+// Màu đỏ trên trang "Phòng vật lý" KHÔNG phụ thuộc job này — luôn tính
+// real-time lúc tải trang (xem RoomService::list()).
+Schedule::command('bookings:flag-overdue-checkouts')->everyFifteenMinutes();

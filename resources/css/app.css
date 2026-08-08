@@ -94,6 +94,10 @@
         @apply bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300;
     }
 
+    .badge-gray {
+        @apply bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400;
+    }
+
     /* Nhãn mã khuyến mãi dạng "coupon" — viền đứt nét + font monospace để mã
        dễ đọc/dễ phân biệt với chữ thường xung quanh, khác với .badge dùng
        chung cho mọi trạng thái (đơn, phòng...). */

@@ -30,20 +30,22 @@ class Booking extends Model
         'status',
         'deposit_expires_at',
         'expired_pending_check_at',
+        'overdue_checkout_notified_at',
         'note',
     ];
 
     protected $casts = [
-        'check_in'                  => 'date',
-        'check_out'                 => 'date',
-        'adults'                    => 'integer',
-        'children'                  => 'integer',
-        'infants'                   => 'integer',
-        'total_amount'              => 'decimal:2',
-        'discount_amount'           => 'integer',
-        'status'                    => BookingStatus::class,
-        'deposit_expires_at'        => 'datetime',
-        'expired_pending_check_at'  => 'datetime',
+        'check_in'                      => 'date',
+        'check_out'                     => 'date',
+        'adults'                        => 'integer',
+        'children'                      => 'integer',
+        'infants'                       => 'integer',
+        'total_amount'                  => 'decimal:2',
+        'discount_amount'               => 'integer',
+        'status'                        => BookingStatus::class,
+        'deposit_expires_at'            => 'datetime',
+        'expired_pending_check_at'      => 'datetime',
+        'overdue_checkout_notified_at'  => 'datetime',
     ];
 
     public function user()
@@ -327,6 +329,33 @@ class Booking extends Model
     public function isCheckOutDateToday(): bool
     {
         return self::todayForCheckoutComparison()->isSameDay($this->check_out);
+    }
+
+    /**
+     * Hạn chót trả phòng thực tế của đơn: giờ chuẩn `hotel_info.check_out_time`
+     * (mặc định 12:00) vào ĐÚNG ngày check_out đã đặt — trừ khi có 1
+     * LateCheckoutRequest đã được duyệt thì lấy giờ đã duyệt thay thế (khách
+     * xin phép trước thì không tính là "trễ" nữa, xem isOverdueCheckout()).
+     */
+    public function checkoutDeadline(): \Carbon\Carbon
+    {
+        $standardTime = substr(HotelInfo::instance()->check_out_time ?? '12:00:00', 0, 5);
+
+        $approved = $this->lateCheckoutRequests()->where('status', 'approved')->latest('handled_at')->first();
+        $time = $approved ? substr($approved->requested_checkout_time, 0, 5) : $standardTime;
+
+        return \Carbon\Carbon::parse($this->check_out->toDateString() . ' ' . $time, 'Asia/Ho_Chi_Minh');
+    }
+
+    /**
+     * Đang lưu trú (CHECKED_IN) mà đã quá hạn trả phòng (xem checkoutDeadline())
+     * mà khách vẫn chưa trả phòng — dùng để cảnh báo "trả phòng trễ giờ" ở
+     * trang Phòng vật lý (đổi đỏ) và cron BookingService::flagOverdueCheckouts().
+     */
+    public function isOverdueCheckout(): bool
+    {
+        return $this->status === BookingStatus::CHECKED_IN
+            && now('Asia/Ho_Chi_Minh')->gt($this->checkoutDeadline());
     }
 
     /**

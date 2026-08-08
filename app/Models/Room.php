@@ -26,6 +26,24 @@ class Room extends Model
         return $this->hasMany(BookingItemRoom::class);
     }
 
+    /**
+     * Lượt lưu trú đang diễn ra (đã nhận phòng, chưa trả) — dùng cho cột
+     * "Nhận / trả phòng" ở trang Phòng vật lý (xem RoomService::list()).
+     */
+    public function activeStay()
+    {
+        return $this->hasOne(BookingItemRoom::class)->whereNull('checked_out_at')->latestOfMany('checked_in_at');
+    }
+
+    /**
+     * Lượt lưu trú gần nhất (kể cả đã trả phòng) — dùng để hiển thị "Đã trả
+     * phòng lúc..." khi phòng không còn ai ở nhưng vừa trả phòng trong hôm nay.
+     */
+    public function lastStay()
+    {
+        return $this->hasOne(BookingItemRoom::class)->latestOfMany('checked_in_at');
+    }
+
     public function scopeHousekeeping($query, string $status)
     {
         return $query->where('housekeeping_status', $status);
