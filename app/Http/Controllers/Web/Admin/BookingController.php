@@ -11,6 +11,7 @@ use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
+use App\Services\BookingTimelineService;
 use App\Services\RoomService;
 use App\Services\ServiceService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,7 @@ class BookingController extends Controller
         private readonly AuditLogService $auditLog,
         private readonly RoomService $roomService,
         private readonly ServiceService $serviceService,
+        private readonly BookingTimelineService $timelineService,
     ) {}
 
     public function index(Request $request): View
@@ -53,9 +55,12 @@ class BookingController extends Controller
 
     public function show(int $id): View
     {
+        $booking = $this->bookingService->findForAdmin($id);
+
         return view('admin.bookings.show', [
-            'booking'        => $this->bookingService->findForAdmin($id),
+            'booking'        => $booking,
             'activeServices' => $this->serviceService->activePublic(),
+            'timeline'       => $this->timelineService->buildTimeline($booking),
         ]);
     }
 

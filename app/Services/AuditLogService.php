@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AuditLog;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
@@ -26,5 +27,32 @@ class AuditLogService
             'description'    => $description,
             'ip_address'     => Request::ip(),
         ]);
+    }
+
+    /**
+     * Trang "Nhật ký hệ thống" (chỉ admin) — liệt kê toàn bộ AuditLog,
+     * không riêng booking, lọc theo nhân viên/loại hành động/khoảng ngày.
+     */
+    public function listForAdmin(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    {
+        $query = AuditLog::with('user')->orderBy('created_at', 'desc');
+
+        if (! empty($filters['user_id'])) {
+            $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! empty($filters['action'])) {
+            $query->where('action', $filters['action']);
+        }
+
+        if (! empty($filters['created_from'])) {
+            $query->whereDate('created_at', '>=', $filters['created_from']);
+        }
+
+        if (! empty($filters['created_to'])) {
+            $query->whereDate('created_at', '<=', $filters['created_to']);
+        }
+
+        return $query->paginate($perPage)->appends($filters);
     }
 }

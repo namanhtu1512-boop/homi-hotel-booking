@@ -57,7 +57,7 @@ class EarlyCheckinRequestController extends Controller
 
         $this->earlyCheckinRequestService->reject($earlyCheckinRequest, $request->user(), $data['staff_note'] ?? null);
 
-        $this->auditLog->log('early_checkin_request.rejected', $earlyCheckinRequest->fresh(), "Từ chối yêu cầu nhận phòng sớm #{$id}.");
+        $this->auditLog->log('early_checkin_request.rejected', $earlyCheckinRequest->fresh()->booking, "Từ chối yêu cầu nhận phòng sớm #{$id}.");
 
         return redirect()->route('staff.early-checkin-requests.show', $id)->with('success', 'Đã từ chối yêu cầu nhận phòng sớm.');
     }
