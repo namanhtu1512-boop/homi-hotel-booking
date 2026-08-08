@@ -1059,7 +1059,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
+        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'auditLogs.user', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
             ->findOrFail($bookingId);
     }
 

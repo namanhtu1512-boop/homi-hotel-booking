@@ -88,6 +88,11 @@ class Booking extends Model
         return $this->hasMany(BookingStatusLog::class)->orderBy('created_at');
     }
 
+    public function auditLogs()
+    {
+        return $this->morphMany(AuditLog::class, 'auditable')->orderBy('created_at');
+    }
+
     public function reviews()
     {
         return $this->hasMany(Review::class);

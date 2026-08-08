@@ -21,6 +21,7 @@ use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
 use App\Http\Controllers\Web\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Web\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Web\PromotionController;
 use App\Http\Controllers\Web\NewsController;
 use App\Http\Controllers\Web\ContactController;
@@ -277,6 +278,10 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
     Route::prefix('payments')->name('payments.')->group(function () {
         Route::get('/',               [AdminPaymentController::class, 'index'])->name('index');
         Route::patch('/{id}/status',  [AdminPaymentController::class, 'updateStatus'])->name('update-status');
+    });
+
+    Route::prefix('audit-logs')->name('audit-logs.')->group(function () {
+        Route::get('/', [AdminAuditLogController::class, 'index'])->name('index');
     });
 
     Route::prefix('promotions')->name('promotions.')->group(function () {

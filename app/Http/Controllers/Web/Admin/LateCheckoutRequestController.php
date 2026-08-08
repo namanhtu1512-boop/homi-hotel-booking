@@ -57,7 +57,7 @@ class LateCheckoutRequestController extends Controller
 
         $this->lateCheckoutRequestService->reject($lateCheckoutRequest, $request->user(), $data['staff_note'] ?? null);
 
-        $this->auditLog->log('late_checkout_request.rejected', $lateCheckoutRequest->fresh(), "Từ chối yêu cầu trả phòng muộn #{$id}.");
+        $this->auditLog->log('late_checkout_request.rejected', $lateCheckoutRequest->fresh()->booking, "Từ chối yêu cầu trả phòng muộn #{$id}.");
 
         return redirect()->route('admin.late-checkout-requests.show', $id)->with('success', 'Đã từ chối yêu cầu trả phòng muộn.');
     }

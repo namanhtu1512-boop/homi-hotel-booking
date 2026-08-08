@@ -57,7 +57,7 @@ class RoomChangeRequestController extends Controller
 
         $this->roomChangeRequestService->reject($roomChangeRequest, $request->user(), $data['staff_note'] ?? null);
 
-        $this->auditLog->log('room_change_request.rejected', $roomChangeRequest->fresh(), "Từ chối yêu cầu đổi phòng #{$id}.");
+        $this->auditLog->log('room_change_request.rejected', $roomChangeRequest->fresh()->booking, "Từ chối yêu cầu đổi phòng #{$id}.");
 
         return redirect()->route('staff.room-change-requests.show', $id)->with('success', 'Đã từ chối yêu cầu đổi phòng.');
     }

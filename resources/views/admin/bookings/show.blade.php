@@ -387,61 +387,11 @@
         </div>
     </div>
 
-    @if ($booking->statusLogs->isNotEmpty())
-        <div class="section-kicker" style="margin-top: 22px;">Lịch sử trạng thái</div>
-        <div class="table-wrapper" style="margin-top: 10px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Thời gian</th>
-                        <th>Từ</th>
-                        <th>Đến</th>
-                        <th>Người thực hiện</th>
-                        <th>Ghi chú</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($booking->statusLogs as $log)
-                        <tr>
-                            <td>{{ $log->created_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</td>
-                            <td>{{ $log->from_status?->label() ?? '—' }}</td>
-                            <td>{{ $log->to_status->label() }}</td>
-                            <td>{{ $log->changedBy?->name ?? 'Khách hàng' }}</td>
-                            <td>{{ $log->note ?? '—' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
-
-    @if ($booking->payment && $booking->payment->statusLogs->isNotEmpty())
-        <div class="section-kicker" style="margin-top: 22px;">Lịch sử thanh toán</div>
-        <div class="table-wrapper" style="margin-top: 10px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Thời gian</th>
-                        <th>Từ</th>
-                        <th>Đến</th>
-                        <th>Người thực hiện</th>
-                        <th>Ghi chú</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($booking->payment->statusLogs as $log)
-                        <tr>
-                            <td>{{ $log->created_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</td>
-                            <td>{{ $log->from_status?->label() ?? '—' }}</td>
-                            <td>{{ $log->to_status->label() }}</td>
-                            <td>{{ $log->changedBy?->name ?? 'Khách hàng' }}</td>
-                            <td>{{ $log->note ?? '—' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
+    @include('bookings._activity-log', [
+        'booking'   => $booking,
+        'timeline'  => $timeline,
+        'chatRoute' => $booking->user_id ? route('admin.chat.show', $booking->user_id) : null,
+    ])
 </div>
 
 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
