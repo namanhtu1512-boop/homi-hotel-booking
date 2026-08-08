@@ -45,6 +45,24 @@ return [
         'hash_secret' => env('VNPAY_HASH_SECRET'),
         'pay_url'     => env('VNPAY_PAY_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
         'api_url'     => env('VNPAY_API_URL', 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction'),
+
+        // Thời gian TỐI ĐA (phút) 1 phiên thanh toán VNPay còn hiệu lực kể từ
+        // lúc khách bấm "Thanh toán VNPay" — nguồn DUY NHẤT cho giá trị này,
+        // không hardcode lặp lại ở nơi khác. BookingService::initiateVnpayPayment()
+        // luôn cấp cho VNPay mốc SỚM HƠN giữa "bây giờ + giá trị này" và "hạn
+        // giữ chỗ hiện tại của booking" — nên phiên VNPay không bao giờ vượt
+        // quá hold, và khách thấy đồng hồ VNPay là phần CÒN LẠI của đồng hồ
+        // giữ chỗ (liên tục, không reset). An toàn cho IPN tới trễ sau khi
+        // hold hết hạn nằm ở services.booking.expired_grace_minutes bên dưới.
+        'txn_expire_minutes' => (int) env('VNPAY_TXN_EXPIRE_MINUTES', 15),
+    ],
+
+    'booking' => [
+        // Sau khi hold giữ phòng (deposit_expires_at) hết hạn, booking KHÔNG
+        // bị hủy/nhả phòng ngay — chuyển sang BookingStatus::EXPIRED_PENDING_CHECK
+        // và giữ thêm khoảng đệm này để chờ IPN/return VNPay tới trễ, trước
+        // khi thực sự hủy hẳn (xem BookingService::processBookingExpiry()).
+        'expired_grace_minutes' => (int) env('BOOKING_EXPIRED_GRACE_MINUTES', 5),
     ],
 
     // Tài khoản nhận chuyển khoản ngân hàng — hiển thị QR VietQR + số tài

@@ -18,6 +18,7 @@ class Payment extends Model
         'amount_collected',
         'last_gateway_amount',
         'pending_gateway_amount',
+        'vnpay_session_expires_at',
         'deposit_amount',
         'surcharge_amount',
         'surcharge_note',
@@ -44,6 +45,7 @@ class Payment extends Model
         'paid_at'          => 'datetime',
         'deposit_paid_at'  => 'datetime',
         'gateway_paid_at'  => 'datetime',
+        'vnpay_session_expires_at' => 'datetime',
         'status'           => PaymentStatus::class,
         'method'           => PaymentMethod::class,
     ];

@@ -59,9 +59,24 @@
 @endif
 
 @if ($booking->status === \App\Enums\BookingStatus::PENDING_DEPOSIT)
+    @php
+        // Khi khách đang có 1 phiên thanh toán VNPay mở (payment pending qua
+        // online_vnpay), đếm theo ĐÚNG mốc hết hạn phiên đó
+        // (payment->vnpay_session_expires_at, xem BookingService::initiateVnpayPayment())
+        // thay vì tổng thời gian giữ chỗ deposit_expires_at — 2 mốc khác
+        // khái niệm, để nguyên sẽ tạo cảm giác đồng hồ trang Homi và đồng hồ
+        // bên trang VNPay "lệch nhau" dù cả 2 đều đúng theo cách tính riêng.
+        $countdownTarget = $booking->deposit_expires_at;
+        if ($booking->payment
+            && $booking->payment->status === \App\Enums\PaymentStatus::PENDING
+            && $booking->payment->method === \App\Enums\PaymentMethod::ONLINE_VNPAY
+            && $booking->payment->vnpay_session_expires_at) {
+            $countdownTarget = $booking->payment->vnpay_session_expires_at;
+        }
+    @endphp
     <div
         x-data="{
-            expiresAt: {{ $booking->deposit_expires_at ? $booking->deposit_expires_at->timestamp * 1000 : 'null' }},
+            expiresAt: {{ $countdownTarget ? $countdownTarget->timestamp * 1000 : 'null' }},
             remaining: '',
             expired: false,
             toastOpen: true,

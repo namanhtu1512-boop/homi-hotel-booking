@@ -37,8 +37,14 @@ class VNPayService
 
     /**
      * Tạo URL redirect sang cổng thanh toán VNPay.
+     *
+     * $expireAt do BookingService::initiateVnpayPayment() tính sẵn (mốc SỚM
+     * HƠN giữa "bây giờ + txn_expire_minutes" và hạn giữ chỗ hiện tại của
+     * booking) — nhận tường minh ở đây thay vì tự tính lại `now()->addMinutes()`,
+     * để phiên VNPay không bao giờ dài hơn hold và khách thấy đồng hồ VNPay
+     * là phần CÒN LẠI của đồng hồ giữ chỗ, không bị "reset" mỗi lần bấm.
      */
-    public function buildPaymentUrl(string $txnRef, float $amount, string $orderInfo, string $ipAddress, string $returnUrl): string
+    public function buildPaymentUrl(string $txnRef, float $amount, string $orderInfo, string $ipAddress, string $returnUrl, \DateTimeInterface $expireAt): string
     {
         $params = [
             'vnp_Version'    => '2.1.0',
@@ -57,7 +63,7 @@ class VNPayService
             // (config/app.php), nên phải quy đổi tường minh, nếu không giao
             // dịch sẽ bị coi là hết hạn ngay khi vừa tạo (lệch 7 tiếng).
             'vnp_CreateDate' => now('Asia/Ho_Chi_Minh')->format('YmdHis'),
-            'vnp_ExpireDate' => now('Asia/Ho_Chi_Minh')->addMinutes(15)->format('YmdHis'),
+            'vnp_ExpireDate' => \Carbon\Carbon::instance($expireAt)->timezone('Asia/Ho_Chi_Minh')->format('YmdHis'),
         ];
 
         ksort($params);
