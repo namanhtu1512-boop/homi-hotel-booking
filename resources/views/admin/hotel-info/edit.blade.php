@@ -101,7 +101,7 @@
             <div class="form-group">
                 <label for="extra_beds_total">Tổng số giường phụ (toàn khách sạn)</label>
                 <input id="extra_beds_total" type="number" min="0" name="extra_beds_total" value="{{ old('extra_beds_total', $hotel->extra_beds_total) }}">
-                <p class="section-desc">Dùng chung cho mọi phòng Superior/Deluxe/Suite trong cùng khoảng ngày — hết thì đơn mới chuyển "chờ tư vấn" thay vì bị chặn.</p>
+                <p class="section-desc">Dùng chung cho mọi phòng Standard/Superior/Deluxe/Suite trong cùng khoảng ngày — hết thì đơn mới chuyển "chờ tư vấn" thay vì bị chặn.</p>
             </div>
             <div class="form-group">
                 <label for="extra_bed_surcharge_per_night">Phụ thu giường phụ (VNĐ/giường/đêm)</label>

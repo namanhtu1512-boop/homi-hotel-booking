@@ -20,6 +20,7 @@ class Promotion extends Model
         'ends_at',
         'status',
         'stackable',
+        'is_group_promo',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class Promotion extends Model
         'starts_at'        => 'date',
         'ends_at'          => 'date',
         'stackable'        => 'boolean',
+        'is_group_promo'   => 'boolean',
     ];
 
     public function scopeActive($query)

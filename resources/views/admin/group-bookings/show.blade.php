@@ -35,6 +35,12 @@
                 <div class="info-item"><span class="label">Điện thoại</span><span class="value">{{ $groupRequest->phone }}</span></div>
             @endif
             <div class="info-item"><span class="label">Số khách</span><span class="value">{{ $groupRequest->group_size }} người</span></div>
+            @if ($groupRequest->num_children)
+                <div class="info-item"><span class="label">Trẻ em (6-11 tuổi)</span><span class="value">{{ $groupRequest->num_children }} trẻ</span></div>
+            @endif
+            @if ($groupRequest->num_infants)
+                <div class="info-item"><span class="label">Trẻ sơ sinh (0-5 tuổi)</span><span class="value">{{ $groupRequest->num_infants }} trẻ</span></div>
+            @endif
             @if ($groupRequest->room_count)
                 <div class="info-item"><span class="label">Số phòng</span><span class="value">{{ $groupRequest->room_count }} phòng</span></div>
             @endif
@@ -55,6 +61,18 @@
                 </div>
             @endif
         </div>
+
+        @if ($groupRequest->selected_suggestion)
+            @php $sg = $groupRequest->selected_suggestion; @endphp
+            <div class="alert alert-warning mt-3">
+                <div class="font-semibold">
+                    Khách quan tâm: {{ $sg['label'] ?? '' }} —
+                    {{ collect($sg['rooms'] ?? [])->map(fn ($r) => ($r['quantity'] ?? '?').' phòng '.($r['room_type'] ?? '?'))->implode(', ') }}
+                    (giá tạm tính: {{ number_format($sg['estimated_total_price'] ?? 0, 0, ',', '.') }}đ)
+                </div>
+                <p class="mt-1 text-xs">Đây là gợi ý tại thời điểm khách gửi yêu cầu, không phải phòng đã giữ. Vui lòng kiểm tra lại phòng trống trước khi gửi báo giá.</p>
+            </div>
+        @endif
 
         <div class="action-row mt-4">
             @if ($groupRequest->status === 'new')
@@ -93,22 +111,37 @@
 
             <div>
                 <label class="form-label">Loại phòng & số lượng *</label>
-                <p class="mb-1 text-xs text-slate-500 dark:text-slate-400">NL: người lớn (≥12 tuổi) · TE: trẻ em (6-11 tuổi) · SS: sơ sinh (0-5 tuổi, miễn phí)</p>
+                <p class="mb-1 text-xs text-slate-500 dark:text-slate-400">NL: người lớn (≥12 tuổi) · TE: trẻ em (6-11 tuổi) · SS: sơ sinh (0-5 tuổi, miễn phí, tối đa 2/phòng)</p>
                 <div id="items-container" class="space-y-2">
                     @foreach ($prefillItems as $i => $row)
-                        <div class="item-row flex flex-wrap gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                            <select name="items[{{ $i }}][room_type_id]" class="input flex-1" required>
-                                <option value="">-- Chọn loại phòng --</option>
-                                @foreach ($allRoomTypes as $rt)
-                                    <option value="{{ $rt->id }}" @selected((string)($row['room_type_id'] ?? '') === (string)$rt->id)>
-                                        {{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm
-                                    </option>
-                                @endforeach
-                            </select>
-                            <input type="number" name="items[{{ $i }}][quantity]" class="input w-20" min="1" value="{{ $row['quantity'] ?? 1 }}" placeholder="Phòng" required>
-                            <input type="number" name="items[{{ $i }}][adults]" class="input w-20" min="1" value="{{ $row['adults'] ?? 2 }}" placeholder="NL" title="Người lớn (≥12 tuổi)" required>
-                            <input type="number" name="items[{{ $i }}][children]" class="input w-20" min="0" value="{{ $row['children'] ?? 0 }}" placeholder="TE" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">
-                            <input type="number" name="items[{{ $i }}][infants]" class="input w-20" min="0" value="{{ $row['infants'] ?? 0 }}" placeholder="SS" title="Sơ sinh 0-5 tuổi (miễn phí)">
+                        <div class="item-row flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                            <div class="flex min-w-[200px] flex-1 flex-col gap-1">
+                                <label class="text-xs font-bold whitespace-nowrap">Loại phòng</label>
+                                <select name="items[{{ $i }}][room_type_id]" class="input" required>
+                                    <option value="">-- Chọn loại phòng --</option>
+                                    @foreach ($allRoomTypes as $rt)
+                                        <option value="{{ $rt->id }}" @selected((string)($row['room_type_id'] ?? '') === (string)$rt->id)>
+                                            {{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex w-20 flex-col gap-1">
+                                <label class="text-xs font-bold whitespace-nowrap">Số phòng</label>
+                                <input type="number" name="items[{{ $i }}][quantity]" class="input" min="1" value="{{ $row['quantity'] ?? 1 }}" required>
+                            </div>
+                            <div class="flex w-20 flex-col gap-1">
+                                <label class="text-xs font-bold whitespace-nowrap" title="Người lớn (≥12 tuổi)">NL</label>
+                                <input type="number" name="items[{{ $i }}][adults]" class="input" min="1" value="{{ $row['adults'] ?? 2 }}" title="Người lớn (≥12 tuổi)" required>
+                            </div>
+                            <div class="flex w-20 flex-col gap-1">
+                                <label class="text-xs font-bold whitespace-nowrap" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">TE</label>
+                                <input type="number" name="items[{{ $i }}][children]" class="input" min="0" value="{{ $row['children'] ?? 0 }}" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">
+                            </div>
+                            <div class="flex w-20 flex-col gap-1">
+                                <label class="text-xs font-bold whitespace-nowrap" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">SS</label>
+                                <input type="number" name="items[{{ $i }}][infants]" class="input" min="0" value="{{ $row['infants'] ?? 0 }}" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">
+                            </div>
                             <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm">✕</button>
                         </div>
                     @endforeach
@@ -142,17 +175,32 @@
 </div>
 
 <template id="row-tpl">
-    <div class="item-row flex flex-wrap gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-        <select name="items[__I__][room_type_id]" class="input flex-1" required>
-            <option value="">-- Chọn loại phòng --</option>
-            @foreach ($allRoomTypes as $rt)
-                <option value="{{ $rt->id }}">{{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm</option>
-            @endforeach
-        </select>
-        <input type="number" name="items[__I__][quantity]" class="input w-20" min="1" value="1" placeholder="Phòng" required>
-        <input type="number" name="items[__I__][adults]" class="input w-20" min="1" value="2" placeholder="NL" title="Người lớn (≥12 tuổi)" required>
-        <input type="number" name="items[__I__][children]" class="input w-20" min="0" value="0" placeholder="TE" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">
-        <input type="number" name="items[__I__][infants]" class="input w-20" min="0" value="0" placeholder="SS" title="Sơ sinh 0-5 tuổi (miễn phí)">
+    <div class="item-row flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <div class="flex min-w-[200px] flex-1 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap">Loại phòng</label>
+            <select name="items[__I__][room_type_id]" class="input" required>
+                <option value="">-- Chọn loại phòng --</option>
+                @foreach ($allRoomTypes as $rt)
+                    <option value="{{ $rt->id }}">{{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="flex w-20 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap">Số phòng</label>
+            <input type="number" name="items[__I__][quantity]" class="input" min="1" value="1" required>
+        </div>
+        <div class="flex w-20 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap" title="Người lớn (≥12 tuổi)">NL</label>
+            <input type="number" name="items[__I__][adults]" class="input" min="1" value="2" title="Người lớn (≥12 tuổi)" required>
+        </div>
+        <div class="flex w-20 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">TE</label>
+            <input type="number" name="items[__I__][children]" class="input" min="0" value="0" title="Trẻ em 6-11 tuổi (tối đa 2/phòng)">
+        </div>
+        <div class="flex w-20 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">SS</label>
+            <input type="number" name="items[__I__][infants]" class="input" min="0" value="0" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">
+        </div>
         <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm">✕</button>
     </div>
 </template>

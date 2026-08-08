@@ -31,10 +31,19 @@ class BookingService
 {
     /**
      * Trẻ em (6-11 tuổi, cột `children`) tối đa mỗi phòng — trẻ sơ sinh
-     * (0-5 tuổi, cột `infants`) miễn phí và không tính vào giới hạn này lẫn
-     * sức chứa phòng; từ 12 tuổi trở lên khai vào ô người lớn.
+     * (0-5 tuổi, cột `infants`) miễn phí và không tính vào sức chứa phòng,
+     * nhưng vẫn bị giới hạn số lượng riêng (self::MAX_INFANTS_PER_ROOM); từ
+     * 12 tuổi trở lên khai vào ô người lớn.
      */
     private const MAX_CHILDREN_PER_ROOM = 2;
+
+    /**
+     * Trẻ sơ sinh (0-5 tuổi, cột `infants`) tối đa mỗi phòng — áp dụng
+     * ĐỒNG NHẤT cho mọi category (không có giường phụ/ngoại lệ nào cho trẻ
+     * sơ sinh, khác với trẻ em 6-11 tuổi). Miễn phí, không tính vào sức chứa
+     * phòng hay $capacity, chỉ giới hạn số lượng thuần túy.
+     */
+    private const MAX_INFANTS_PER_ROOM = 2;
 
     /**
      * Khung thời gian giữ chỗ để khách hoàn tất cọc 30% hoặc thanh toán đủ
@@ -1601,10 +1610,10 @@ class BookingService
      *   - Family: giường phụ tăng thêm giới hạn trẻ em CƠ BẢN (2/phòng), độc
      *     lập với người lớn — phòng đủ lớn (2 giường đôi) để nhận thêm trẻ em
      *     ngoài số người lớn đã ở mức tối đa, không liên quan sức chứa tổng.
-     *   - Superior/Deluxe/Suite: giường phụ bù phần TỔNG khách (người lớn +
-     *     trẻ em) vượt sức chứa phòng — phòng nhỏ (capacity 2) nên người lớn
-     *     đã chiếm gần hết chỗ, trẻ em dư ra phải bù bằng giường phụ.
-     *   - Standard: không áp dụng (không nằm trong RoomType::supportsExtraBed()).
+     *   - Standard/Superior/Deluxe/Suite: giường phụ bù phần TỔNG khách
+     *     (người lớn + trẻ em) vượt sức chứa phòng — phòng nhỏ (capacity 2)
+     *     nên người lớn đã chiếm gần hết chỗ, trẻ em dư ra phải bù bằng
+     *     giường phụ.
      * Luôn trả về số THẬT SỰ cần (không giới hạn ở $quantity) — nơi gọi tự so
      * với $quantity (tối đa 1 giường/phòng) để quyết có hợp lệ hay không.
      */
@@ -1624,8 +1633,10 @@ class BookingService
             $quantity = (int) $item['quantity'];
             $adults   = (int) ($item['adults'] ?? 1);
             $children = (int) ($item['children'] ?? 0);
+            $infants  = (int) ($item['infants'] ?? 0);
             $capacity = $roomType->capacity * $quantity;
             $maxChildren = self::MAX_CHILDREN_PER_ROOM * $quantity;
+            $maxInfants  = self::MAX_INFANTS_PER_ROOM * $quantity;
             $isFamily = $roomType->category === 'family';
 
             // Người lớn LUÔN bị chặn cứng theo capacity, kể cả Family — giường
@@ -1634,6 +1645,15 @@ class BookingService
             if ($adults > $capacity) {
                 throw ValidationException::withMessages([
                     "items.{$index}.adults" => ["Phòng \"{$roomType->name}\" tối đa {$capacity} người lớn ({$roomType->capacity} khách/phòng × {$quantity} phòng), nhưng khai báo {$adults} người lớn. Giường phụ chỉ dành cho trẻ em (6-11 tuổi), không dùng để thêm người lớn — vui lòng đặt thêm phòng hoặc đổi loại phòng lớn hơn."],
+                ]);
+            }
+
+            // Trẻ sơ sinh: giới hạn ĐỒNG NHẤT mọi category, không có giường
+            // phụ/ngoại lệ nào bù được (khác trẻ em 6-11 tuổi) — kiểm tra
+            // trước nhánh Family/thường vì áp dụng như nhau cho cả hai.
+            if ($infants > $maxInfants) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.infants" => ["Phòng \"{$roomType->name}\" tối đa " . self::MAX_INFANTS_PER_ROOM . " trẻ sơ sinh (0-5 tuổi)/phòng × {$quantity} phòng = {$maxInfants}, nhưng khai báo {$infants} trẻ sơ sinh."],
                 ]);
             }
 
@@ -1669,8 +1689,8 @@ class BookingService
                 // dành cho trẻ em" khi bù qua nhánh dưới.
                 $excess = $this->extraBedsNeeded($roomType, $quantity, $adults, $children);
 
-                // Category có nhánh giường phụ (Superior/Deluxe/Suite — xem
-                // RoomType::supportsExtraBed()) được bù phần trẻ em vượt qua
+                // Category có nhánh giường phụ (Standard/Superior/Deluxe/Suite
+                // — xem RoomType::supportsExtraBed()) được bù phần trẻ em vượt qua
                 // giường phụ (tối đa 1 giường/phòng) NẾU khách đã tick "Cần
                 // giường phụ" cho dòng này — không throw, để BookingService::
                 // create() tự quyết CONFIRMED hay PENDING_CONSULTATION dựa

@@ -36,7 +36,7 @@
                     <option value="{{ $value }}" @selected(old('category', $roomType->category ?? '') === $value)>{{ $label }}</option>
                 @endforeach
             </select>
-            <p class="section-desc">Chỉ Superior/Deluxe/Suite hiện tùy chọn "Cần giường phụ" cho khách khi đặt phòng.</p>
+            <p class="section-desc">Chỉ Standard/Superior/Deluxe/Suite/Family hiện tùy chọn "Cần giường phụ" cho khách khi đặt phòng.</p>
         </div>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;">

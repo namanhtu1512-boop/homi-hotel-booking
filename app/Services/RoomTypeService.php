@@ -153,8 +153,13 @@ class RoomTypeService
      * Danh sách loại phòng cho trang quản lý (admin/staff) kèm
      * `available_today` — số phòng còn trống hôm nay, dùng chung để không
      * lặp lại đoạn tính booked_count ở nhiều controller.
+     *
+     * $rangeCheckIn/$rangeCheckOut (optional): khi truyền đủ cả 2, gắn thêm
+     * `available_range` lên mỗi RoomType — số phòng còn trống thực tế trong
+     * khoảng ngày đó (khác `available_today` vốn luôn cố định theo hôm nay,
+     * không đổi hành vi cũ khi không truyền tham số).
      */
-    public function adminIndexWithAvailability(): Collection
+    public function adminIndexWithAvailability(?string $rangeCheckIn = null, ?string $rangeCheckOut = null): Collection
     {
         $roomTypes = $this->list(adminView: true);
 
@@ -172,11 +177,38 @@ class RoomTypeService
             ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
             ->pluck('total_quantity', 'room_type_id');
 
-        $roomTypes->each(function (RoomType $room) use ($bookedCounts) {
+        $rangeBookedCounts = $rangeCheckIn && $rangeCheckOut
+            ? $this->bookedQuantitiesInRange($rangeCheckIn, $rangeCheckOut)
+            : null;
+
+        $roomTypes->each(function (RoomType $room) use ($bookedCounts, $rangeBookedCounts) {
             $room->available_today = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
+
+            if ($rangeBookedCounts !== null) {
+                $room->available_range = max(0, $room->total_rooms - (int) $rangeBookedCounts->get($room->id, 0));
+            }
         });
 
         return $roomTypes;
+    }
+
+    /**
+     * Tổng số phòng đang bị giữ chỗ (SUM quantity) theo từng loại phòng,
+     * giao nhau với khoảng [checkIn, checkOut) — overlap chuẩn: check_in <
+     * checkOut AND check_out > checkIn. Dùng whereDate() thay vì where() vì
+     * lý do tương tự AvailabilityService::getBookedQuantity(): MySQL tự cắt
+     * giờ trên cột DATE nhưng SQLite (chạy test) thì không.
+     */
+    private function bookedQuantitiesInRange(string $checkIn, string $checkOut): \Illuminate\Support\Collection
+    {
+        return DB::table('booking_items')
+            ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+            ->whereIn('bookings.status', BookingStatus::holdingStatuses())
+            ->whereDate('bookings.check_in', '<', $checkOut)
+            ->whereDate('bookings.check_out', '>', $checkIn)
+            ->groupBy('booking_items.room_type_id')
+            ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
+            ->pluck('total_quantity', 'room_type_id');
     }
 
     /**

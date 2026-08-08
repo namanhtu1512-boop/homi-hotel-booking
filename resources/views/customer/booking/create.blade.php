@@ -63,11 +63,13 @@
                                 <input type="number" name="items[{{ $i }}][children]" class="item-children input w-20"
                                        min="0" max="50" value="{{ (int) ($row['children'] ?? 0) }}" onchange="updateEstimate()">
 
-                                <label class="text-xs font-bold whitespace-nowrap">Sơ sinh <span class="font-normal text-slate-400">(0-5 tuổi, miễn phí)</span></label>
+                                <label class="text-xs font-bold whitespace-nowrap">Sơ sinh <span class="font-normal text-slate-400">(0-5 tuổi)</span></label>
                                 <input type="number" name="items[{{ $i }}][infants]" class="item-infants input w-20"
                                        min="0" max="50" value="{{ (int) ($row['infants'] ?? 0) }}" onchange="updateEstimate()">
 
                                 <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
+
+                                <span class="w-full text-xs text-slate-500 dark:text-slate-400">Sơ sinh miễn phí, không tính vào sức chứa — tối đa 2 trẻ/phòng.</span>
                             </div>
 
                             <label class="item-extra-bed-wrap mt-2 hidden items-center gap-1.5 text-xs font-bold">
@@ -195,7 +197,7 @@
             <span class="section-kicker">Lưu ý</span>
             <ul class="mt-3 list-disc space-y-2 pl-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 <li>Bạn có thể chọn <strong>nhiều loại phòng</strong> trong cùng một đơn (dùng chung ngày nhận/trả).</li>
-                <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em/sơ sinh riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng). Người lớn ≥12 tuổi <strong>luôn bị giới hạn đúng bằng sức chứa, không có ngoại lệ</strong>; trẻ em 6-11 tuổi (tối đa 2 trẻ/phòng) nếu vượt giới hạn có thể bù thêm 1 trẻ bằng <strong>giường phụ</strong> có phụ thu (áp dụng phòng Superior/Deluxe/Suite/Family — riêng Family, người lớn tối đa 4 và trẻ em tối đa 2-3 (nếu có giường phụ) được tính <strong>độc lập</strong> với nhau, không cộng chung vào 1 sức chứa như các loại phòng khác); trẻ sơ sinh 0-5 tuổi ở miễn phí và không tính vào sức chứa.</li>
+                <li>Mỗi loại phòng khai báo <strong>số người lớn/trẻ em/sơ sinh riêng</strong>, không vượt quá sức chứa của chính loại phòng đó (capacity × số phòng). Người lớn ≥12 tuổi <strong>luôn bị giới hạn đúng bằng sức chứa, không có ngoại lệ</strong>; trẻ em 6-11 tuổi (tối đa 2 trẻ/phòng) nếu vượt giới hạn có thể bù thêm 1 trẻ bằng <strong>giường phụ</strong> có phụ thu (áp dụng mọi loại phòng Standard/Superior/Deluxe/Suite/Family — riêng Family, người lớn tối đa 4 và trẻ em tối đa 2-3 (nếu có giường phụ) được tính <strong>độc lập</strong> với nhau, không cộng chung vào 1 sức chứa như các loại phòng khác); trẻ sơ sinh 0-5 tuổi ở miễn phí, không tính vào sức chứa, nhưng tối đa <strong>2 trẻ sơ sinh/phòng</strong> (áp dụng mọi loại phòng, không có giường phụ bù cho trẻ sơ sinh).</li>
                 <li>Đơn đặt phòng được <strong>xác nhận ngay</strong> sau khi đặt — bạn có thể thanh toán luôn mà không cần chờ admin duyệt (trừ khi đơn cần giường phụ nhưng tạm hết, khi đó đơn sẽ ở trạng thái "chờ tư vấn" để bạn chọn phương án khác).</li>
                 <li>Mã giảm giá (nếu có) sẽ được trừ trực tiếp vào tổng tiền đơn.</li>
                 <li>Dịch vụ thêm (ăn sáng, giặt ủi...) được đặt <strong>sau khi nhận phòng</strong>, không chọn ở bước này.</li>
@@ -235,11 +237,13 @@
             <input type="number" name="items[__INDEX__][children]" class="item-children input w-20"
                    min="0" max="50" value="0" onchange="updateEstimate()">
 
-            <label class="text-xs font-bold whitespace-nowrap">Sơ sinh <span class="font-normal text-slate-400">(0-5 tuổi, miễn phí)</span></label>
+            <label class="text-xs font-bold whitespace-nowrap">Sơ sinh <span class="font-normal text-slate-400">(0-5 tuổi)</span></label>
             <input type="number" name="items[__INDEX__][infants]" class="item-infants input w-20"
                    min="0" max="50" value="0" onchange="updateEstimate()">
 
             <span class="item-capacity-hint text-xs text-slate-500 dark:text-slate-400"></span>
+
+            <span class="w-full text-xs text-slate-500 dark:text-slate-400">Sơ sinh miễn phí, không tính vào sức chứa — tối đa 2 trẻ/phòng.</span>
         </div>
 
         <label class="item-extra-bed-wrap mt-2 hidden items-center gap-1.5 text-xs font-bold">
@@ -294,6 +298,7 @@
             const qty      = parseInt(row.querySelector('.item-quantity').value) || 0;
             const adults   = parseInt(row.querySelector('.item-adults').value) || 0;
             const children = parseInt(row.querySelector('.item-children').value) || 0;
+            const infants  = parseInt(row.querySelector('.item-infants').value) || 0;
             const opt      = sel.options[sel.selectedIndex];
             // Ưu tiên giá đã áp giá theo mùa của HÔM NAY (data-price-today,
             // do server tính sẵn) để khớp với khối "Kiểm tra phòng trống"
@@ -306,9 +311,10 @@
             const capacity = capacityPerRoom * qty;
             const guests   = adults + children; // trẻ sơ sinh (infants) không tính vào sức chứa
             const maxChildren = 2 * qty;
+            const maxInfants  = 2 * qty;
             // Family: người lớn/trẻ em xét RIÊNG, giường phụ chỉ tăng giới hạn
-            // trẻ em — khác Superior/Deluxe/Suite (giường phụ bù TỔNG khách
-            // vượt sức chứa). Khớp BookingService::extraBedsNeeded().
+            // trẻ em — khác Standard/Superior/Deluxe/Suite (giường phụ bù
+            // TỔNG khách vượt sức chứa). Khớp BookingService::extraBedsNeeded().
             const excess = isFamily ? (children - maxChildren) : (guests - capacity);
 
             total += price * nights * qty;
@@ -326,7 +332,7 @@
                 hintEl.textContent = '';
             }
 
-            // Chỉ Superior/Deluxe/Suite (RoomType::supportsExtraBed()) mới có
+            // Chỉ loại phòng có RoomType::supportsExtraBed() = true mới có
             // tùy chọn giường phụ — ẩn hẳn checkbox + bỏ tick nếu đổi sang loại
             // phòng khác, tránh gửi extra_bed=1 "mồ côi" không hợp lệ với
             // BookingService::validateGuestCapacity().
@@ -357,6 +363,11 @@
 
             if (capacityPerRoom > 0 && adults > capacity) {
                 warnEl.textContent = `Vượt số người lớn: tối đa ${capacity} người lớn cho ${qty} phòng này. Giường phụ chỉ dành cho trẻ em (6-11 tuổi), không dùng để thêm người lớn.`;
+                warnEl.classList.remove('hidden');
+            } else if (infants > maxInfants) {
+                // Trẻ sơ sinh: giới hạn đồng nhất mọi category, không có
+                // giường phụ/ngoại lệ nào bù được (khớp validateGuestCapacity()).
+                warnEl.textContent = `Vượt giới hạn trẻ sơ sinh: tối đa 2 trẻ sơ sinh (0-5 tuổi)/phòng × ${qty} phòng = ${maxInfants}.`;
                 warnEl.classList.remove('hidden');
             } else if (isFamily) {
                 // Family: trẻ em vượt giới hạn cơ bản (2/phòng) bù được bằng

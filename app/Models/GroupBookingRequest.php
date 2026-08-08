@@ -16,10 +16,13 @@ class GroupBookingRequest extends Model
         'email',
         'phone',
         'group_size',
+        'num_children',
+        'num_infants',
         'room_count',
         'check_in',
         'check_out',
         'room_type_ids',
+        'selected_suggestion',
         'message',
         'status',
     ];
@@ -30,9 +33,12 @@ class GroupBookingRequest extends Model
     }
 
     protected $casts = [
-        'group_size'    => 'integer',
-        'check_in'      => 'date',
-        'check_out'     => 'date',
-        'room_type_ids' => 'array',
+        'group_size'           => 'integer',
+        'num_children'         => 'integer',
+        'num_infants'          => 'integer',
+        'check_in'             => 'date',
+        'check_out'            => 'date',
+        'room_type_ids'        => 'array',
+        'selected_suggestion'  => 'array',
     ];
 }

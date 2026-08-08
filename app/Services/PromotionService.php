@@ -16,13 +16,26 @@ class PromotionService
 
     public function activePublic(): Collection
     {
+        return $this->activeNowQuery()->orderBy('ends_at')->get();
+    }
+
+    /**
+     * Mã khuyến mãi đoàn/nhóm đang hiệu lực — dùng cho form Đặt đoàn/nhóm
+     * (chỉ hiển thị tham khảo, tái dùng đúng điều kiện "đang hiệu lực" của
+     * activePublic() thay vì viết lại logic ngày starts_at/ends_at).
+     */
+    public function activeGroupPromotions(): Collection
+    {
+        return $this->activeNowQuery()->where('is_group_promo', true)->orderBy('code')->get();
+    }
+
+    private function activeNowQuery()
+    {
         $today = today()->toDateString();
 
         return Promotion::active()
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $today))
-            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $today))
-            ->orderBy('ends_at')
-            ->get();
+            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $today));
     }
 
     public function find(int $id): Promotion

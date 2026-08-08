@@ -76,6 +76,13 @@
             </label>
         </div>
 
+        <div class="form-group">
+            <label class="checkbox-item">
+                <input type="checkbox" name="is_group_promo" value="1" @checked(old('is_group_promo', $promotion->is_group_promo ?? false))>
+                Áp dụng cho đoàn/nhóm (hiển thị ở form Đặt đoàn/nhóm)
+            </label>
+        </div>
+
         <button type="submit" class="btn btn-primary btn-block">{{ $isEdit ? 'Lưu thay đổi' : 'Tạo khuyến mãi' }}</button>
     </form>
 </div>
