@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewBookingReceived;
 use App\Notifications\OrphanedPaymentNeedsRefund;
+use App\Notifications\OverdueCheckout;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -1059,7 +1060,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'auditLogs.user', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
+        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'bookingItems.bookingItemRooms.room', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'auditLogs.user', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
             ->findOrFail($bookingId);
     }
 
@@ -1431,7 +1432,7 @@ class BookingService
                         ]);
                     }
 
-                    BookingItemRoom::create(['booking_item_id' => $item->id, 'room_id' => $roomId]);
+                    BookingItemRoom::create(['booking_item_id' => $item->id, 'room_id' => $roomId, 'checked_in_at' => now()]);
                 }
             }
 
@@ -1611,7 +1612,10 @@ class BookingService
                 : 'Khách trả phòng.';
             $this->logStatus($booking, $oldStatus, BookingStatus::COMPLETED, Auth::id(), $note);
 
-            $roomIds = BookingItemRoom::whereIn('booking_item_id', $booking->bookingItems->pluck('id'))->pluck('room_id');
+            $itemIds = $booking->bookingItems->pluck('id');
+            BookingItemRoom::whereIn('booking_item_id', $itemIds)->whereNull('checked_out_at')->update(['checked_out_at' => now()]);
+
+            $roomIds = BookingItemRoom::whereIn('booking_item_id', $itemIds)->pluck('room_id');
             Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
 
             $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
@@ -1666,7 +1670,10 @@ class BookingService
             // cần giải phóng phòng vật lý để buồng phòng biết cần dọn trước
             // khi nhận khách kế tiếp (cùng hành vi với checkOut()).
             if ($wasCheckedIn) {
-                $roomIds = BookingItemRoom::whereIn('booking_item_id', $booking->bookingItems->pluck('id'))->pluck('room_id');
+                $itemIds = $booking->bookingItems->pluck('id');
+                BookingItemRoom::whereIn('booking_item_id', $itemIds)->whereNull('checked_out_at')->update(['checked_out_at' => now()]);
+
+                $roomIds = BookingItemRoom::whereIn('booking_item_id', $itemIds)->pluck('room_id');
                 Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
             }
         });
@@ -1719,6 +1726,39 @@ class BookingService
         }
 
         return ['moved_to_grace' => $movedToGrace, 'cancelled' => $cancelled];
+    }
+
+    /**
+     * Quét các đơn đang lưu trú (CHECKED_IN) đã quá hạn trả phòng (giờ chuẩn
+     * hoặc giờ đã duyệt trả muộn — xem Booking::isOverdueCheckout()) mà
+     * khách vẫn CHƯA trả phòng, thông báo 1 LẦN cho admin/staff — dedup qua
+     * overdue_checkout_notified_at để job quét lặp lại nhiều lần trong ngày
+     * không spam thông báo trùng cho cùng 1 đơn. Gọi từ FlagOverdueCheckouts
+     * command (scheduled — xem routes/console.php). Màu đỏ trên trang Phòng
+     * vật lý không phụ thuộc job này, luôn tính real-time lúc tải trang.
+     *
+     * @return int Số đơn vừa được gắn cờ + thông báo lần đầu.
+     */
+    public function flagOverdueCheckouts(): int
+    {
+        $bookings = Booking::where('status', BookingStatus::CHECKED_IN)
+            ->whereNull('overdue_checkout_notified_at')
+            ->with('lateCheckoutRequests')
+            ->get()
+            ->filter(fn (Booking $b) => $b->isOverdueCheckout());
+
+        if ($bookings->isEmpty()) {
+            return 0;
+        }
+
+        $staffAndAdmins = User::whereIn('role', ['admin', 'staff'])->get();
+
+        foreach ($bookings as $booking) {
+            $booking->update(['overdue_checkout_notified_at' => now()]);
+            $staffAndAdmins->each(fn (User $u) => $u->notify(new OverdueCheckout($booking)));
+        }
+
+        return $bookings->count();
     }
 
     /**

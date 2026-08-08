@@ -12,6 +12,13 @@ class BookingItemRoom extends Model
     protected $fillable = [
         'booking_item_id',
         'room_id',
+        'checked_in_at',
+        'checked_out_at',
+    ];
+
+    protected $casts = [
+        'checked_in_at'  => 'datetime',
+        'checked_out_at' => 'datetime',
     ];
 
     public function bookingItem()

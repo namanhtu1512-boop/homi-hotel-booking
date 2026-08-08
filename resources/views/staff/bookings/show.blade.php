@@ -71,7 +71,7 @@
             <thead>
                 <tr>
                     <th>Loại phòng</th>
-                    <th>Số phòng đã gán</th>
+                    <th>Phòng · Nhận/trả phòng</th>
                     <th>Số lượng</th>
                     <th>Số khách</th>
                     <th>Giá/đêm</th>
@@ -83,7 +83,22 @@
                 @foreach ($booking->bookingItems as $item)
                     <tr>
                         <td>{{ $item->roomType->name ?? '—' }}</td>
-                        <td>{{ $item->rooms->pluck('room_number')->implode(', ') ?: '—' }}</td>
+                        <td>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Đặt {{ $booking->check_in->format('d/m/Y') }} → {{ $booking->check_out->format('d/m/Y') }}</div>
+                            @forelse ($item->bookingItemRooms as $bir)
+                                <div>
+                                    <strong>{{ $bir->room->room_number ?? '—' }}</strong>
+                                    — Nhận {{ $bir->checked_in_at?->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') ?? '—' }}
+                                    @if ($bir->checked_out_at)
+                                        · Trả {{ $bir->checked_out_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') }}
+                                    @elseif ($bir->checked_in_at)
+                                        · <span class="text-xs text-slate-500 dark:text-slate-400">chưa trả phòng</span>
+                                    @endif
+                                </div>
+                            @empty
+                                —
+                            @endforelse
+                        </td>
                         <td>{{ $item->quantity }}</td>
                         <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}{{ $item->infants ? ', ' . $item->infants . ' sơ sinh' : '' }}</td>
                         <td>{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
