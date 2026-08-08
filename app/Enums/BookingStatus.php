@@ -7,6 +7,7 @@ enum BookingStatus: string
     case PENDING              = 'pending';
     case PENDING_DEPOSIT      = 'pending_deposit';
     case PENDING_CONSULTATION = 'pending_consultation';
+    case EXPIRED_PENDING_CHECK = 'expired_pending_check';
     case CONFIRMED            = 'confirmed';
     case CANCELLED            = 'cancelled';
     case CHECKED_IN           = 'checked_in';
@@ -19,6 +20,7 @@ enum BookingStatus: string
             self::PENDING              => 'Chờ xác nhận',
             self::PENDING_DEPOSIT      => 'Chờ đặt cọc/thanh toán',
             self::PENDING_CONSULTATION => 'Chờ tư vấn (giường phụ)',
+            self::EXPIRED_PENDING_CHECK => 'Đã hết hạn giữ chỗ, đang xác minh thanh toán',
             self::CONFIRMED            => 'Đã xác nhận',
             self::CANCELLED            => 'Đã hủy',
             self::CHECKED_IN           => 'Đang lưu trú',
@@ -33,7 +35,7 @@ enum BookingStatus: string
     public function badgeClass(): string
     {
         return match($this) {
-            self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION => 'badge-orange',
+            self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::EXPIRED_PENDING_CHECK => 'badge-orange',
             self::CONFIRMED, self::CHECKED_IN => 'badge-blue',
             self::CHECKED_OUT, self::COMPLETED => 'badge-green',
             self::CANCELLED   => 'badge-red',
@@ -42,11 +44,13 @@ enum BookingStatus: string
 
     /**
      * Các trạng thái đang "giữ phòng" — dùng để tính availability.
-     * pending + pending_deposit + pending_consultation + confirmed +
-     * checked_in đều chiếm slot phòng — pending_consultation vẫn giữ PHÒNG
-     * dù giường phụ chưa được cấp (xem ExtraBedInventoryService, cột
-     * booking_items.extra_beds giữ 0 cho tới khi resolve), chỉ nhả ra khi
-     * chuyển sang confirmed hoặc bị hủy.
+     * pending + pending_deposit + pending_consultation + expired_pending_check
+     * + confirmed + checked_in đều chiếm slot phòng — expired_pending_check
+     * là khoảng đệm SAU KHI hold hết hạn nhưng TRƯỚC KHI hủy hẳn (xem
+     * BookingService::processBookingExpiry()), vẫn phải giữ phòng trong lúc
+     * chờ IPN/return VNPay tới trễ, nếu không phòng có thể bị bán cho khách
+     * khác ngay trong lúc thanh toán vẫn còn khả năng thành công. Chỉ nhả ra
+     * khi chuyển sang confirmed hoặc bị hủy thật sự.
      */
     public static function holdingStatuses(): array
     {
@@ -54,6 +58,7 @@ enum BookingStatus: string
             self::PENDING->value,
             self::PENDING_DEPOSIT->value,
             self::PENDING_CONSULTATION->value,
+            self::EXPIRED_PENDING_CHECK->value,
             self::CONFIRMED->value,
             self::CHECKED_IN->value,
         ];
@@ -61,7 +66,7 @@ enum BookingStatus: string
 
     public function canCancelByCustomer(): bool
     {
-        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::CONFIRMED], true);
+        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::EXPIRED_PENDING_CHECK, self::CONFIRMED], true);
     }
 
     public function canCancelByAdmin(): bool
@@ -69,7 +74,7 @@ enum BookingStatus: string
         // Bao gồm cả CHECKED_IN — khách đã nhận phòng nhưng cần hủy giữa
         // chừng (rời sớm, sự cố...) vẫn phải hủy được, kèm hoàn tiền nếu đã
         // thanh toán đủ (xem BookingService::cancelByAdmin()).
-        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::CONFIRMED, self::CHECKED_IN], true);
+        return in_array($this, [self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::EXPIRED_PENDING_CHECK, self::CONFIRMED, self::CHECKED_IN], true);
     }
 
     public function canConfirm(): bool

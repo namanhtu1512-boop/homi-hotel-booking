@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Enums\RefundRequestStatus;
 use App\Events\ExtraBedUnavailable;
 use App\Models\Booking;
 use App\Models\BookingItem;
@@ -13,6 +14,7 @@ use App\Models\BookingStatusLog;
 use App\Models\ExtraBedRequest;
 use App\Models\HotelInfo;
 use App\Models\Payment;
+use App\Models\RefundRequest;
 use App\Models\Room;
 use App\Models\PaymentStatusLog;
 use App\Models\RoomType;
@@ -20,10 +22,12 @@ use App\Models\Service;
 use App\Models\User;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewBookingReceived;
+use App\Notifications\OrphanedPaymentNeedsRefund;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -50,8 +54,20 @@ class BookingService
      * kể từ lúc tạo đơn (trạng thái pending_deposit) — quá hạn mà chưa làm
      * gì thì đơn bị tự động hủy, nhả phòng lại (xem
      * cancelExpiredDepositBookings(), CancelExpiredDepositBookings command).
+     *
+     * Bằng đúng thời gian giữ chỗ tạm (RoomHoldService::TTL_MINUTES) ở bước
+     * điền form trước đó — để khách có cảm giác liền mạch "giữ 15 phút" từ
+     * lúc chọn phòng tới lúc đặt cọc, không nhảy vọt lên 30 phút.
+     *
+     * initiateVnpayPayment() cấp cho VNPay đúng phần thời gian CÒN LẠI của
+     * hold này (không bao giờ vượt quá config('services.vnpay.txn_expire_minutes')
+     * dù hold còn dư nhiều hơn) — nên đồng hồ đếm ngược khách thấy bên VNPay
+     * chính là phần còn lại của đồng hồ giữ chỗ, không "reset" về một cửa sổ
+     * mới mỗi lần bấm thanh toán. Lớp bảo vệ an toàn cho IPN tới trễ SAU khi
+     * hold (= phiên VNPay) hết hạn nằm ở BookingStatus::EXPIRED_PENDING_CHECK
+     * (processBookingExpiry()), không phải bằng cách nới hold dài hơn VNPay.
      */
-    public const DEPOSIT_HOLD_MINUTES = 30;
+    public const DEPOSIT_HOLD_MINUTES = 15;
 
     public function __construct(
         private AvailabilityService $availabilityService,
@@ -498,7 +514,7 @@ class BookingService
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        $this->cancelIfDepositExpired($booking->id);
+        $this->processBookingExpiry($booking->id);
         $booking->refresh();
 
         if (! $booking->canMarkPaymentAsPaid()) {
@@ -529,7 +545,7 @@ class BookingService
         // dụng, rồi cùng tạo txnRef MỚI khác nhau đè lên nhau — bên thua
         // orphan y hệt lỗi "mồ côi giao dịch" mà việc tái sử dụng txnRef bên
         // dưới vốn được thêm vào để chặn.
-        [$txnRef, $outstanding] = DB::transaction(function () use ($booking, $customer) {
+        [$txnRef, $outstanding, $vnpaySessionExpiresAt] = DB::transaction(function () use ($booking, $customer) {
             $payment = Payment::whereKey($booking->payment->id)->lockForUpdate()->first();
 
             $outstanding = round((float) $payment->amount - (float) $payment->amount_collected, 2);
@@ -558,20 +574,39 @@ class BookingService
                 ? $payment->transaction_code
                 : $this->vnPayService->generateTxnRef($booking->booking_code);
 
+            // Mốc hết hạn phiên VNPay = mốc SỚM HƠN giữa "tối đa txn_expire_minutes
+            // kể từ bây giờ" và "hạn giữ chỗ hiện tại của booking" — KHÔNG bao giờ
+            // cấp 1 cửa sổ mới đầy đủ tính từ lúc bấm nếu hold sắp hết, để đồng
+            // hồ đếm ngược VNPay khách thấy CHÍNH LÀ phần còn lại của đồng hồ giữ
+            // chỗ (liên tục, không "reset" lại từ đầu mỗi lần bấm) — đúng cảm
+            // nhận người dùng mong đợi, đồng thời tự động đảm bảo phiên VNPay
+            // không bao giờ dài hơn hold (canMarkPaymentAsPaid() ở trên đã chặn
+            // hẳn nếu hold đã hết hạn, nên deposit_expires_at ở đây luôn ở tương
+            // lai). Lớp bảo vệ an toàn cho IPN tới trễ SAU mốc này nằm ở
+            // BookingStatus::EXPIRED_PENDING_CHECK (processBookingExpiry()), không
+            // còn cần "nới hold ra" như trước.
+            $maxWindowEnd = now()->addMinutes((int) config('services.vnpay.txn_expire_minutes', 15));
+            $vnpaySessionExpiresAt = ($booking->deposit_expires_at && $booking->deposit_expires_at->lt($maxWindowEnd))
+                ? $booking->deposit_expires_at
+                : $maxWindowEnd;
+
             if (! $reuseExisting) {
                 $payment->update([
-                    'method'                  => PaymentMethod::ONLINE_VNPAY,
-                    'status'                  => PaymentStatus::PENDING,
-                    'transaction_code'        => $txnRef,
-                    'pending_gateway_amount'  => $outstanding,
+                    'method'                    => PaymentMethod::ONLINE_VNPAY,
+                    'status'                    => PaymentStatus::PENDING,
+                    'transaction_code'          => $txnRef,
+                    'pending_gateway_amount'    => $outstanding,
+                    'vnpay_session_expires_at'  => $vnpaySessionExpiresAt,
                 ]);
 
                 if ($oldStatus !== PaymentStatus::PENDING) {
                     $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::PENDING, $customer->id, 'Khách chuyển sang cổng VNPay để thanh toán.');
                 }
+            } else {
+                $payment->update(['vnpay_session_expires_at' => $vnpaySessionExpiresAt]);
             }
 
-            return [$txnRef, $outstanding];
+            return [$txnRef, $outstanding, $vnpaySessionExpiresAt];
         });
 
         // route() dùng root URL của request HIỆN TẠI (không phải APP_URL tĩnh
@@ -586,6 +621,7 @@ class BookingService
             'Thanh toan booking ' . $booking->booking_code,
             $ipAddress,
             route('payment.vnpay.return'),
+            $vnpaySessionExpiresAt,
         );
 
         return ['booking' => $booking, 'payment_url' => $paymentUrl];
@@ -596,6 +632,20 @@ class BookingService
      * gọi cùng logic idempotent này, chỉ khác định dạng response trả về cho
      * người gọi). Xác thực chữ ký trước khi tin bất kỳ trường nào trong
      * $query, tránh giả mạo kết quả thanh toán.
+     *
+     * QUAN TRỌNG: với callback báo THÀNH CÔNG, cổng idempotency KHÔNG được
+     * dựa vào "payment->status === PENDING" — payment có thể đã bị
+     * processBookingExpiry() (job quét quá hạn) chuyển sang UNPAID trong lúc
+     * khách vẫn đang thanh toán thật trên VNPay (race hold-expiry vs IPN).
+     * Nếu chỉ tin payment->status để quyết định "đã xử lý, bỏ qua", một giao
+     * dịch báo thành công thật sẽ bị lặng lẽ nuốt mất (tiền bị trừ nhưng hệ
+     * thống coi như không có gì xảy ra) — đây chính là lỗi mất tiền khách đã
+     * phát hiện. Quy tắc mới: LUÔN kiểm tra khoản thành công, chỉ quyết định
+     * "xác nhận bình thường" hay "tạo yêu cầu hoàn tiền" dựa vào việc phòng
+     * ĐÃ được nhả hay chưa (booking->status === CANCELLED hay không) — vì
+     * BookingStatus::holdingStatuses() (bao gồm cả EXPIRED_PENDING_CHECK
+     * trong lúc đệm) đảm bảo phòng chưa từng được nhả cho ai khác trước khi
+     * cancelled thật sự.
      *
      * @return array{booking: ?Booking, success: bool, message: string, code: string}
      */
@@ -619,6 +669,13 @@ class BookingService
             return ['booking' => $booking, 'success' => false, 'code' => 'invalid_signature', 'message' => 'Chữ ký không hợp lệ.'];
         }
 
+        // Nếu rơi vào nhánh "orphan" (booking đã cancelled, cần hoàn tiền),
+        // transaction bên dưới chỉ tạo bản ghi RefundRequest (PENDING) — việc
+        // GỌI API hoàn tiền thật (HTTP ra ngoài) + gửi thông báo phải làm SAU
+        // khi transaction đã commit, không giữ lock DB trong lúc chờ network
+        // (cùng nguyên tắc với attemptRefund() ở cancelByAdmin()).
+        $refundRequestToResolve = null;
+
         // VNPay có thể gọi IPN (server-to-server) gần như đồng thời với lúc
         // khách được redirect về return URL, hoặc tự động thử lại IPN nếu
         // lần gọi trước timeout — cả hai nơi đều gọi hàm này cho CÙNG 1 giao
@@ -626,24 +683,38 @@ class BookingService
         // đã khóa, tránh 2 lời gọi đồng thời cùng đọc thấy PENDING trước khi
         // bên kia commit, dẫn tới cộng amount_collected/gửi thông báo 2 lần
         // cho 1 giao dịch thật.
-        return DB::transaction(function () use ($payment, $booking, $query) {
+        $result = DB::transaction(function () use ($payment, $booking, $query, &$refundRequestToResolve) {
             $payment = Payment::whereKey($payment->id)->lockForUpdate()->first();
+            $isSuccess = $this->vnPayService->isSuccessResponse($query);
 
-            // Giao dịch đã được xử lý trước đó (khách bấm lại nút back/refresh
-            // trên trang return, hoặc IPN đã chạy trước) — không xử lý lại để
-            // tránh ghi log/thông báo trùng lặp.
-            if ($payment->status !== PaymentStatus::PENDING) {
-                return [
-                    'booking' => $booking,
-                    'success' => $payment->status === PaymentStatus::PAID,
-                    'code'    => 'already_confirmed',
-                    'message' => $payment->status === PaymentStatus::PAID
-                        ? 'Đơn đã được thanh toán trước đó.'
-                        : 'Giao dịch đã được xử lý trước đó.',
-                ];
+            // Giao dịch này đã được xác nhận PAID trước đó (khách bấm lại
+            // nút back/refresh trên trang return, hoặc IPN gọi lại trùng) —
+            // idempotent, không xử lý lại.
+            if ($payment->status === PaymentStatus::PAID) {
+                return ['booking' => $booking, 'success' => true, 'code' => 'already_confirmed', 'message' => 'Đơn đã được thanh toán trước đó.'];
             }
 
-            $oldStatus = $payment->status;
+            if (! $isSuccess) {
+                // Callback báo lỗi/hủy chỉ còn ý nghĩa nếu giao dịch đang THẬT
+                // SỰ dở dang (PENDING) — nếu payment đã ở trạng thái cuối khác
+                // (VD UNPAID do đã bị tự hủy quá hạn từ trước), đây là callback
+                // trễ/trùng lặp không còn liên quan, không được hạ cấp lại.
+                if ($payment->status !== PaymentStatus::PENDING) {
+                    return ['booking' => $booking, 'success' => false, 'code' => 'already_confirmed', 'message' => 'Giao dịch đã được xử lý trước đó.'];
+                }
+
+                $oldStatus = $payment->status;
+                $responseCode = $query['vnp_ResponseCode'] ?? 'unknown';
+
+                $payment->update([
+                    'status'                 => PaymentStatus::UNPAID,
+                    'pending_gateway_amount' => null,
+                    'note'                   => 'VNPay báo lỗi/hủy giao dịch, mã phản hồi: ' . $responseCode,
+                ]);
+                $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::UNPAID, $booking->user_id, "Thanh toán VNPay thất bại/bị hủy (mã {$responseCode}).");
+
+                return ['booking' => $booking->fresh('payment'), 'success' => false, 'code' => 'ok', 'message' => 'Thanh toán VNPay không thành công.'];
+            }
 
             // Số tiền THẬT SỰ đã yêu cầu VNPay thu ở lần redirect này — so khớp
             // với vnp_Amount VNPay trả về, tránh tin nhầm 1 callback báo đúng
@@ -652,22 +723,38 @@ class BookingService
             $expectedAmount = (int) round((float) ($payment->pending_gateway_amount ?? $payment->amount) * 100);
             $callbackAmount = (int) ($query['vnp_Amount'] ?? -1);
 
-            if ($this->vnPayService->isSuccessResponse($query) && $expectedAmount !== $callbackAmount) {
-                $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $booking->user_id, "VNPay báo thành công nhưng số tiền không khớp (mong đợi {$expectedAmount}, nhận {$callbackAmount}) — từ chối xác nhận, cần kiểm tra thủ công.");
+            if ($expectedAmount !== $callbackAmount) {
+                $this->logPaymentStatus($payment, $payment->status, $payment->status, $booking->user_id, "VNPay báo thành công nhưng số tiền không khớp (mong đợi {$expectedAmount}, nhận {$callbackAmount}) — từ chối xác nhận, cần kiểm tra thủ công.");
 
                 return ['booking' => $booking, 'success' => false, 'code' => 'amount_mismatch', 'message' => 'Số tiền xác nhận từ VNPay không khớp, vui lòng liên hệ khách sạn.'];
             }
 
-            if ($this->vnPayService->isSuccessResponse($query)) {
-                // vnp_PayDate đến từ VNPay theo định dạng YmdHis (vd "20260717141518")
-                // — cột gateway_paid_at cast 'datetime' nên phải parse đúng format
-                // trước khi gán, nếu không Carbon sẽ đoán sai định dạng chuỗi số này.
-                $gatewayPaidAt = isset($query['vnp_PayDate'])
-                    ? \Carbon\Carbon::createFromFormat('YmdHis', $query['vnp_PayDate'])
-                    : now();
+            // vnp_PayDate đến từ VNPay theo định dạng YmdHis (vd "20260717141518")
+            // — cột gateway_paid_at cast 'datetime' nên phải parse đúng format
+            // trước khi gán, nếu không Carbon sẽ đoán sai định dạng chuỗi số này.
+            $gatewayPaidAt = isset($query['vnp_PayDate'])
+                ? \Carbon\Carbon::createFromFormat('YmdHis', $query['vnp_PayDate'])
+                : now();
 
-                $thisTxnAmount = (float) ($payment->pending_gateway_amount ?? $payment->amount);
+            $thisTxnAmount = (float) ($payment->pending_gateway_amount ?? $payment->amount);
 
+            // Khóa dòng booking trước khi quyết định — đây là điểm mấu chốt
+            // chống race với processBookingExpiry() (job quét quá hạn/gọi rải
+            // rác ở các điểm thanh toán khác): 2 giao dịch cùng lockForUpdate()
+            // trên CÙNG 1 dòng booking sẽ tự serialize, bên thắng lock trước
+            // quyết định số phận cuối cùng, bên còn lại đọc lại trạng thái MỚI
+            // NHẤT sau khi bên kia commit rồi mới quyết định tiếp.
+            $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->first();
+
+            $oldStatus = $payment->status;
+
+            if ($lockedBooking->status !== BookingStatus::CANCELLED) {
+                // An toàn xác nhận — phòng CHƯA từng được nhả cho ai khác, bất
+                // kể booking đang ở trạng thái non-cancelled nào (pending_deposit
+                // dù deposit_expires_at đã qua nhưng job chưa kịp xử lý,
+                // expired_pending_check đang trong khoảng đệm, confirmed,
+                // checked_in...). confirmAfterPayment() tự no-op nếu booking
+                // không còn ở pending_deposit.
                 $payment->update([
                     'status'                  => PaymentStatus::PAID,
                     'paid_at'                 => now(),
@@ -685,48 +772,124 @@ class BookingService
                 ]);
                 $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::PAID, $booking->user_id, 'VNPay xác nhận thanh toán thành công.');
 
-                // Khóa dòng booking trước khi xác nhận — phòng race hiếm gặp:
-                // khách thanh toán thành công đúng lúc command tự hủy đơn quá
-                // hạn (cancelExpiredDepositBookings()) đang xử lý cùng booking.
-                // Nếu booking đã bị hủy trước khi khóa được (phòng có thể đã
-                // bán lại), KHÔNG tự confirm lại — chỉ ghi log để admin đối
-                // soát thủ công, tiền vẫn được ghi nhận đã thu ở Payment.
-                $lockedBooking = Booking::whereKey($booking->id)->lockForUpdate()->first();
-
-                // Quá hạn giữ chỗ nhưng command quét (cancelExpiredDepositBookings,
-                // chạy mỗi phút) chưa kịp tới lượt xử lý booking này — tự hủy
-                // ngay tại đây thay vì để lọt qua coi như thanh toán hợp lệ.
-                $holdExpired = $lockedBooking->status === BookingStatus::PENDING_DEPOSIT
-                    && $lockedBooking->deposit_expires_at?->isPast();
-
-                if ($holdExpired) {
-                    $oldBookingStatus = $lockedBooking->status;
-                    $lockedBooking->update(['status' => BookingStatus::CANCELLED]);
-                    $this->logStatus($lockedBooking, $oldBookingStatus, BookingStatus::CANCELLED, $booking->user_id, 'Tự động hủy do quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) — VNPay báo thanh toán thành công sau khi đã quá hạn.');
-                }
-
-                if ($lockedBooking->status === BookingStatus::CANCELLED) {
-                    $this->logStatus($lockedBooking, $lockedBooking->status, $lockedBooking->status, $booking->user_id, 'VNPay báo thanh toán thành công NHƯNG đơn đã bị tự hủy do quá hạn giữ chỗ trước đó — cần đối soát/hoàn tiền thủ công.');
-                } else {
-                    $this->confirmAfterPayment($lockedBooking, $booking->user_id);
-                }
+                $this->confirmAfterPayment($lockedBooking, $booking->user_id);
 
                 $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã thanh toán thành công qua VNPay."));
 
                 return ['booking' => $booking->fresh('payment'), 'success' => true, 'code' => 'ok', 'message' => 'Thanh toán VNPay thành công.'];
             }
 
-            $responseCode = $query['vnp_ResponseCode'] ?? 'unknown';
+            // Booking đã CANCELLED hẳn (hết hạn giữ chỗ + khoảng đệm, hoặc
+            // admin hủy tay) trước khi callback này tới — phòng có thể đã
+            // được nhả/bán cho khách khác. Tiền đã bị VNPay trừ thật, KHÔNG
+            // được lặng lẽ bỏ qua: ghi nhận vào Payment để có dấu vết đối
+            // soát (không chuyển PAID vì booking không còn hiệu lực), tạo
+            // RefundRequest (idempotent theo payment_id — unique ở DB) để xử
+            // lý hoàn tiền, dừng lại ở đây trong transaction (không gọi API
+            // hoàn tiền/HTTP ở đây).
+            $existingRefundRequest = RefundRequest::where('payment_id', $payment->id)->first();
+
+            if ($existingRefundRequest) {
+                return ['booking' => $lockedBooking, 'success' => false, 'code' => 'refund_pending', 'message' => 'Đơn đã bị hủy trước khi thanh toán được xác nhận — yêu cầu hoàn tiền đang được xử lý.'];
+            }
 
             $payment->update([
-                'status'                 => PaymentStatus::UNPAID,
+                'gateway_transaction_no' => $query['vnp_TransactionNo'] ?? null,
+                'gateway_paid_at'        => $gatewayPaidAt,
+                'last_gateway_amount'    => $thisTxnAmount,
+                'amount_collected'       => (float) $payment->amount_collected + $thisTxnAmount,
                 'pending_gateway_amount' => null,
-                'note'                   => 'VNPay báo lỗi/hủy giao dịch, mã phản hồi: ' . $responseCode,
+                'note'                   => 'VNPay báo thanh toán thành công SAU KHI đơn đã bị hủy do quá hạn giữ chỗ — tiền đã bị trừ, đã tạo yêu cầu hoàn tiền.',
             ]);
-            $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::UNPAID, $booking->user_id, "Thanh toán VNPay thất bại/bị hủy (mã {$responseCode}).");
+            $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $booking->user_id, 'VNPay báo thanh toán thành công nhưng đơn đã bị hủy trước đó — tạo yêu cầu hoàn tiền, chờ xử lý.');
 
-            return ['booking' => $booking->fresh('payment'), 'success' => false, 'code' => 'ok', 'message' => 'Thanh toán VNPay không thành công.'];
+            $refundRequestToResolve = RefundRequest::create([
+                'booking_id'             => $lockedBooking->id,
+                'payment_id'             => $payment->id,
+                'transaction_code'       => $payment->transaction_code,
+                'gateway_transaction_no' => $query['vnp_TransactionNo'] ?? null,
+                'amount'                 => $thisTxnAmount,
+                'reason'                 => 'Booking đã tự động hủy do quá hạn giữ chỗ (kể cả thời gian đệm) trước khi VNPay xác nhận thanh toán thành công.',
+                'status'                 => RefundRequestStatus::PENDING,
+            ]);
+
+            Log::warning('Phát hiện thanh toán VNPay trễ trên booking đã hủy — đã tạo refund request.', [
+                'booking_id'        => $lockedBooking->id,
+                'booking_code'      => $lockedBooking->booking_code,
+                'payment_id'        => $payment->id,
+                'transaction_code'  => $payment->transaction_code,
+                'amount'            => $thisTxnAmount,
+                'refund_request_id' => $refundRequestToResolve->id,
+            ]);
+
+            return ['booking' => $lockedBooking, 'success' => false, 'code' => 'refund_pending', 'message' => 'Đơn đã bị hủy trước khi ghi nhận thanh toán — hệ thống đã tạo yêu cầu hoàn tiền, chúng tôi sẽ liên hệ sớm.'];
         });
+
+        if ($refundRequestToResolve) {
+            $this->resolveOrphanedRefund($refundRequestToResolve);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Xử lý 1 RefundRequest vừa được tạo trong confirmVnpayReturn() — gọi
+     * NGOÀI transaction DB (đây là lời gọi HTTP ra ngoài, không được giữ lock
+     * booking/payment trong lúc chờ network, cùng nguyên tắc với
+     * attemptRefund()). Luôn thử hoàn tiền tự động qua API VNPay (đã tích
+     * hợp sẵn — xem VNPayService::refund()), NHƯNG vẫn luôn gửi thông báo
+     * cho khách + admin/staff dù tự động hoàn có thành công hay không, vì
+     * đây là tình huống bất thường liên quan tới tiền, cần con người xác
+     * nhận lại chứ không chỉ tin máy.
+     */
+    private function resolveOrphanedRefund(RefundRequest $refundRequest): void
+    {
+        $payment = $refundRequest->payment;
+        $booking = $refundRequest->booking;
+
+        $refundOk = false;
+        $response = null;
+
+        try {
+            $response = $this->vnPayService->refund(
+                (string) $refundRequest->transaction_code,
+                (float) $refundRequest->amount,
+                (string) $refundRequest->gateway_transaction_no,
+                $payment->gateway_paid_at?->format('YmdHis') ?? now()->format('YmdHis'),
+                'Hoan tien tu dong - don da huy ' . $booking->booking_code,
+                'system',
+                '127.0.0.1',
+            );
+            $refundOk = ($response['vnp_ResponseCode'] ?? null) === '00';
+        } catch (\Throwable $e) {
+            Log::error('Gọi API hoàn tiền VNPay tự động thất bại cho refund request #' . $refundRequest->id, ['error' => $e->getMessage()]);
+            $response = ['error' => $e->getMessage()];
+        }
+
+        $refundRequest->update([
+            'status'           => $refundOk ? RefundRequestStatus::REFUNDED : RefundRequestStatus::FAILED,
+            'gateway_response' => $response,
+            'resolved_at'      => $refundOk ? now() : null,
+        ]);
+
+        // Chỉ hạ payment về REFUNDED nếu trạng thái hiện tại chưa phải PAID —
+        // nếu payment này đã có 1 chu kỳ thu tiền HỢP LỆ khác trước đó (VD
+        // booking confirmed rồi mới bị admin hủy trong lúc 1 khoản phụ phí
+        // đang PENDING qua VNPay), khoản PAID cũ không liên quan gì tới orphan
+        // refund này, không được ghi đè.
+        if ($refundOk && $payment->status !== PaymentStatus::PAID) {
+            $oldStatus = $payment->status;
+            $payment->update([
+                'amount_collected' => max(0, (float) $payment->amount_collected - (float) $refundRequest->amount),
+                'status'           => PaymentStatus::REFUNDED,
+            ]);
+            $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, null, 'Tự động hoàn tiền qua API VNPay sau khi phát hiện thanh toán trễ trên đơn đã hủy (refund request #' . $refundRequest->id . ').');
+        }
+
+        $booking->user?->notify(new OrphanedPaymentNeedsRefund($booking, $refundRequest));
+        User::whereIn('role', ['admin', 'staff'])->each(
+            fn (User $u) => $u->notify(new OrphanedPaymentNeedsRefund($booking, $refundRequest))
+        );
     }
 
     /**
@@ -735,23 +898,24 @@ class BookingService
      *
      * Cho phép cả từ PENDING_DEPOSIT/PENDING (trước đây chỉ CONFIRMED) vì
      * trang khách hàng giờ hiện QR chuyển khoản 100% ngay từ lúc giữ chỗ.
-     * Riêng PENDING_DEPOSIT cần khóa dòng + đưa đơn ra khỏi diện tự hủy theo
-     * giờ (xóa deposit_expires_at, chuyển sang PENDING) NGAY khi khách báo đã
-     * chuyển khoản — nếu không, job cancelExpiredDepositBookings() (hoặc
-     * cancelIfDepositExpired() gọi rải rác ở nơi khác) có thể hủy đơn + nhả
-     * phòng ngay sau đó dù tiền đã chuyển, chỉ vì nhân viên chưa kịp đối soát
-     * trong lúc hạn giữ chỗ còn lại quá ngắn.
+     * Riêng PENDING_DEPOSIT/EXPIRED_PENDING_CHECK cần khóa dòng + đưa đơn ra
+     * khỏi diện tự hủy theo giờ (xóa deposit_expires_at/expired_pending_check_at,
+     * chuyển sang PENDING) NGAY khi khách báo đã chuyển khoản — nếu không,
+     * job cancelExpiredDepositBookings() (hoặc processBookingExpiry() gọi
+     * rải rác ở nơi khác) có thể hủy đơn + nhả phòng ngay sau đó dù tiền đã
+     * chuyển, chỉ vì nhân viên chưa kịp đối soát trong lúc hạn giữ chỗ (kể cả
+     * khoảng đệm) còn lại quá ngắn.
      */
     public function markBankTransferPending(int $bookingId, User $customer): Booking
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        if ($booking->status === BookingStatus::PENDING_DEPOSIT) {
-            $this->cancelIfDepositExpired($booking->id);
+        if (in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::EXPIRED_PENDING_CHECK], true)) {
+            $this->processBookingExpiry($booking->id);
             $booking->refresh();
         }
 
-        $canReportTransfer = in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
+        $canReportTransfer = in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::EXPIRED_PENDING_CHECK, BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
             && $booking->payment
             && $booking->payment->status->canTransitionTo(PaymentStatus::PENDING);
 
@@ -772,9 +936,9 @@ class BookingService
                 ]);
             }
 
-            if ($booking->status === BookingStatus::PENDING_DEPOSIT) {
+            if (in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::EXPIRED_PENDING_CHECK], true)) {
                 $oldBookingStatus = $booking->status;
-                $booking->update(['status' => BookingStatus::PENDING, 'deposit_expires_at' => null]);
+                $booking->update(['status' => BookingStatus::PENDING, 'deposit_expires_at' => null, 'expired_pending_check_at' => null]);
                 $this->logStatus($booking, $oldBookingStatus, BookingStatus::PENDING, $customer->id, 'Khách báo đã chuyển khoản 100% qua QR — đưa đơn khỏi diện giữ chỗ có hạn, chờ khách sạn đối soát.');
             }
 
@@ -799,7 +963,7 @@ class BookingService
     {
         $booking = $this->findForCustomer($bookingId, $customer);
 
-        $this->cancelIfDepositExpired($booking->id);
+        $this->processBookingExpiry($booking->id);
         $booking->refresh();
 
         if (! $booking->canPayDeposit()) {
@@ -945,7 +1109,7 @@ class BookingService
             ]);
         }
 
-        if ($newStatus === PaymentStatus::PAID && ! in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)) {
+        if ($newStatus === PaymentStatus::PAID && ! in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::EXPIRED_PENDING_CHECK, BookingStatus::CONFIRMED, BookingStatus::CHECKED_IN], true)) {
             throw ValidationException::withMessages([
                 'status' => ['Chỉ có thể đánh dấu đã thanh toán khi đơn ở trạng thái chờ cọc/thanh toán, đã xác nhận hoặc đã check-in.'],
             ]);
@@ -1516,74 +1680,106 @@ class BookingService
     }
 
     /**
-     * Tự động hủy các đơn còn "pending_deposit" đã quá hạn giữ chỗ
-     * (DEPOSIT_HOLD_MINUTES) mà khách chưa đặt cọc/thanh toán gì — nhả
-     * phòng lại cho khách khác (được xử lý ngầm định qua
-     * BookingStatus::holdingStatuses(), đơn cancelled không còn tính vào
-     * tồn kho). Gọi từ CancelExpiredDepositBookings command (scheduled mỗi
-     * phút — xem routes/console.php).
-     *
-     * Không tự động hoàn tiền (attemptRefund()) vì đơn ở trạng thái này
-     * chưa từng thu được đồng nào (amount_collected luôn bằng 0) — nếu
-     * payment đang kẹt ở PENDING (khách đã redirect sang VNPay nhưng chưa
-     * quay lại/hủy ngang), đưa về UNPAID kèm ghi chú thay vì để treo, tránh
-     * IPN trả về trễ SAU khi đã hủy làm payment bị đánh dấu PAID cho một
-     * đơn đã bị hủy (xem xử lý race tương ứng trong confirmVnpayReturn()).
-     *
-     * @return int Số lượng đơn đã tự hủy.
+     * Khoảng đệm (phút) giữ phòng thêm sau khi hold hết hạn, trước khi hủy
+     * hẳn — xem processBookingExpiry().
      */
-    public function cancelExpiredDepositBookings(): int
+    private function expiredGraceMinutes(): int
     {
-        $expiredIds = Booking::where('status', BookingStatus::PENDING_DEPOSIT)
-            ->where('deposit_expires_at', '<=', now())
-            ->pluck('id');
-
-        $cancelledCount = 0;
-
-        foreach ($expiredIds as $bookingId) {
-            if ($this->cancelIfDepositExpired($bookingId)) {
-                $cancelledCount++;
-            }
-        }
-
-        return $cancelledCount;
+        return (int) config('services.booking.expired_grace_minutes', 5);
     }
 
     /**
-     * Hủy 1 đơn nếu đang PENDING_DEPOSIT và đã quá hạn deposit_expires_at.
-     * Dùng chung bởi cancelExpiredDepositBookings() (job quét mỗi phút — xem
-     * routes/console.php) VÀ trực tiếp tại các điểm khách bấm thanh toán
-     * (payDepositDemo/initiateVnpayPayment) — job quét định kỳ có độ trễ tới
-     * gần 1 phút giữa lúc hết hạn và lúc quét tới, đủ để khách vẫn cọc/thanh
-     * toán "thành công" cho một đơn đáng lẽ đã hết hạn nếu chỉ trông chờ job.
-     * Gọi hàm này ngay tại điểm xử lý thanh toán để tự hủy ngay khi phát
-     * hiện quá hạn thay vì chờ job.
+     * Tự động hủy các đơn đã quá hạn giữ chỗ (kể cả khoảng đệm
+     * expired_pending_check) — nhả phòng lại cho khách khác (xử lý ngầm định
+     * qua BookingStatus::holdingStatuses(), đơn cancelled không còn tính vào
+     * tồn kho). Gọi từ CancelExpiredDepositBookings command (scheduled mỗi
+     * phút — xem routes/console.php).
+     *
+     * @return array{moved_to_grace: int, cancelled: int}
      */
-    private function cancelIfDepositExpired(int $bookingId): bool
+    public function cancelExpiredDepositBookings(): array
+    {
+        $candidateIds = Booking::where(function ($q) {
+                $q->where('status', BookingStatus::PENDING_DEPOSIT)
+                    ->where('deposit_expires_at', '<=', now());
+            })
+            ->orWhere(function ($q) {
+                $q->where('status', BookingStatus::EXPIRED_PENDING_CHECK)
+                    ->where('expired_pending_check_at', '<=', now()->subMinutes($this->expiredGraceMinutes()));
+            })
+            ->pluck('id');
+
+        $movedToGrace = 0;
+        $cancelled    = 0;
+
+        foreach ($candidateIds as $bookingId) {
+            $result = $this->processBookingExpiry($bookingId);
+            $movedToGrace += $result['moved_to_grace'] ? 1 : 0;
+            $cancelled    += $result['cancelled'] ? 1 : 0;
+        }
+
+        return ['moved_to_grace' => $movedToGrace, 'cancelled' => $cancelled];
+    }
+
+    /**
+     * Xử lý quá hạn giữ chỗ cho 1 booking — 2 bước, cùng 1 lock:
+     *
+     *   1. pending_deposit + deposit_expires_at đã qua  → expired_pending_check
+     *      (bắt đầu đếm khoảng đệm expiredGraceMinutes(), CHƯA đụng tới
+     *      payment — nếu đang PENDING giữa chừng VNPay thì vẫn để nguyên,
+     *      để confirmVnpayReturn() còn có thể xác nhận nếu IPN tới trong lúc
+     *      đệm này).
+     *   2. expired_pending_check + đã hết luôn khoảng đệm → cancelled thật
+     *      sự, nhả phòng (payment PENDING → UNPAID nếu vẫn dở dang).
+     *
+     * Cả 2 bước chạy trong CÙNG 1 transaction + lockForUpdate() nên nếu job
+     * quét bị trễ nhiều vòng, 1 booking có thể nhảy thẳng bước 1 → bước 2
+     * trong 1 lần gọi — vẫn đúng vì mỗi bước tự re-check điều kiện theo mốc
+     * thời gian tuyệt đối, không phụ thuộc tần suất gọi.
+     *
+     * Dùng chung bởi cancelExpiredDepositBookings() (job quét mỗi phút) VÀ
+     * trực tiếp tại các điểm khách bấm thanh toán/báo chuyển khoản
+     * (payDepositDemo/initiateVnpayPayment/markBankTransferPending) — job
+     * quét định kỳ có độ trễ, gọi hàm này ngay tại điểm xử lý để tự chuyển
+     * trạng thái ngay khi phát hiện quá hạn thay vì chờ job.
+     *
+     * @return array{moved_to_grace: bool, cancelled: bool}
+     */
+    private function processBookingExpiry(int $bookingId): array
     {
         return DB::transaction(function () use ($bookingId) {
             $booking = Booking::with('payment')->whereKey($bookingId)->lockForUpdate()->first();
 
-            // Re-check sau khi khóa — booking có thể đã được xác nhận
-            // (khách vừa cọc/thanh toán xong) giữa lúc lấy danh sách và
-            // lúc khóa được dòng này.
-            if (! $booking || $booking->status !== BookingStatus::PENDING_DEPOSIT || $booking->deposit_expires_at?->isFuture()) {
-                return false;
+            if (! $booking) {
+                return ['moved_to_grace' => false, 'cancelled' => false];
             }
 
-            $oldStatus = $booking->status;
-            $booking->update(['status' => BookingStatus::CANCELLED]);
-            $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, null, 'Tự động hủy do quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) chưa đặt cọc/thanh toán.');
+            $movedToGrace = false;
 
-            if ($booking->payment && $booking->payment->status === PaymentStatus::PENDING) {
-                $oldPaymentStatus = $booking->payment->status;
-                $booking->payment->update(['status' => PaymentStatus::UNPAID, 'pending_gateway_amount' => null]);
-                $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::UNPAID, null, 'Đơn tự hủy do quá hạn giữ chỗ, giao dịch thanh toán dở dang bị hủy theo.');
+            if ($booking->status === BookingStatus::PENDING_DEPOSIT && $booking->deposit_expires_at?->isPast()) {
+                $oldStatus = $booking->status;
+                $booking->update(['status' => BookingStatus::EXPIRED_PENDING_CHECK, 'expired_pending_check_at' => now()]);
+                $this->logStatus($booking, $oldStatus, BookingStatus::EXPIRED_PENDING_CHECK, null, 'Hết hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) — giữ thêm ' . $this->expiredGraceMinutes() . ' phút đệm để chờ xác nhận thanh toán VNPay trước khi hủy hẳn.');
+                $movedToGrace = true;
             }
 
-            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã tự động hủy do quá hạn " . self::DEPOSIT_HOLD_MINUTES . ' phút chưa đặt cọc/thanh toán.'));
+            if ($booking->status === BookingStatus::EXPIRED_PENDING_CHECK && $booking->expired_pending_check_at?->lte(now()->subMinutes($this->expiredGraceMinutes()))) {
+                $oldStatus = $booking->status;
+                $booking->update(['status' => BookingStatus::CANCELLED]);
+                $this->logStatus($booking, $oldStatus, BookingStatus::CANCELLED, null, 'Tự động hủy — quá hạn giữ chỗ (' . self::DEPOSIT_HOLD_MINUTES . ' phút) kể cả ' . $this->expiredGraceMinutes() . ' phút đệm mà vẫn chưa xác nhận được thanh toán.');
 
-            return true;
+                if ($booking->payment && $booking->payment->status === PaymentStatus::PENDING) {
+                    $oldPaymentStatus = $booking->payment->status;
+                    $booking->payment->update(['status' => PaymentStatus::UNPAID, 'pending_gateway_amount' => null]);
+                    $this->logPaymentStatus($booking->payment, $oldPaymentStatus, PaymentStatus::UNPAID, null, 'Đơn tự hủy do quá hạn giữ chỗ, giao dịch thanh toán dở dang bị hủy theo.');
+                }
+
+                $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã tự động hủy do quá hạn giữ chỗ chưa đặt cọc/thanh toán."));
+
+                return ['moved_to_grace' => $movedToGrace, 'cancelled' => true];
+            }
+
+            return ['moved_to_grace' => $movedToGrace, 'cancelled' => false];
         });
     }
 
@@ -1932,12 +2128,17 @@ class BookingService
      */
     private function confirmAfterPayment(Booking $booking, ?int $actorId): void
     {
-        if ($booking->status !== BookingStatus::PENDING_DEPOSIT) {
+        // EXPIRED_PENDING_CHECK cũng phải được xác nhận bình thường ở đây —
+        // đó là booking đã hết hạn hold nhưng đang trong khoảng đệm chờ VNPay
+        // (xem processBookingExpiry()), thanh toán thành công tới trong lúc
+        // đệm này là kịch bản MONG MUỐN, không khác gì PENDING_DEPOSIT chưa
+        // hết hạn.
+        if (! in_array($booking->status, [BookingStatus::PENDING_DEPOSIT, BookingStatus::EXPIRED_PENDING_CHECK], true)) {
             return;
         }
 
         $oldStatus = $booking->status;
-        $booking->update(['status' => BookingStatus::CONFIRMED, 'deposit_expires_at' => null]);
+        $booking->update(['status' => BookingStatus::CONFIRMED, 'deposit_expires_at' => null, 'expired_pending_check_at' => null]);
         $this->logStatus($booking, $oldStatus, BookingStatus::CONFIRMED, $actorId, 'Đơn được xác nhận sau khi cọc/thanh toán thành công.');
 
         $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được xác nhận."));

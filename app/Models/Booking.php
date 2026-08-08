@@ -29,19 +29,21 @@ class Booking extends Model
         'discount_amount',
         'status',
         'deposit_expires_at',
+        'expired_pending_check_at',
         'note',
     ];
 
     protected $casts = [
-        'check_in'           => 'date',
-        'check_out'          => 'date',
-        'adults'             => 'integer',
-        'children'           => 'integer',
-        'infants'            => 'integer',
-        'total_amount'       => 'decimal:2',
-        'discount_amount'    => 'integer',
-        'status'             => BookingStatus::class,
-        'deposit_expires_at' => 'datetime',
+        'check_in'                  => 'date',
+        'check_out'                 => 'date',
+        'adults'                    => 'integer',
+        'children'                  => 'integer',
+        'infants'                   => 'integer',
+        'total_amount'              => 'decimal:2',
+        'discount_amount'           => 'integer',
+        'status'                    => BookingStatus::class,
+        'deposit_expires_at'        => 'datetime',
+        'expired_pending_check_at'  => 'datetime',
     ];
 
     public function user()

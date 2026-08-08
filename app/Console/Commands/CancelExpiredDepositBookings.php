@@ -12,9 +12,9 @@ class CancelExpiredDepositBookings extends Command
 
     public function handle(BookingService $bookingService): int
     {
-        $cancelled = $bookingService->cancelExpiredDepositBookings();
+        $result = $bookingService->cancelExpiredDepositBookings();
 
-        $this->info("Đã tự động hủy {$cancelled} đơn quá hạn giữ chỗ.");
+        $this->info("Chuyển {$result['moved_to_grace']} đơn sang chờ xác minh (đệm chờ VNPay), tự hủy hẳn {$result['cancelled']} đơn quá hạn giữ chỗ.");
 
         return self::SUCCESS;
     }

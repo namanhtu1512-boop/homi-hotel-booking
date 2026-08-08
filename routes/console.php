@@ -12,7 +12,11 @@ Artisan::command('inspire', function () {
 // điều kiện đúng-sai nghiệp vụ (AvailabilityService đã tự loại hold hết hạn).
 Schedule::command('room-holds:cleanup')->everyFiveMinutes();
 
-// Tự hủy các đơn "pending_deposit" quá hạn giữ chỗ (BookingService::DEPOSIT_HOLD_MINUTES)
+// Xử lý các đơn "pending_deposit" quá hạn giữ chỗ (BookingService::DEPOSIT_HOLD_MINUTES)
 // — đây LÀ điều kiện nghiệp vụ thật (khác room-holds:cleanup ở trên), cần chạy
-// sát hơn để không giữ phòng quá lâu ngoài ý muốn sau khi hết hạn.
+// sát hơn để không giữ phòng quá lâu ngoài ý muốn sau khi hết hạn. KHÔNG hủy
+// ngay — chuyển qua "expired_pending_check" và giữ thêm khoảng đệm
+// (config('services.booking.expired_grace_minutes')) trước khi hủy hẳn, để
+// bù trễ IPN/return VNPay tới sau khi hold đã hết hạn (xem
+// BookingService::processBookingExpiry()).
 Schedule::command('bookings:cancel-expired-deposits')->everyMinute();
