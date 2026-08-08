@@ -100,6 +100,7 @@ class PromotionController extends Controller
             'ends_at'           => ['nullable', 'date', 'after_or_equal:starts_at'],
             'status'            => ['required', 'in:active,hidden'],
             'stackable'         => ['nullable', 'boolean'],
+            'is_group_promo'    => ['nullable', 'boolean'],
         ], [], [
             'name'             => 'tên khuyến mãi',
             'code'             => 'mã khuyến mãi',
@@ -110,9 +111,11 @@ class PromotionController extends Controller
             'ends_at'          => 'ngày kết thúc',
             'status'           => 'trạng thái',
             'stackable'        => 'cho phép dùng chung với mã khác',
+            'is_group_promo'   => 'áp dụng cho đoàn/nhóm',
         ]);
 
-        $data['stackable'] = $request->boolean('stackable');
+        $data['stackable']      = $request->boolean('stackable');
+        $data['is_group_promo'] = $request->boolean('is_group_promo');
 
         return $data;
     }

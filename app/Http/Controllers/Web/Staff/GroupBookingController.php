@@ -9,6 +9,7 @@ use App\Services\AuditLogService;
 use App\Services\BookingService;
 use App\Services\ChatService;
 use App\Services\GroupBookingRequestService;
+use App\Services\HotelInfoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -20,6 +21,7 @@ class GroupBookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly AuditLogService $auditLog,
         private readonly ChatService $chatService,
+        private readonly HotelInfoService $hotelInfoService,
     ) {}
 
     public function index(Request $request): View
@@ -43,6 +45,7 @@ class GroupBookingController extends Controller
             'prefillItems' => $groupRequest->room_type_ids
                 ? array_map(fn($rid) => ['room_type_id' => $rid, 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0], $groupRequest->room_type_ids)
                 : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0]],
+            'extraBedSurchargePerNight' => $this->hotelInfoService->current()->extra_bed_surcharge_per_night,
         ]);
     }
 
@@ -115,6 +118,8 @@ class GroupBookingController extends Controller
             'quote_items.*.room_type_id'    => ['required', 'integer', 'exists:room_types,id'],
             'quote_items.*.quantity'        => ['required', 'integer', 'min:1'],
             'quote_items.*.price_per_night' => ['required', 'numeric', 'min:0'],
+            'extra_beds'                    => ['nullable', 'integer', 'min:0'],
+            'extra_bed_price_per_night'     => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $roomTypes = RoomType::whereIn('id', array_column($data['quote_items'], 'room_type_id'))->get()->keyBy('id');
@@ -136,6 +141,22 @@ class GroupBookingController extends Controller
             $lines[]  = "- {$name}: {$item['quantity']} phòng × " . number_format($item['price_per_night'], 0, ',', '.') . 'đ/đêm'
                 . ($nights ? ' = ' . number_format($subtotal, 0, ',', '.') . 'đ' : '');
         }
+
+        // Phụ thu giường phụ (trẻ em 6-11 tuổi) — nhân viên tự nhập số giường
+        // và giá, KHÔNG tự động suy ra từ num_children của yêu cầu đoàn, vì
+        // chỉ loại phòng có RoomType::supportsExtraBed() = true mới hỗ trợ
+        // giường phụ thật — form này không biết nhân viên đã chọn đúng loại
+        // phòng phù hợp hay chưa, để nhân viên tự quyết (blade cảnh báo qua
+        // updateExtraBedWarning() đọc động data-supports-extra-bed).
+        $extraBeds = (int) ($data['extra_beds'] ?? 0);
+        if ($extraBeds > 0) {
+            $extraBedPrice    = (float) ($data['extra_bed_price_per_night'] ?? 0);
+            $extraBedSubtotal = $extraBeds * $extraBedPrice * ($nights ?? 1);
+            $total           += $extraBedSubtotal;
+            $lines[]          = "- Giường phụ trẻ em (6-11 tuổi): {$extraBeds} giường × " . number_format($extraBedPrice, 0, ',', '.') . 'đ/đêm'
+                . ($nights ? ' = ' . number_format($extraBedSubtotal, 0, ',', '.') . 'đ' : '');
+        }
+
         if ($nights) $lines[] = "**Tổng dự kiến: " . number_format($total, 0, ',', '.') . 'đ** (chưa bao gồm dịch vụ phát sinh)';
         if ($data['note'] ?? null) $lines[] = "\n{$data['note']}";
         $lines[] = "\nXem phòng và đặt ngay: " . route('rooms.index');

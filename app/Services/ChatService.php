@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Notifications\NewChatMessage;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 
@@ -26,12 +27,23 @@ class ChatService
 
     public function send(int $customerId, User $sender, string $body, ?string $imagePath = null): ChatMessage
     {
-        return ChatMessage::create([
+        $message = ChatMessage::create([
             'customer_id' => $customerId,
             'sender_id'   => $sender->id,
             'body'        => $body,
             'image_path'  => $imagePath,
         ]);
+
+        // Chỉ báo cho KHÁCH khi admin/staff trả lời — chiều ngược lại (khách
+        // nhắn) đã có badge "Chat khách hàng" tự cập nhật qua poll chung cho
+        // admin/staff (xem NotificationPollController), không cần thêm 1
+        // Notification record nữa.
+        if ($sender->id !== $customerId) {
+            $message->loadMissing('sender');
+            User::find($customerId)?->notify(new NewChatMessage($message));
+        }
+
+        return $message;
     }
 
     /**

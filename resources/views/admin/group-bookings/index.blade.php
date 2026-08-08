@@ -51,6 +51,9 @@
                                     $statusLabel = ['new' => 'Mới', 'contacted' => 'Đã liên hệ', 'converted' => 'Đã tạo đơn'][$request->status] ?? $request->status;
                                 @endphp
                                 <span class="badge {{ $statusBadge }}">{{ $statusLabel }}</span>
+                                @if ($request->selected_suggestion)
+                                    <br><span class="badge badge-blue" title="Khách đã chọn 1 phương án gợi ý phòng — xem chi tiết trong trang yêu cầu">💡 Có gợi ý</span>
+                                @endif
                             </td>
                             <td>
                                 <div class="action-row">

@@ -9,6 +9,7 @@ use App\Services\AuditLogService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class RoomTypeController extends Controller
@@ -20,10 +21,41 @@ class RoomTypeController extends Controller
         private readonly AuditLogService $auditLog,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $checkIn  = $request->query('check_in');
+        $checkOut = $request->query('check_out');
+
+        $dateRangeError = null;
+
+        // Chỉ validate khi khách có điền ít nhất 1 trong 2 ô — cả 2 trống thì
+        // giữ nguyên hành vi mặc định (không lọc theo khoảng ngày), không báo lỗi.
+        if ($checkIn || $checkOut) {
+            $validator = Validator::make(
+                ['check_in' => $checkIn, 'check_out' => $checkOut],
+                [
+                    'check_in'  => ['required', 'date'],
+                    'check_out' => ['required', 'date', 'after:check_in'],
+                ],
+                [],
+                ['check_in' => 'từ ngày', 'check_out' => 'đến ngày']
+            );
+
+            if ($validator->fails()) {
+                $dateRangeError = $validator->errors()->first();
+            }
+        }
+
+        $rangeApplied = $checkIn && $checkOut && ! $dateRangeError;
+
         return view('staff.room-types.index', [
-            'roomTypes' => $this->roomTypeService->adminIndexWithAvailability(),
+            'roomTypes' => $this->roomTypeService->adminIndexWithAvailability(
+                $rangeApplied ? $checkIn : null,
+                $rangeApplied ? $checkOut : null,
+            ),
+            'filters'          => ['check_in' => $checkIn, 'check_out' => $checkOut],
+            'dateRangeApplied' => $rangeApplied,
+            'dateRangeError'   => $dateRangeError,
         ]);
     }
 

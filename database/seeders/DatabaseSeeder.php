@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             RoomSeeder::class,
             BookingSeeder::class,
             PromotionSeeder::class,
+            GroupPromotionSeeder::class,
             BannerSeeder::class,
             NewsSeeder::class,
             ContactMessageSeeder::class,
