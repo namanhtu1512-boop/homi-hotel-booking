@@ -234,9 +234,11 @@ class BookingController extends Controller
     public function previewExtendStay(int $id, Request $request): JsonResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
+        $switchRoomTypeId = $request->query('switch_room_type_id') ? (int) $request->query('switch_room_type_id') : null;
+        $switchRoomId     = $request->query('switch_room_id') ? (int) $request->query('switch_room_id') : null;
 
         try {
-            $preview = $this->bookingService->previewExtendStay($booking, (string) $request->query('new_check_out', ''));
+            $preview = $this->bookingService->previewExtendStay($booking, (string) $request->query('new_check_out', ''), $switchRoomTypeId, $switchRoomId);
 
             return response()->json(['ok' => true] + $preview);
         } catch (ValidationException $e) {
@@ -247,9 +249,15 @@ class BookingController extends Controller
     public function extendStay(int $id, ExtendStayRequest $request): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $result = $this->bookingService->extendStay($booking, $request->validated('new_check_out'));
+        $result = $this->bookingService->extendStay(
+            $booking,
+            $request->validated('new_check_out'),
+            $request->validated('switch_room_type_id') ? (int) $request->validated('switch_room_type_id') : null,
+            $request->validated('switch_room_id') ? (int) $request->validated('switch_room_id') : null,
+        );
 
-        $this->auditLog->log('booking.extended', $booking, "Gia hạn đơn \"{$booking->booking_code}\" thêm {$result['nights_added']} đêm.");
+        $switchNote = $result['switched'] ? ', đổi sang loại phòng khác' : '';
+        $this->auditLog->log('booking.extended', $booking, "Gia hạn đơn \"{$booking->booking_code}\" thêm {$result['nights_added']} đêm{$switchNote}.");
 
         return redirect()
             ->route('admin.bookings.show', $id)

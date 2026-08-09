@@ -365,12 +365,19 @@
                             <button type="submit" class="btn btn-outline btn-sm">➕ Thêm phụ phí phát sinh</button>
                         </form>
 
-                        <form method="POST" action="{{ route('admin.bookings.extend-stay.store', $booking->id) }}" id="extend-stay-form" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"
-                              onsubmit="return confirm('Xác nhận gia hạn tới ngày ' + document.getElementById('extend-checkout').value + '?')">
+                        <form method="POST" action="{{ route('admin.bookings.extend-stay.store', $booking->id) }}" id="extend-stay-form" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
                             <input type="date" name="new_check_out" id="extend-checkout" class="input" style="width:auto;" min="{{ $booking->check_out->copy()->addDay()->toDateString() }}" required>
+                            <select id="extend-switch-type" class="input" style="width:auto; display:none;">
+                                <option value="">-- Chọn loại phòng thay thế --</option>
+                            </select>
+                            <select id="extend-switch-room" class="input" style="width:auto; display:none;">
+                                <option value="">-- Chọn phòng --</option>
+                            </select>
+                            <input type="hidden" name="switch_room_type_id" id="extend-switch-type-input">
+                            <input type="hidden" name="switch_room_id" id="extend-switch-room-input">
                             <span id="extend-preview" style="font-size: 12px; color: #64748b;"></span>
-                            <button type="submit" class="btn btn-outline btn-sm">📅 Gia hạn thời gian thuê phòng</button>
+                            <button type="submit" id="extend-submit-btn" class="btn btn-outline btn-sm">📅 Gia hạn thời gian thuê phòng</button>
                         </form>
                     </div>
                 @endif
@@ -415,29 +422,149 @@
             (function () {
                 const extendInput   = document.getElementById('extend-checkout');
                 const extendPreview = document.getElementById('extend-preview');
+                const typeSelect    = document.getElementById('extend-switch-type');
+                const roomSelect    = document.getElementById('extend-switch-room');
+                const typeInput     = document.getElementById('extend-switch-type-input');
+                const roomInput     = document.getElementById('extend-switch-room-input');
+                const submitBtn     = document.getElementById('extend-submit-btn');
+                const form          = document.getElementById('extend-stay-form');
                 const previewUrl    = '{{ route('admin.bookings.extend-stay.preview', $booking->id) }}';
+
+                let alternatives  = [];
+                let confirmedRoom = '';
+
+                function resetSwitchUI() {
+                    alternatives = [];
+                    confirmedRoom = '';
+                    typeSelect.style.display = 'none';
+                    roomSelect.style.display = 'none';
+                    typeSelect.innerHTML = '<option value="">-- Chọn loại phòng thay thế --</option>';
+                    roomSelect.innerHTML = '<option value="">-- Chọn phòng --</option>';
+                    typeInput.value = '';
+                    roomInput.value = '';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '📅 Gia hạn thời gian thuê phòng';
+                }
+
+                async function fetchPreview(switchRoomTypeId, switchRoomId) {
+                    let url = `${previewUrl}?new_check_out=${extendInput.value}`;
+                    if (switchRoomTypeId) url += `&switch_room_type_id=${switchRoomTypeId}`;
+                    if (switchRoomId) url += `&switch_room_id=${switchRoomId}`;
+
+                    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+
+                    return res.json();
+                }
 
                 extendInput?.addEventListener('change', async () => {
                     if (! extendInput.value) return;
 
+                    resetSwitchUI();
                     extendPreview.style.color = '';
                     extendPreview.textContent = 'Đang kiểm tra phòng trống...';
 
                     try {
-                        const res  = await fetch(`${previewUrl}?new_check_out=${extendInput.value}`, {
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                        });
-                        const data = await res.json();
+                        const data = await fetchPreview(null, null);
 
-                        if (data.ok) {
-                            extendPreview.textContent = `Thêm ${data.nights_added} đêm — phí thêm: ${Number(data.extra_amount).toLocaleString('vi-VN')}đ`;
-                        } else {
+                        if (! data.ok) {
                             extendPreview.style.color = '#dc2626';
                             extendPreview.textContent = data.message;
+                            submitBtn.disabled = true;
+                            return;
                         }
+
+                        if (data.needs_switch) {
+                            alternatives = data.alternatives;
+
+                            if (alternatives.length === 0) {
+                                extendPreview.style.color = '#dc2626';
+                                extendPreview.textContent = 'Phòng đang ở đã hết chỗ và không còn loại phòng nào khác trống cho khoảng ngày này.';
+                                submitBtn.disabled = true;
+                                return;
+                            }
+
+                            extendPreview.style.color = '#b45309';
+                            extendPreview.textContent = 'Phòng đang ở đã hết chỗ cho khoảng ngày này — vui lòng chọn loại phòng thay thế bên dưới.';
+
+                            typeSelect.innerHTML = '<option value="">-- Chọn loại phòng thay thế --</option>' +
+                                alternatives.map(a => `<option value="${a.room_type_id}">${a.name} — +${Number(a.extra_amount).toLocaleString('vi-VN')}đ</option>`).join('');
+                            typeSelect.style.display = '';
+                            submitBtn.disabled = true;
+                            return;
+                        }
+
+                        extendPreview.textContent = `Thêm ${data.nights_added} đêm — phí thêm: ${Number(data.extra_amount).toLocaleString('vi-VN')}đ`;
                     } catch (e) {
                         extendPreview.style.color = '#dc2626';
                         extendPreview.textContent = 'Không kiểm tra được, vui lòng thử lại.';
+                        submitBtn.disabled = true;
+                    }
+                });
+
+                typeSelect?.addEventListener('change', () => {
+                    const typeId = typeSelect.value;
+                    roomSelect.innerHTML = '<option value="">-- Chọn phòng --</option>';
+                    roomInput.value = '';
+                    typeInput.value = '';
+                    confirmedRoom = '';
+                    submitBtn.disabled = true;
+
+                    if (! typeId) {
+                        roomSelect.style.display = 'none';
+                        return;
+                    }
+
+                    const alt = alternatives.find(a => String(a.room_type_id) === typeId);
+                    if (! alt) return;
+
+                    roomSelect.innerHTML = '<option value="">-- Chọn phòng --</option>' +
+                        alt.available_rooms.map(r => `<option value="${r.id}">${r.room_number}</option>`).join('');
+                    roomSelect.style.display = '';
+                });
+
+                roomSelect?.addEventListener('change', async () => {
+                    const roomId = roomSelect.value;
+                    const typeId = typeSelect.value;
+
+                    if (! roomId) {
+                        submitBtn.disabled = true;
+                        return;
+                    }
+
+                    extendPreview.style.color = '';
+                    extendPreview.textContent = 'Đang kiểm tra phòng...';
+
+                    try {
+                        const data = await fetchPreview(typeId, roomId);
+
+                        if (! data.ok || data.needs_switch) {
+                            extendPreview.style.color = '#dc2626';
+                            extendPreview.textContent = data.message || 'Phòng vừa chọn không còn hợp lệ, vui lòng chọn lại.';
+                            submitBtn.disabled = true;
+                            return;
+                        }
+
+                        typeInput.value = typeId;
+                        roomInput.value = roomId;
+                        confirmedRoom = roomSelect.options[roomSelect.selectedIndex]?.textContent ?? '';
+                        extendPreview.style.color = '';
+                        extendPreview.textContent = `Thêm ${data.nights_added} đêm ở phòng ${confirmedRoom} — phí thêm: ${Number(data.extra_amount).toLocaleString('vi-VN')}đ`;
+                        submitBtn.textContent = '📅 Xác nhận đổi phòng & gia hạn';
+                        submitBtn.disabled = false;
+                    } catch (e) {
+                        extendPreview.style.color = '#dc2626';
+                        extendPreview.textContent = 'Không kiểm tra được, vui lòng thử lại.';
+                        submitBtn.disabled = true;
+                    }
+                });
+
+                form?.addEventListener('submit', (e) => {
+                    const confirmMsg = confirmedRoom
+                        ? `Xác nhận đổi sang phòng ${confirmedRoom} và gia hạn tới ngày ${extendInput.value}?`
+                        : `Xác nhận gia hạn tới ngày ${extendInput.value}?`;
+
+                    if (! confirm(confirmMsg)) {
+                        e.preventDefault();
                     }
                 });
             })();
