@@ -78,6 +78,7 @@ class BookingService
         private VNPayService $vnPayService,
         private IncidentalInvoiceService $incidentalInvoiceService,
         private ExtraBedInventoryService $extraBedInventoryService,
+        private RoomService $roomService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -1257,16 +1258,37 @@ class BookingService
      * fetch khi lễ tân đổi ngày) VÀ làm bước tính toán dùng chung bên trong
      * extendStay(). Xem computeExtension() để biết chi tiết validate.
      *
-     * @return array{nights_added: int, extra_amount: float, new_check_out: string}
+     * $switchRoomTypeId/$switchRoomId: lễ tân đã chọn 1 phương án đổi loại
+     * phòng + phòng vật lý cụ thể từ danh sách `alternatives` trả về ở lần
+     * preview trước (khi loại phòng hiện tại hết chỗ) — preview lại để chốt
+     * giá chính xác cho đúng phòng đó trước khi xác nhận thật.
+     *
+     * @return array{needs_switch: bool, nights_added: int, extra_amount?: float, new_check_out: string, alternatives?: array, switch?: array}
      */
-    public function previewExtendStay(Booking $booking, string $newCheckOut): array
+    public function previewExtendStay(Booking $booking, string $newCheckOut, ?int $switchRoomTypeId = null, ?int $switchRoomId = null): array
     {
-        $extension = $this->computeExtension($booking, $newCheckOut);
+        $extension = $this->computeExtension($booking, $newCheckOut, $switchRoomTypeId, $switchRoomId);
+
+        if ($extension['needs_switch']) {
+            return [
+                'needs_switch'  => true,
+                'alternatives'  => $extension['alternatives'],
+                'nights_added'  => $extension['nights_added'],
+                'new_check_out' => $newCheckOut,
+            ];
+        }
 
         return [
+            'needs_switch'  => false,
             'nights_added'  => $extension['nights_added'],
             'extra_amount'  => $extension['extra_amount'],
             'new_check_out' => $newCheckOut,
+            'switch'        => isset($extension['switch']) ? [
+                'room_type_id'   => $extension['switch']['room_type']->id,
+                'room_type_name' => $extension['switch']['room_type']->name,
+                'room_id'        => $extension['switch']['room']->id,
+                'room_number'    => $extension['switch']['room']->room_number,
+            ] : null,
         ];
     }
 
@@ -1280,27 +1302,82 @@ class BookingService
      * — giống addServiceItem()/addSurcharge(), KHÔNG đụng booking.total_amount/
      * payment (tiền phòng gốc), chỉ thu 1 lần lúc checkOut().
      *
-     * @return array{booking: Booking, nights_added: int, extra_amount: float}
+     * $switchRoomTypeId/$switchRoomId: khi loại phòng hiện tại hết chỗ cho
+     * những đêm gia hạn, lễ tân chọn 1 phương án đổi loại phòng (từ
+     * `alternatives` do previewExtendStay() trả về) + 1 phòng vật lý cụ thể
+     * còn trống của loại đó. Vì 1 BookingItem chỉ mang 1 room_type_id cho
+     * toàn bộ `nights` của nó (không thể "vá" loại phòng khác vào giữa),
+     * phần đêm gia hạn được tách thành 1 BookingItem MỚI ở loại phòng mới;
+     * item gốc giữ nguyên số đêm/giá ban đầu.
+     *
+     * @return array{booking: Booking, nights_added: int, extra_amount: float, switched: bool}
      */
-    public function extendStay(Booking $booking, string $newCheckOut): array
+    public function extendStay(Booking $booking, string $newCheckOut, ?int $switchRoomTypeId = null, ?int $switchRoomId = null): array
     {
-        $extension = $this->computeExtension($booking, $newCheckOut);
+        $extension = $this->computeExtension($booking, $newCheckOut, $switchRoomTypeId, $switchRoomId);
+
+        if ($extension['needs_switch']) {
+            throw ValidationException::withMessages([
+                'new_check_out' => ['Loại phòng hiện tại đã hết chỗ cho khoảng ngày này, vui lòng chọn 1 phương án đổi phòng trước khi xác nhận.'],
+            ]);
+        }
 
         return DB::transaction(function () use ($booking, $newCheckOut, $extension) {
-            foreach ($extension['items'] as $line) {
-                $line['item']->update([
-                    'nights'          => $line['item']->nights + $extension['nights_added'],
-                    'subtotal'        => $line['item']->subtotal + $line['pricing']['room_subtotal'],
-                    'child_surcharge' => $line['item']->child_surcharge + $line['pricing']['child_surcharge'],
-                    'price_breakdown' => array_merge($line['item']->price_breakdown ?? [], $line['pricing']['nightly_breakdown']),
+            if (isset($extension['switch'])) {
+                $switch  = $extension['switch'];
+                $oldItem = $switch['old_item'];
+
+                $newItem = BookingItem::create([
+                    'booking_id'          => $booking->id,
+                    'room_type_id'        => $switch['room_type']->id,
+                    'quantity'            => 1,
+                    'adults'              => $oldItem->adults,
+                    'children'            => $oldItem->children,
+                    'infants'             => $oldItem->infants,
+                    'extra_beds'          => 0,
+                    'price_per_night'     => $switch['pricing']['unit_price'],
+                    'nights'              => $switch['pricing']['nights'],
+                    'subtotal'            => $switch['pricing']['room_subtotal'],
+                    'child_surcharge'     => $switch['pricing']['child_surcharge'],
+                    'extra_bed_surcharge' => 0,
+                    'price_breakdown'     => $switch['pricing']['nightly_breakdown'],
                 ]);
 
+                $oldRoomAssignment = $oldItem->bookingItemRooms()->whereNull('checked_out_at')->first();
+                if ($oldRoomAssignment) {
+                    $oldRoomAssignment->update(['checked_out_at' => now()]);
+                    $oldRoomAssignment->room->update(['housekeeping_status' => 'dirty']);
+                }
+
+                BookingItemRoom::create([
+                    'booking_item_id' => $newItem->id,
+                    'room_id'         => $switch['room']->id,
+                    'checked_in_at'   => now(),
+                ]);
+
+                $oldRoomNumber = $oldRoomAssignment?->room?->room_number ?? $oldItem->roomType->name;
                 $this->incidentalInvoiceService->addItem(
                     $booking,
                     'surcharge',
-                    "Gia hạn thêm {$extension['nights_added']} đêm phòng {$line['item']->roomType->name} (đến " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . ')',
-                    $line['pricing']['total_price']
+                    "Gia hạn thêm {$extension['nights_added']} đêm, đổi từ phòng \"{$oldRoomNumber}\" sang phòng \"{$switch['room']->room_number}\" ({$switch['room_type']->name}) tới " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y'),
+                    $switch['pricing']['total_price']
                 );
+            } else {
+                foreach ($extension['items'] as $line) {
+                    $line['item']->update([
+                        'nights'          => $line['item']->nights + $extension['nights_added'],
+                        'subtotal'        => $line['item']->subtotal + $line['pricing']['room_subtotal'],
+                        'child_surcharge' => $line['item']->child_surcharge + $line['pricing']['child_surcharge'],
+                        'price_breakdown' => array_merge($line['item']->price_breakdown ?? [], $line['pricing']['nightly_breakdown']),
+                    ]);
+
+                    $this->incidentalInvoiceService->addItem(
+                        $booking,
+                        'surcharge',
+                        "Gia hạn thêm {$extension['nights_added']} đêm phòng {$line['item']->roomType->name} (đến " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . ')',
+                        $line['pricing']['total_price']
+                    );
+                }
             }
 
             $booking->update([
@@ -1309,15 +1386,17 @@ class BookingService
             ]);
 
             $amountText = number_format($extension['extra_amount'], 0, ',', '.') . 'đ';
+            $switchNote = isset($extension['switch']) ? " (đã chuyển sang phòng {$extension['switch']['room']->room_number})" : '';
             $booking->user?->notify(new BookingStatusChanged(
                 $booking,
-                "Đơn {$booking->booking_code} đã được gia hạn thêm {$extension['nights_added']} đêm, tới ngày " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . ". Phí phát sinh {$amountText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng."
+                "Đơn {$booking->booking_code} đã được gia hạn thêm {$extension['nights_added']} đêm{$switchNote}, tới ngày " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . ". Phí phát sinh {$amountText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng."
             ));
 
             return [
                 'booking'      => $booking->fresh(['bookingItems.roomType', 'incidentalInvoice.items']),
                 'nights_added' => $extension['nights_added'],
                 'extra_amount' => $extension['extra_amount'],
+                'switched'     => isset($extension['switch']),
             ];
         });
     }
@@ -1328,9 +1407,15 @@ class BookingService
      * cùng logic validate/pricing (preview JSON và hành động thật phải luôn
      * tính ra cùng 1 kết quả cho cùng input).
      *
-     * @return array{nights_added: int, extra_amount: float, items: array<int, array{item: BookingItem, pricing: array}>}
+     * Khi $switchRoomTypeId là null và loại phòng hiện tại hết chỗ cho những
+     * đêm gia hạn: nếu đơn chỉ có 1 BookingItem, KHÔNG throw ngay — trả về
+     * `needs_switch=true` kèm `alternatives` (loại phòng khác còn trống +
+     * phòng vật lý cụ thể + giá) để lễ tân chọn. Đơn nhiều BookingItem hoặc
+     * không có phương án nào thay thế vẫn throw như cũ.
+     *
+     * @return array{needs_switch: bool, nights_added: int, extra_amount?: float, items?: array<int, array{item: BookingItem, pricing: array}>, alternatives?: array, switch?: array}
      */
-    private function computeExtension(Booking $booking, string $newCheckOut): array
+    private function computeExtension(Booking $booking, string $newCheckOut, ?int $switchRoomTypeId = null, ?int $switchRoomId = null): array
     {
         if ($booking->status !== BookingStatus::CHECKED_IN) {
             throw ValidationException::withMessages([
@@ -1348,19 +1433,81 @@ class BookingService
 
         $items = $booking->bookingItems()->with('roomType')->get();
 
-        $errors = [];
+        if ($switchRoomTypeId) {
+            if ($items->count() !== 1) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ['Đơn có nhiều loại phòng, không thể tự động đổi loại phòng — vui lòng xử lý thủ công.'],
+                ]);
+            }
+
+            $item = $items->first();
+
+            $roomType = RoomType::where('status', 'active')->find($switchRoomTypeId);
+            if (! $roomType || $roomType->id === $item->room_type_id) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ['Loại phòng đổi sang không hợp lệ.'],
+                ]);
+            }
+
+            $availability = $this->availabilityService->check($roomType->id, $oldCheckOut, $newCheckOut, 1, null, $booking->id);
+            if (! $availability['can_book']) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ["Phòng \"{$roomType->name}\" vừa hết chỗ trống, vui lòng chọn phương án khác."],
+                ]);
+            }
+
+            $room = Room::where('room_type_id', $roomType->id)->find($switchRoomId);
+            if (! $room || $room->isOccupied()) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ['Phòng vật lý đã chọn không hợp lệ hoặc vừa có khách khác nhận.'],
+                ]);
+            }
+
+            $pricing = $this->pricingService->calculate($roomType, $oldCheckOut, $newCheckOut, 1, $item->children);
+
+            return [
+                'needs_switch' => false,
+                'nights_added' => $pricing['nights'],
+                'extra_amount' => $pricing['total_price'],
+                'switch'       => [
+                    'room_type' => $roomType,
+                    'room'      => $room,
+                    'pricing'   => $pricing,
+                    'old_item'  => $item,
+                ],
+            ];
+        }
+
+        $failedItems = [];
         foreach ($items as $item) {
             $availability = $this->availabilityService->check(
                 $item->room_type_id, $oldCheckOut, $newCheckOut, $item->quantity, null, $booking->id
             );
 
             if (! $availability['can_book']) {
-                $errors[] = "Phòng \"{$item->roomType->name}\" không đủ trống để gia hạn tới ngày " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . '.';
+                $failedItems[] = $item;
             }
         }
 
-        if ($errors !== []) {
-            throw ValidationException::withMessages(['new_check_out' => $errors]);
+        if ($failedItems !== []) {
+            if (count($items) === 1) {
+                $alternatives = $this->findSwitchAlternatives($failedItems[0], $oldCheckOut, $newCheckOut);
+
+                if ($alternatives !== []) {
+                    return [
+                        'needs_switch' => true,
+                        'alternatives' => $alternatives,
+                        'nights_added' => $this->pricingService->nightCount($oldCheckOut, $newCheckOut),
+                    ];
+                }
+            }
+
+            $messages = array_map(
+                fn (BookingItem $item) => "Phòng \"{$item->roomType->name}\" không đủ trống để gia hạn tới ngày " . \Carbon\Carbon::parse($newCheckOut)->format('d/m/Y') . '.',
+                $failedItems
+            );
+
+            throw ValidationException::withMessages(['new_check_out' => $messages]);
         }
 
         $nightsAdded = null;
@@ -1377,10 +1524,63 @@ class BookingService
         }
 
         return [
+            'needs_switch' => false,
             'nights_added' => $nightsAdded,
             'extra_amount' => $extraAmount,
             'items'        => $lines,
         ];
+    }
+
+    /**
+     * Các loại phòng khác (đang active, đủ sức chứa) còn trống cho khoảng
+     * ngày gia hạn khi loại phòng hiện tại của $item đã hết chỗ — dùng để
+     * lễ tân chọn phương án đổi phòng thay vì tự động chọn hộ (đã chốt với
+     * người dùng). Chỉ giữ những loại phòng có ít nhất 1 phòng vật lý đang
+     * không có khách ngay lúc gọi (roomService->availableForRoomType()) —
+     * đây là phòng cụ thể sẽ được gán ngay khi lễ tân xác nhận đổi.
+     *
+     * @return array<int, array{room_type_id: int, name: string, extra_amount: float, available_rooms: array<int, array{id: int, room_number: string}>}>
+     */
+    private function findSwitchAlternatives(BookingItem $item, string $checkIn, string $checkOut): array
+    {
+        $guests = $item->adults + $item->children;
+
+        $candidates = RoomType::where('status', 'active')
+            ->where('id', '!=', $item->room_type_id)
+            ->where('capacity', '>=', $guests)
+            ->get();
+
+        $alternatives = [];
+
+        foreach ($candidates as $roomType) {
+            $availability = $this->availabilityService->check($roomType->id, $checkIn, $checkOut, 1, null, $item->booking_id);
+
+            if (! $availability['can_book']) {
+                continue;
+            }
+
+            $availableRooms = $this->roomService->availableForRoomType($roomType->id);
+
+            if ($availableRooms->isEmpty()) {
+                continue;
+            }
+
+            $pricing = $this->pricingService->calculate($roomType, $checkIn, $checkOut, 1, $item->children);
+
+            $alternatives[] = [
+                'room_type_id'    => $roomType->id,
+                'name'            => $roomType->name,
+                'extra_amount'    => $pricing['total_price'],
+                'available_rooms' => $availableRooms->map(fn (Room $room) => [
+                    'id'          => $room->id,
+                    'room_number' => $room->room_number,
+                ])->values()->all(),
+            ];
+        }
+
+        usort($alternatives, fn ($a, $b) => $a['extra_amount'] <=> $b['extra_amount']);
+
+        return $alternatives;
     }
 
     /**
