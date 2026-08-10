@@ -18,6 +18,7 @@ use App\Models\RoomChangeRequest;
 use App\Models\RoomType;
 use App\Models\SeasonalRate;
 use App\Models\Service;
+use App\Models\SurchargeItem;
 use App\Models\User;
 use App\Notifications\NewGroupBookingRequest;
 use App\Services\ChatService;
@@ -53,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
             'contact_messages' => ContactMessage::class,
             'seasonal_rates' => SeasonalRate::class,
             'services' => Service::class,
+            'surcharge_items' => SurchargeItem::class,
             'group_booking_requests' => GroupBookingRequest::class,
             'rooms' => Room::class,
             'room_change_requests' => RoomChangeRequest::class,

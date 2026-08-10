@@ -17,6 +17,7 @@ use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Web\Admin\SeasonalRateController as AdminSeasonalRateController;
 use App\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
+use App\Http\Controllers\Web\Admin\SurchargeItemController as AdminSurchargeItemController;
 use App\Http\Controllers\Web\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Web\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Web\Admin\NewsController as AdminNewsController;
@@ -233,6 +234,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
 
     Route::prefix('rooms')->name('rooms.')->group(function () {
         Route::get('/',                       [AdminRoomController::class, 'index'])->name('index');
+        Route::get('/calendar',               [AdminRoomController::class, 'calendar'])->name('calendar');
         Route::get('/create',                 [AdminRoomController::class, 'create'])->name('create');
         Route::post('/',                      [AdminRoomController::class, 'store'])->name('store');
         Route::get('/{id}/edit',              [AdminRoomController::class, 'edit'])->name('edit');
@@ -311,6 +313,16 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::put('/{id}',           [AdminServiceController::class, 'update'])->name('update');
         Route::delete('/{id}',        [AdminServiceController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/restore',  [AdminServiceController::class, 'restore'])->name('restore');
+    });
+
+    Route::prefix('surcharge-items')->name('surcharge-items.')->group(function () {
+        Route::get('/',               [AdminSurchargeItemController::class, 'index'])->name('index');
+        Route::get('/create',         [AdminSurchargeItemController::class, 'create'])->name('create');
+        Route::post('/',              [AdminSurchargeItemController::class, 'store'])->name('store');
+        Route::get('/{id}/edit',      [AdminSurchargeItemController::class, 'edit'])->name('edit');
+        Route::put('/{id}',           [AdminSurchargeItemController::class, 'update'])->name('update');
+        Route::delete('/{id}',        [AdminSurchargeItemController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/restore',  [AdminSurchargeItemController::class, 'restore'])->name('restore');
     });
 
     Route::prefix('banners')->name('banners.')->group(function () {
@@ -408,6 +420,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
 
     Route::prefix('rooms')->name('rooms.')->group(function () {
         Route::get('/',                    [StaffRoomController::class, 'index'])->name('index');
+        Route::get('/calendar',            [StaffRoomController::class, 'calendar'])->name('calendar');
         Route::patch('/{id}/housekeeping', [StaffRoomController::class, 'updateHousekeeping'])->name('update-housekeeping');
     });
 

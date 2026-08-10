@@ -103,16 +103,25 @@ class BookingService
         $this->validateGuestCapacity($data['items'], $roomTypes);
         $this->checkAvailabilityForAllItems($data['items'], $roomTypes, $data['check_in'], $data['check_out']);
 
-        return DB::transaction(function () use ($data, $roomTypes) {
+        $booking = DB::transaction(function () use ($data, $roomTypes) {
             RoomType::whereIn('id', $roomTypes->keys()->sort()->values())->lockForUpdate()->get();
 
             $nights = null;
             $total  = 0;
             $lines  = [];
 
+            // Dòng nào cần giường phụ (đã qua validateGuestCapacity() nên chắc
+            // chắn category hỗ trợ + khách/nhân viên đã tick) — cùng cơ chế
+            // pool dùng chung với create() (khách tự đặt), khác trước đây
+            // createByAdmin() bỏ qua hoàn toàn extra_bed dù validateGuestCapacity()
+            // đã chấp nhận field này (checkbox không có tác dụng thật).
+            $extraBedByIndex = [];
+
             foreach ($data['items'] as $item) {
                 $roomType = $roomTypes[(int) $item['room_type_id']];
                 $quantity = (int) $item['quantity'];
+                $adults   = (int) ($item['adults'] ?? 1);
+                $children = (int) ($item['children'] ?? 0);
 
                 if (! $this->availabilityService->canBook($roomType->id, $data['check_in'], $data['check_out'], $quantity)) {
                     throw ValidationException::withMessages([
@@ -120,22 +129,56 @@ class BookingService
                     ]);
                 }
 
-                $pricing = $this->pricingService->calculate($roomType, $data['check_in'], $data['check_out'], $quantity, (int) ($item['children'] ?? 0));
+                $pricing = $this->pricingService->calculate($roomType, $data['check_in'], $data['check_out'], $quantity, $children);
                 $nights ??= $pricing['nights'];
                 $total  += $pricing['total_price'];
 
+                $extraBedCount = $this->extraBedsNeeded($roomType, $quantity, $adults, $children);
+                if ($extraBedCount > 0) {
+                    $extraBedByIndex[count($lines)] = $extraBedCount;
+                }
+
                 $lines[] = [
-                    'room_type_id'    => $roomType->id,
-                    'quantity'        => $quantity,
-                    'adults'          => (int) ($item['adults'] ?? 1),
-                    'children'        => (int) ($item['children'] ?? 0),
-                    'infants'         => (int) ($item['infants'] ?? 0),
-                    'price_per_night' => $pricing['unit_price'],
-                    'nights'          => $pricing['nights'],
-                    'subtotal'        => $pricing['room_subtotal'],
-                    'child_surcharge' => $pricing['child_surcharge'],
-                    'price_breakdown' => $pricing['nightly_breakdown'],
+                    'room_type_id'        => $roomType->id,
+                    'quantity'            => $quantity,
+                    'adults'              => $adults,
+                    'children'            => $children,
+                    'infants'             => (int) ($item['infants'] ?? 0),
+                    'extra_beds'          => 0, // chỉ set thật sau khi biết tồn kho giường phụ, xem dưới
+                    'extra_bed_surcharge' => 0, // idem — cộng vào $total dưới nếu được cấp
+                    'price_per_night'     => $pricing['unit_price'],
+                    'nights'              => $pricing['nights'],
+                    'subtotal'            => $pricing['room_subtotal'],
+                    'child_surcharge'     => $pricing['child_surcharge'],
+                    'price_breakdown'     => $pricing['nightly_breakdown'],
                 ];
+            }
+
+            $extraBedsNeeded           = array_sum($extraBedByIndex);
+            $pendingConsultation       = false;
+            $extraBedAvailableSnapshot = 0;
+
+            if ($extraBedsNeeded > 0) {
+                HotelInfo::query()->lockForUpdate()->first();
+                $extraBedAvailableSnapshot = $this->extraBedInventoryService->countAvailable($data['check_in'], $data['check_out']);
+
+                if ($extraBedAvailableSnapshot >= $extraBedsNeeded) {
+                    foreach ($extraBedByIndex as $idx => $count) {
+                        $roomType        = $roomTypes[(int) $lines[$idx]['room_type_id']];
+                        $extraBedPricing = $this->pricingService->calculate(
+                            $roomType, $data['check_in'], $data['check_out'],
+                            $lines[$idx]['quantity'], $lines[$idx]['children'], $count
+                        );
+
+                        $lines[$idx]['extra_beds']         = $count;
+                        $lines[$idx]['extra_bed_surcharge'] = $extraBedPricing['extra_bed_surcharge'];
+                        $total += $extraBedPricing['extra_bed_surcharge'];
+                    }
+                } else {
+                    // Không đủ — đơn KHÔNG bị chặn, chuyển "chờ tư vấn" giống hệt
+                    // create() (khách tự đặt) thay vì hết phòng thật sự.
+                    $pendingConsultation = true;
+                }
             }
 
             $booking = Booking::create([
@@ -154,18 +197,38 @@ class BookingService
                 'note'           => $data['note'] ?? null,
                 'total_amount'   => $total,
                 'discount_amount'=> 0,
-                'status'         => BookingStatus::PENDING_DEPOSIT,
-                'deposit_expires_at' => now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
+                'status'         => $pendingConsultation ? BookingStatus::PENDING_CONSULTATION : BookingStatus::PENDING_DEPOSIT,
+                'deposit_expires_at' => $pendingConsultation ? null : now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
             ]);
 
-            $this->logStatus($booking, null, BookingStatus::PENDING_DEPOSIT, Auth::id(), 'Admin/staff tạo đơn thủ công — chờ cọc 30% hoặc thanh toán đủ trong ' . self::DEPOSIT_HOLD_MINUTES . ' phút, quá hạn tự hủy.');
+            if ($pendingConsultation) {
+                $this->logStatus($booking, null, BookingStatus::PENDING_CONSULTATION, Auth::id(), "Giường phụ không đủ trong khoảng ngày đã chọn (cần {$extraBedsNeeded}, còn {$extraBedAvailableSnapshot}) — chờ khách/nhân viên chọn phương án.");
+            } else {
+                $this->logStatus($booking, null, BookingStatus::PENDING_DEPOSIT, Auth::id(), 'Admin/staff tạo đơn thủ công — chờ cọc 30% hoặc thanh toán đủ trong ' . self::DEPOSIT_HOLD_MINUTES . ' phút, quá hạn tự hủy.');
+            }
 
             // Chỉ báo được nếu đơn có gắn tài khoản khách hàng (đơn nhóm/điện
             // thoại đôi khi không có, xem $data['user_id'] ?? null ở trên).
-            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được tạo — vui lòng đặt cọc 30% hoặc thanh toán đủ trong " . self::DEPOSIT_HOLD_MINUTES . ' phút, nếu không đơn sẽ tự động hủy.'));
+            $customerMessage = $pendingConsultation
+                ? "Đơn {$booking->booking_code} hiện đang chờ tư vấn — số giường phụ yêu cầu tạm thời không đủ trong khoảng ngày này. Nhân viên sẽ liên hệ để chọn phương án."
+                : "Đơn {$booking->booking_code} đã được tạo — vui lòng đặt cọc 30% hoặc thanh toán đủ trong " . self::DEPOSIT_HOLD_MINUTES . ' phút, nếu không đơn sẽ tự động hủy.';
+            $booking->user?->notify(new BookingStatusChanged($booking, $customerMessage));
 
-            foreach ($lines as $line) {
-                $booking->bookingItems()->create($line);
+            $createdItems = [];
+            foreach ($lines as $idx => $line) {
+                $createdItems[$idx] = $booking->bookingItems()->create($line);
+            }
+
+            if ($pendingConsultation) {
+                $firstIndex = array_key_first($extraBedByIndex);
+
+                ExtraBedRequest::create([
+                    'booking_id'           => $booking->id,
+                    'booking_item_id'      => $createdItems[$firstIndex]->id,
+                    'requested_extra_beds' => $extraBedsNeeded,
+                    'available_extra_beds' => $extraBedAvailableSnapshot,
+                    'status'               => 'pending',
+                ]);
             }
 
             $booking->payment()->create([
@@ -174,8 +237,18 @@ class BookingService
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
 
-            return $booking->load(['bookingItems.roomType', 'payment']);
+            return $booking->load(['bookingItems.roomType', 'payment', 'extraBedRequests']);
         });
+
+        // Bắn SAU KHI transaction đã commit — cùng lý do với create() (khách tự
+        // đặt): tránh listener (chạy qua queue) xử lý 1 booking có thể bị
+        // rollback nếu có lỗi phát sinh sau đó trong cùng transaction.
+        $pendingExtraBedRequest = $booking->pendingExtraBedRequest();
+        if ($booking->status === BookingStatus::PENDING_CONSULTATION && $pendingExtraBedRequest) {
+            event(new ExtraBedUnavailable($booking, $pendingExtraBedRequest));
+        }
+
+        return $booking;
     }
 
     public function create(User $customer, array $data): Booking
@@ -1231,7 +1304,7 @@ class BookingService
      * Ghi thẳng vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService) —
      * KHÔNG đụng payment (tiền phòng gốc) nữa, xem checkOut().
      */
-    public function addSurcharge(Booking $booking, float $amount, string $note): Booking
+    public function addSurcharge(Booking $booking, float $amount, string $note, ?int $surchargeItemId = null, int $quantity = 1): Booking
     {
         if ($booking->status !== BookingStatus::CHECKED_IN) {
             throw ValidationException::withMessages([
@@ -1245,8 +1318,8 @@ class BookingService
             ]);
         }
 
-        return DB::transaction(function () use ($booking, $amount, $note) {
-            $this->incidentalInvoiceService->addItem($booking, 'surcharge', $note, $amount);
+        return DB::transaction(function () use ($booking, $amount, $note, $surchargeItemId, $quantity) {
+            $this->incidentalInvoiceService->addItem($booking, 'surcharge', $note, $amount, null, $surchargeItemId, $quantity);
 
             return $booking->fresh(['payment', 'incidentalInvoice.items']);
         });

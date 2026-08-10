@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\DB;
  */
 class IncidentalInvoiceService
 {
-    public function addItem(Booking $booking, string $type, string $description, float $amount, ?int $bookingServiceId = null): IncidentalInvoiceItem
+    public function addItem(Booking $booking, string $type, string $description, float $amount, ?int $bookingServiceId = null, ?int $surchargeItemId = null, int $quantity = 1): IncidentalInvoiceItem
     {
-        return DB::transaction(function () use ($booking, $type, $description, $amount, $bookingServiceId) {
+        return DB::transaction(function () use ($booking, $type, $description, $amount, $bookingServiceId, $surchargeItemId, $quantity) {
             $invoice = $booking->incidentalInvoice()->where('status', 'open')->first()
                 ?? IncidentalInvoice::create(['booking_id' => $booking->id, 'status' => 'open']);
 
@@ -28,7 +28,9 @@ class IncidentalInvoiceService
                 'type'               => $type,
                 'description'        => $description,
                 'amount'             => $amount,
+                'quantity'           => $quantity,
                 'booking_service_id' => $bookingServiceId,
+                'surcharge_item_id'  => $surchargeItemId,
                 'created_by'         => Auth::id(),
             ]);
 

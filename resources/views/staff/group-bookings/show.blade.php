@@ -112,10 +112,10 @@
                         <div class="item-row flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                             <div class="flex min-w-[200px] flex-1 flex-col gap-1">
                                 <label class="text-xs font-bold whitespace-nowrap">Loại phòng</label>
-                                <select name="items[{{ $i }}][room_type_id]" class="input" required>
+                                <select name="items[{{ $i }}][room_type_id]" class="input" required onchange="toggleGroupExtraBed(this)">
                                     <option value="">-- Chọn loại phòng --</option>
                                     @foreach ($allRoomTypes as $rt)
-                                        <option value="{{ $rt->id }}" @selected((string)($row['room_type_id'] ?? '') === (string)$rt->id)>
+                                        <option value="{{ $rt->id }}" data-supports-extra-bed="{{ $rt->supportsExtraBed() ? '1' : '0' }}" @selected((string)($row['room_type_id'] ?? '') === (string)$rt->id)>
                                             {{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm
                                         </option>
                                     @endforeach
@@ -137,6 +137,10 @@
                                 <label class="text-xs font-bold whitespace-nowrap" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">SS</label>
                                 <input type="number" name="items[{{ $i }}][infants]" class="input" min="0" value="{{ $row['infants'] ?? 0 }}" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">
                             </div>
+                            <label class="item-extra-bed-wrap hidden items-center gap-1.5 text-xs font-bold">
+                                <input type="checkbox" name="items[{{ $i }}][extra_bed]" class="item-extra-bed" value="1" @checked(! empty($row['extra_bed']))>
+                                Giường phụ?
+                            </label>
                             <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm">✕</button>
                         </div>
                     @endforeach
@@ -173,10 +177,10 @@
     <div class="item-row flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
         <div class="flex min-w-[200px] flex-1 flex-col gap-1">
             <label class="text-xs font-bold whitespace-nowrap">Loại phòng</label>
-            <select name="items[__I__][room_type_id]" class="input" required>
+            <select name="items[__I__][room_type_id]" class="input" required onchange="toggleGroupExtraBed(this)">
                 <option value="">-- Chọn loại phòng --</option>
                 @foreach ($allRoomTypes as $rt)
-                    <option value="{{ $rt->id }}">{{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm</option>
+                    <option value="{{ $rt->id }}" data-supports-extra-bed="{{ $rt->supportsExtraBed() ? '1' : '0' }}">{{ $rt->name }} — {{ number_format($rt->price_per_night, 0, ',', '.') }}đ/đêm</option>
                 @endforeach
             </select>
         </div>
@@ -196,6 +200,10 @@
             <label class="text-xs font-bold whitespace-nowrap" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">SS</label>
             <input type="number" name="items[__I__][infants]" class="input" min="0" value="0" title="Sơ sinh 0-5 tuổi (miễn phí, tối đa 2/phòng)">
         </div>
+        <label class="item-extra-bed-wrap hidden items-center gap-1.5 text-xs font-bold">
+            <input type="checkbox" name="items[__I__][extra_bed]" class="item-extra-bed" value="1">
+            Giường phụ?
+        </label>
         <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm">✕</button>
     </div>
 </template>
@@ -206,6 +214,28 @@ function addRow() {
     const tpl = document.getElementById('row-tpl').innerHTML.replace(/__I__/g, idx++);
     document.getElementById('items-container').insertAdjacentHTML('beforeend', tpl);
 }
+
+// Chỉ loại phòng có RoomType::supportsExtraBed() = true mới hiện checkbox
+// giường phụ — ẩn + bỏ tick nếu đổi sang loại phòng không hỗ trợ, tránh gửi
+// extra_bed=1 "mồ côi" (khớp cách customer/booking/create.blade.php đang làm).
+function toggleGroupExtraBed(select) {
+    const row = select.closest('.item-row');
+    const wrap = row.querySelector('.item-extra-bed-wrap');
+    const checkbox = row.querySelector('.item-extra-bed');
+    const opt = select.options[select.selectedIndex];
+    const supportsExtraBed = opt && opt.dataset.supportsExtraBed === '1';
+
+    if (supportsExtraBed) {
+        wrap.classList.remove('hidden');
+        wrap.classList.add('flex');
+    } else {
+        wrap.classList.add('hidden');
+        wrap.classList.remove('flex');
+        if (checkbox) checkbox.checked = false;
+    }
+}
+
+document.querySelectorAll('#items-container select[name*="room_type_id"]').forEach(toggleGroupExtraBed);
 </script>
 
 <div class="card mt-5">

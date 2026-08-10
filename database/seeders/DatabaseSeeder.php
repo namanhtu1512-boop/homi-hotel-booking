@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             NewsSeeder::class,
             ContactMessageSeeder::class,
             ServiceSeeder::class,
+            SurchargeItemSeeder::class,
         ]);
     }
 }
