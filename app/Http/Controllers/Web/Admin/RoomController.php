@@ -34,6 +34,21 @@ class RoomController extends Controller
         ]);
     }
 
+    public function calendar(Request $request): View
+    {
+        $month = $request->filled('month')
+            ? \Carbon\Carbon::createFromFormat('Y-m', $request->string('month'))
+            : now('Asia/Ho_Chi_Minh');
+
+        $roomTypeId = $request->integer('room_type_id') ?: null;
+
+        return view('admin.rooms.calendar', [
+            'month'     => $month,
+            'roomTypes' => RoomType::orderBy('name')->get(),
+            'filters'   => $request->only('room_type_id', 'month'),
+        ] + $this->roomService->monthlyOccupancy($month, $roomTypeId));
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validateRoom($request);

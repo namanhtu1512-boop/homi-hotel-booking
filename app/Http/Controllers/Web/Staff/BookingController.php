@@ -14,6 +14,7 @@ use App\Services\BookingService;
 use App\Services\BookingTimelineService;
 use App\Services\RoomService;
 use App\Services\ServiceService;
+use App\Services\SurchargeItemService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class BookingController extends Controller
         private readonly AuditLogService $auditLog,
         private readonly RoomService $roomService,
         private readonly ServiceService $serviceService,
+        private readonly SurchargeItemService $surchargeItemService,
         private readonly BookingTimelineService $timelineService,
     ) {}
 
@@ -58,9 +60,10 @@ class BookingController extends Controller
         $booking = $this->bookingService->findForAdmin($id);
 
         return view('staff.bookings.show', [
-            'booking'        => $booking,
-            'activeServices' => $this->serviceService->activePublic(),
-            'timeline'       => $this->timelineService->buildTimeline($booking),
+            'booking'         => $booking,
+            'activeServices'  => $this->serviceService->activePublic(),
+            'surchargeItems'  => $this->surchargeItemService->activePublic(),
+            'timeline'        => $this->timelineService->buildTimeline($booking),
         ]);
     }
 
@@ -222,7 +225,13 @@ class BookingController extends Controller
     public function addSurcharge(int $id, AddSurchargeRequest $request): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $this->bookingService->addSurcharge($booking, (float) $request->validated('amount'), $request->validated('note'));
+        $this->bookingService->addSurcharge(
+            $booking,
+            (float) $request->validated('amount'),
+            $request->validated('note'),
+            $request->validated('surcharge_item_id') ? (int) $request->validated('surcharge_item_id') : null,
+            (int) ($request->validated('quantity') ?: 1),
+        );
 
         $this->auditLog->log('booking.surcharge_added', $booking, "Thêm phụ phí phát sinh cho đơn \"{$booking->booking_code}\".");
 

@@ -256,6 +256,7 @@
                                 <tr>
                                     <th>Loại</th>
                                     <th>Mô tả</th>
+                                    <th>SL</th>
                                     <th>Số tiền</th>
                                 </tr>
                             </thead>
@@ -264,13 +265,14 @@
                                     <tr>
                                         <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
                                         <td>{{ $item->description }}</td>
+                                        <td>{{ $item->quantity }}</td>
                                         <td>{{ number_format($item->amount, 0, ',', '.') }}đ</td>
                                     </tr>
                                 @endforeach
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="2">
+                                    <td colspan="3">
                                         <strong>Tổng cộng</strong>
                                         <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Đang mở' }}</span>
                                     </td>
@@ -360,6 +362,7 @@
                         <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
                             @include('partials.surcharge-item-select')
+                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng" oninput="onSurchargeQuantityChange(this)">
                             <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
                             <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
                             <button type="submit" class="btn btn-outline btn-sm">➕ Thêm phụ phí phát sinh</button>

@@ -1,49 +1,96 @@
-<select class="input surcharge-item-select" style="width:auto; max-width:100%;" onchange="applySurchargeItem(this)">
-    <option value="">-- Chọn vật dụng --</option>
-    <option value="Khăn mặt" data-price="100000">Khăn mặt — 100.000đ</option>
-    <option value="Khăn tắm" data-price="250000">Khăn tắm — 250.000đ</option>
-    <option value="Áo choàng tắm" data-price="500000">Áo choàng tắm — 500.000đ</option>
-    <option value="Dép đi trong phòng" data-price="50000">Dép đi trong phòng — 50.000đ</option>
-    <option value="Gối" data-price="300000">Gối — 300.000đ</option>
-    <option value="Ruột gối" data-price="200000">Ruột gối — 200.000đ</option>
-    <option value="Chăn" data-price="600000">Chăn — 600.000đ</option>
-    <option value="Ga giường" data-price="500000">Ga giường — 500.000đ</option>
-    <option value="Máy sấy tóc" data-price="700000">Máy sấy tóc — 700.000đ</option>
-    <option value="Ấm đun siêu tốc" data-price="500000">Ấm đun siêu tốc — 500.000đ</option>
-    <option value="Điều khiển TV" data-price="300000">Điều khiển TV — 300.000đ</option>
-    <option value="Ly thủy tinh" data-price="100000">Ly thủy tinh — 100.000đ</option>
-    <option value="Cốc sứ" data-price="120000">Cốc sứ — 120.000đ</option>
-    <option value="Bình nước" data-price="200000">Bình nước — 200.000đ</option>
-    <option value="Thùng rác" data-price="250000">Thùng rác — 250.000đ</option>
-    <option value="Đèn ngủ" data-price="800000">Đèn ngủ — 800.000đ</option>
-    <option value="Ghế" data-price="1000000">Ghế — 1.000.000đ</option>
-    <option value="TV" data-price-note="8.000.000–15.000.000đ (tùy mức độ hư hỏng)">TV — 8.000.000–15.000.000đ</option>
-    <option value="Tủ lạnh mini" data-price-note="4.000.000–7.000.000đ (tùy mức độ hư hỏng)">Tủ lạnh mini — 4.000.000–7.000.000đ</option>
-    <option value="Điều hòa" data-price-note="8.000.000–15.000.000đ (tùy mức độ hư hỏng)">Điều hòa — 8.000.000–15.000.000đ</option>
-    <option value="">Khác (tự nhập)</option>
-</select>
+<div class="surcharge-item-picker" style="position:relative; width:220px;">
+    <input type="hidden" name="surcharge_item_id" class="surcharge-item-id" value="">
+    <input type="text" class="input surcharge-item-search" style="width:100%;" placeholder="Gõ để tìm vật dụng..."
+           autocomplete="off" oninput="filterSurchargeItems(this)" onfocus="filterSurchargeItems(this)" onblur="hideSurchargeDropdown(this)">
+    <div class="surcharge-item-dropdown hidden absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white text-sm shadow-lg dark:border-slate-700 dark:bg-slate-800"></div>
+</div>
+
+@php
+    $surchargeItemsForJs = $surchargeItems->map(function ($i) {
+        return [
+            'id'         => $i->id,
+            'name'       => $i->name,
+            'price'      => $i->price !== null ? (float) $i->price : null,
+            'price_note' => $i->price_note,
+        ];
+    });
+@endphp
 
 @once
     @push('scripts')
         <script>
-            function applySurchargeItem(select) {
-                const form = select.closest('form');
+            const SURCHARGE_ITEMS = @json($surchargeItemsForJs);
+
+            function surchargeItemLabel(item) {
+                return item.price !== null
+                    ? `${item.name} — ${Math.round(item.price).toLocaleString('vi-VN')}đ`
+                    : `${item.name} — ${item.price_note ?? 'giá tùy trường hợp'}`;
+            }
+
+            function filterSurchargeItems(input) {
+                const wrap = input.closest('.surcharge-item-picker');
+                const dropdown = wrap.querySelector('.surcharge-item-dropdown');
+
+                // Đang gõ lại sau khi đã chọn 1 mục — coi như quay về nhập tự do
+                // ("Khác"), bỏ liên kết surcharge_item_id cũ.
+                wrap.querySelector('.surcharge-item-id').value = '';
+
+                const q = input.value.trim().toLowerCase();
+                const matches = q ? SURCHARGE_ITEMS.filter((i) => i.name.toLowerCase().includes(q)) : SURCHARGE_ITEMS;
+
+                dropdown.innerHTML = matches.length
+                    ? matches.map((i) => `<div class="surcharge-item-option cursor-pointer px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-700" data-id="${i.id}">${surchargeItemLabel(i)}</div>`).join('')
+                    : '<div class="px-3 py-2 text-slate-400">Không tìm thấy — sẽ ghi là mục "Khác", tự nhập số tiền/lý do bên cạnh.</div>';
+
+                dropdown.querySelectorAll('.surcharge-item-option').forEach((el) => {
+                    // mousedown (không phải click) để chạy TRƯỚC sự kiện blur của
+                    // input tìm kiếm — nếu không, blur ẩn dropdown trước khi kịp
+                    // click trúng.
+                    el.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        selectSurchargeItem(wrap, el.dataset.id);
+                    });
+                });
+
+                dropdown.classList.remove('hidden');
+            }
+
+            function selectSurchargeItem(wrap, id) {
+                const item = SURCHARGE_ITEMS.find((i) => String(i.id) === String(id));
+                if (! item) return;
+
+                const form = wrap.closest('form');
+                wrap.querySelector('.surcharge-item-id').value = item.id;
+                wrap.querySelector('.surcharge-item-search').value = item.name;
+                wrap.querySelector('.surcharge-item-dropdown').classList.add('hidden');
+
+                const quantityInput = form.querySelector('.surcharge-quantity');
+                const quantity = parseInt(quantityInput?.value, 10) || 1;
                 const amountInput = form.querySelector('.surcharge-amount');
                 const noteInput = form.querySelector('.surcharge-note');
-                const opt = select.options[select.selectedIndex];
-                const price = opt.getAttribute('data-price');
-                const priceNote = opt.getAttribute('data-price-note');
 
-                if (! select.value) {
-                    amountInput.value = '';
-                    noteInput.value = '';
-                    return;
+                // price null (VD: TV/tủ lạnh/điều hòa) — để trống ô tiền, nhân viên
+                // tự nhập theo thực tế hư hỏng, chỉ điền sẵn ghi chú khoảng giá.
+                amountInput.value = item.price !== null ? item.price * quantity : '';
+                noteInput.value = item.price_note
+                    ? `Bồi thường: ${item.name} (${item.price_note})`
+                    : `Bồi thường: ${item.name}`;
+            }
+
+            function hideSurchargeDropdown(input) {
+                // setTimeout để mousedown trên option kịp chạy trước khi dropdown ẩn.
+                setTimeout(() => input.closest('.surcharge-item-picker').querySelector('.surcharge-item-dropdown').classList.add('hidden'), 150);
+            }
+
+            function onSurchargeQuantityChange(input) {
+                const form = input.closest('form');
+                const id = form.querySelector('.surcharge-item-id').value;
+                if (! id) return;
+
+                const item = SURCHARGE_ITEMS.find((i) => String(i.id) === String(id));
+                if (item && item.price !== null) {
+                    form.querySelector('.surcharge-amount').value = item.price * (parseInt(input.value, 10) || 1);
                 }
-
-                amountInput.value = price ?? '';
-                noteInput.value = priceNote
-                    ? `Bồi thường: ${select.value} (${priceNote})`
-                    : `Bồi thường: ${select.value}`;
             }
         </script>
     @endpush
