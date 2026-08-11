@@ -15,6 +15,8 @@ class Service extends Model
         'name',
         'description',
         'price',
+        'price_note',
+        'group',
         'status',
         'available_from',
         'available_until',

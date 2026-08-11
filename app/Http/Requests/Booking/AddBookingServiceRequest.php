@@ -11,6 +11,8 @@ class AddBookingServiceRequest extends BaseFormRequest
         return [
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'quantity'   => ['required', 'integer', 'min:1', 'max:20'],
+            'amount'     => ['nullable', 'numeric', 'min:1'],
+            'note'       => ['nullable', 'string', 'max:255'],
         ];
     }
 

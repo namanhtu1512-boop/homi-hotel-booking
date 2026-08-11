@@ -91,6 +91,8 @@ class SurchargeItemController extends Controller
             'name'       => ['required', 'string', 'max:255'],
             'price'      => ['nullable', 'numeric', 'min:0'],
             'price_note' => ['nullable', 'string', 'max:255', 'required_without:price'],
+            'category'   => ['required', 'in:damage,violation,cleaning'],
+            'group'      => ['nullable', 'string', 'max:100'],
             'status'     => ['required', 'in:active,hidden'],
         ], [
             'price_note.required_without' => 'Nhập giá cố định hoặc ghi chú khoảng giá (bắt buộc 1 trong 2).',
@@ -98,6 +100,8 @@ class SurchargeItemController extends Controller
             'name'       => 'tên mục phụ phí',
             'price'      => 'giá',
             'price_note' => 'ghi chú khoảng giá',
+            'category'   => 'phân loại',
+            'group'      => 'nhóm',
             'status'     => 'trạng thái',
         ]);
     }

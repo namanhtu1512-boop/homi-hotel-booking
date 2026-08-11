@@ -29,6 +29,21 @@
         </div>
 
         <div class="form-group">
+            <label for="category">Phân loại *</label>
+            @php $currentCategory = old('category', $surchargeItem?->category?->value ?? 'damage'); @endphp
+            <select id="category" name="category" required>
+                <option value="damage" @selected($currentCategory === 'damage')>🔴 Hỏng / mất đồ</option>
+                <option value="violation" @selected($currentCategory === 'violation')>🟠 Vi phạm quy định</option>
+                <option value="cleaning" @selected($currentCategory === 'cleaning')>🟡 Vệ sinh đặc biệt</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="group">Nhóm</label>
+            <input id="group" type="text" name="group" value="{{ old('group', $surchargeItem->group ?? '') }}" placeholder="VD: Đồ giường, Phòng tắm, Điện tử...">
+        </div>
+
+        <div class="form-group">
             <label for="price">Giá cố định (VNĐ)</label>
             <input id="price" type="number" min="0" name="price" value="{{ old('price', $surchargeItem->price ?? '') }}">
         </div>
