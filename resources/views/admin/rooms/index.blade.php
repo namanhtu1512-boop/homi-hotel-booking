@@ -14,6 +14,13 @@
                     <option value="{{ $roomType->id }}" @selected(($filters['room_type_id'] ?? '') == $roomType->id)>{{ $roomType->name }}</option>
                 @endforeach
             </select>
+            <select name="status" onchange="this.form.submit()">
+                <option value="">Tất cả trạng thái</option>
+                <option value="empty" @selected(($filters['status'] ?? '') === 'empty')>Trống</option>
+                <option value="occupied" @selected(($filters['status'] ?? '') === 'occupied')>Đang có khách</option>
+                <option value="overdue" @selected(($filters['status'] ?? '') === 'overdue')>Quá giờ trả phòng</option>
+                <option value="checked_out_today" @selected(($filters['status'] ?? '') === 'checked_out_today')>Đã trả phòng hôm nay</option>
+            </select>
         </form>
         <a href="{{ route('admin.rooms.create') }}" class="btn btn-primary">+ Tạo phòng</a>
     </div>

@@ -13,7 +13,7 @@
 
 <body class="bg-slate-50 font-sans text-slate-800 dark:bg-slate-950 dark:text-slate-100">
     <div class="flex min-h-screen flex-col md:flex-row">
-        <aside class="flex shrink-0 flex-col gap-1 bg-teal-950 p-4 text-teal-200 md:w-64 md:p-5">
+        <aside class="flex shrink-0 flex-col gap-1 overflow-y-auto bg-teal-950 p-4 text-teal-200 md:sticky md:top-0 md:h-screen md:w-64 md:p-5">
             <div class="px-2 pb-5">
                 <div class="font-heading text-xl font-extrabold text-white">Homi</div>
                 <small class="text-xs font-semibold text-teal-300/80">Khu vực nhân viên</small>

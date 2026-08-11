@@ -18,7 +18,7 @@ class RoomService
      * phòng, tính real-time từ Booking::isOverdueCheckout() mỗi lần gọi —
      * không phụ thuộc job quét nền (xem BookingService::flagOverdueCheckouts()).
      */
-    public function list(?int $roomTypeId = null): Collection
+    public function list(?int $roomTypeId = null, ?string $occupancyState = null): Collection
     {
         $rooms = Room::with(['roomType', 'activeStay.bookingItem.booking', 'lastStay'])
             ->when($roomTypeId, fn ($q) => $q->where('room_type_id', $roomTypeId))
@@ -27,7 +27,11 @@ class RoomService
 
         $rooms->each(fn (Room $room) => $room->occupancy_status = $this->occupancyStatus($room));
 
-        return $rooms;
+        // `occupancy_status` là thuộc tính runtime (không phải cột DB), nên lọc
+        // bằng Collection::filter() sau khi tính, không phải bằng ->where().
+        return $occupancyState
+            ? $rooms->filter(fn (Room $room) => $room->occupancy_status['state'] === $occupancyState)->values()
+            : $rooms;
     }
 
     /**
