@@ -34,8 +34,19 @@
         </div>
 
         <div class="form-group">
-            <label for="price">Giá (VNĐ) *</label>
-            <input id="price" type="number" min="0" name="price" value="{{ old('price', $service->price ?? '') }}" required>
+            <label for="group">Nhóm</label>
+            <input id="group" type="text" name="group" value="{{ old('group', $service->group ?? '') }}" placeholder="VD: Ăn uống, Vận chuyển, Giặt là...">
+        </div>
+
+        <div class="form-group">
+            <label for="price">Giá cố định (VNĐ)</label>
+            <input id="price" type="number" min="0" name="price" value="{{ old('price', $service->price ?? '') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="price_note">Ghi chú khoảng giá</label>
+            <input id="price_note" type="text" name="price_note" value="{{ old('price_note', $service->price_note ?? '') }}" placeholder="VD: Tùy số lượng khách/quãng đường">
+            <p class="text-xs text-slate-500 dark:text-slate-400" style="margin-top: 4px;">Để trống ô Giá cố định nếu dịch vụ chưa có bảng giá — nhân viên sẽ tự nhập số tiền khi thêm vào booking.</p>
         </div>
 
         <div class="form-group">

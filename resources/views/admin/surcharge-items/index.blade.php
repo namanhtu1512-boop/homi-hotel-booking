@@ -19,15 +19,27 @@
                 <thead>
                     <tr>
                         <th>Tên</th>
+                        <th>Phân loại</th>
+                        <th>Nhóm</th>
                         <th>Giá</th>
                         <th>Trạng thái</th>
                         <th>Hành động</th>
                     </tr>
                 </thead>
                 <tbody>
+                    @php
+                        $categoryBadges = [
+                            'damage' => ['🔴 Hỏng/mất đồ', 'badge-red'],
+                            'violation' => ['🟠 Vi phạm', 'badge-orange'],
+                            'cleaning' => ['🟡 Vệ sinh đặc biệt', 'badge-blue'],
+                        ];
+                    @endphp
                     @foreach ($surchargeItems as $item)
+                        @php [$categoryLabel, $categoryBadge] = $categoryBadges[$item->category?->value] ?? ['—', 'badge-orange']; @endphp
                         <tr>
                             <td>{{ $item->name }}</td>
+                            <td><span class="badge {{ $categoryBadge }}">{{ $categoryLabel }}</span></td>
+                            <td>{{ $item->group ?? '—' }}</td>
                             <td>
                                 @if ($item->price !== null)
                                     {{ number_format($item->price, 0, ',', '.') }}đ

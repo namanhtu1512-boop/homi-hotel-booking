@@ -90,7 +90,11 @@ class ServiceController extends Controller
         return $request->validate([
             'name'             => ['required', 'string', 'max:255'],
             'description'      => ['nullable', 'string', 'max:2000'],
-            'price'            => ['required', 'numeric', 'min:0'],
+            // price = null cho dịch vụ chưa có bảng giá cố định — nhân viên tự
+            // nhập số tiền khi thêm vào booking (xem BookingService::addServiceItem()).
+            'price'            => ['nullable', 'numeric', 'min:0'],
+            'price_note'       => ['nullable', 'string', 'max:255'],
+            'group'            => ['nullable', 'string', 'max:100'],
             'status'           => ['required', 'in:active,hidden'],
             'available_from'   => ['nullable', 'date_format:H:i', 'required_with:available_until'],
             'available_until'  => ['nullable', 'date_format:H:i', 'required_with:available_from', 'after:available_from'],
@@ -100,6 +104,8 @@ class ServiceController extends Controller
             'name'             => 'tên dịch vụ',
             'description'      => 'mô tả',
             'price'            => 'giá',
+            'price_note'       => 'ghi chú khoảng giá',
+            'group'            => 'nhóm',
             'status'           => 'trạng thái',
             'available_from'   => 'giờ bắt đầu phục vụ',
             'available_until'  => 'giờ kết thúc phục vụ',

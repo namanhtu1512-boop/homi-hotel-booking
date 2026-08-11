@@ -1257,7 +1257,7 @@ class BookingService
      * KHÔNG đụng tới booking.total_amount/payment (tiền phòng gốc) nữa, chỉ
      * thu 1 lần lúc trả phòng (xem checkOut()).
      */
-    public function addServiceItem(Booking $booking, int $serviceId, int $quantity): Booking
+    public function addServiceItem(Booking $booking, int $serviceId, int $quantity, ?float $amount = null, ?string $note = null): Booking
     {
         if ($booking->status !== BookingStatus::CHECKED_IN) {
             throw ValidationException::withMessages([
@@ -1279,18 +1279,34 @@ class BookingService
         }
 
         $quantity = max(1, $quantity);
-        $subtotal = (float) $service->price * $quantity;
 
-        return DB::transaction(function () use ($booking, $service, $quantity, $subtotal) {
+        // price = null nghĩa là dịch vụ chưa có bảng giá cố định (VD: thuê xe
+        // theo đoàn, trang trí theo yêu cầu...) — bắt buộc nhân viên tự nhập
+        // amount, khác với dịch vụ có giá niêm yết (luôn dùng service->price,
+        // bỏ qua amount gửi lên để tránh nhân viên tự ý sửa giá catalog).
+        if ($service->price !== null) {
+            $subtotal = (float) $service->price * $quantity;
+        } else {
+            if ($amount === null || $amount <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ["Dịch vụ \"{$service->name}\" chưa có giá cố định, vui lòng nhập số tiền."],
+                ]);
+            }
+            $subtotal = $amount;
+        }
+
+        $description = $note ? "{$service->name} × {$quantity} — {$note}" : "{$service->name} × {$quantity}";
+
+        return DB::transaction(function () use ($booking, $service, $quantity, $subtotal, $description) {
             $serviceItem = $booking->serviceItems()->create([
                 'service_id' => $service->id,
                 'quantity'   => $quantity,
-                'unit_price' => $service->price,
+                'unit_price' => $subtotal / $quantity,
                 'subtotal'   => $subtotal,
             ]);
 
             $this->incidentalInvoiceService->addItem(
-                $booking, 'service', "{$service->name} × {$quantity}", $subtotal, $serviceItem->id
+                $booking, 'service', $description, $subtotal, $serviceItem->id
             );
 
             return $booking->fresh(['serviceItems.service', 'payment', 'incidentalInvoice.items']);

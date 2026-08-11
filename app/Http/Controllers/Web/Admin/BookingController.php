@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web\Admin;
 
+use App\Enums\SurchargeCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\AddBookingServiceRequest;
 use App\Http\Requests\Booking\AddSurchargeRequest;
@@ -62,7 +63,9 @@ class BookingController extends Controller
         return view('admin.bookings.show', [
             'booking'         => $booking,
             'activeServices'  => $this->serviceService->activePublic(),
-            'surchargeItems'  => $this->surchargeItemService->activePublic(),
+            'damageItems'     => $this->surchargeItemService->activePublic(SurchargeCategory::Damage),
+            'violationItems'  => $this->surchargeItemService->activePublic(SurchargeCategory::Violation),
+            'cleaningItems'   => $this->surchargeItemService->activePublic(SurchargeCategory::Cleaning),
             'timeline'        => $this->timelineService->buildTimeline($booking),
         ]);
     }
@@ -213,7 +216,13 @@ class BookingController extends Controller
     public function addService(int $id, AddBookingServiceRequest $request): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $this->bookingService->addServiceItem($booking, (int) $request->validated('service_id'), (int) $request->validated('quantity'));
+        $this->bookingService->addServiceItem(
+            $booking,
+            (int) $request->validated('service_id'),
+            (int) $request->validated('quantity'),
+            $request->validated('amount') !== null ? (float) $request->validated('amount') : null,
+            $request->validated('note'),
+        );
 
         $this->auditLog->log('booking.service_added', $booking, "Thêm dịch vụ phát sinh cho đơn \"{$booking->booking_code}\".");
 

@@ -19,6 +19,7 @@
                 <thead>
                     <tr>
                         <th>Tên dịch vụ</th>
+                        <th>Nhóm</th>
                         <th>Mô tả</th>
                         <th>Giá</th>
                         <th>Khung giờ phục vụ</th>
@@ -30,8 +31,15 @@
                     @foreach ($services as $service)
                         <tr>
                             <td>{{ $service->name }}</td>
+                            <td>{{ $service->group ?? '—' }}</td>
                             <td>{{ \Illuminate\Support\Str::limit($service->description, 60) }}</td>
-                            <td>{{ number_format($service->price, 0, ',', '.') }}đ</td>
+                            <td>
+                                @if ($service->price !== null)
+                                    {{ number_format($service->price, 0, ',', '.') }}đ
+                                @else
+                                    <span class="text-slate-400">{{ $service->price_note ?? 'Tùy trường hợp' }}</span>
+                                @endif
+                            </td>
                             <td>{{ $service->availabilityLabel() ?? 'Cả ngày' }}</td>
                             <td>
                                 @if ($service->trashed())
