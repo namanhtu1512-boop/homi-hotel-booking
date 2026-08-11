@@ -52,4 +52,37 @@ class GroupBookingRequestService
     {
         $request->delete();
     }
+
+    /**
+     * Dòng gợi ý mặc định cho form "Tạo đơn"/"Gửi báo giá" — ưu tiên đúng số
+     * lượng phòng theo phương án khách đã chọn (selected_suggestion.rooms),
+     * vì đó là con số khách nhìn thấy khi gửi yêu cầu. Chỉ rơi về room_type_ids
+     * (mỗi loại 1 phòng) khi khách gửi yêu cầu mà chưa chọn phương án nào.
+     */
+    public function defaultPrefillItems(GroupBookingRequest $request): array
+    {
+        $rooms = $request->selected_suggestion['rooms'] ?? null;
+
+        if ($rooms) {
+            return array_map(fn (array $r) => [
+                'room_type_id' => $r['room_type_id'] ?? '',
+                'quantity'     => $r['quantity'] ?? 1,
+                'adults'       => $r['occupancy_each'] ?? 2,
+                'children'     => 0,
+                'infants'      => 0,
+            ], $rooms);
+        }
+
+        if ($request->room_type_ids) {
+            return array_map(fn ($id) => [
+                'room_type_id' => $id,
+                'quantity'     => 1,
+                'adults'       => 2,
+                'children'     => 0,
+                'infants'      => 0,
+            ], $request->room_type_ids);
+        }
+
+        return [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0]];
+    }
 }

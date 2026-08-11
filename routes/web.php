@@ -360,6 +360,7 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::get('/{id}',                  [AdminGroupBookingController::class, 'show'])->name('show');
         Route::post('/{id}/create-booking',  [AdminGroupBookingController::class, 'createBooking'])->name('create-booking');
         Route::patch('/{id}/mark-contacted', [AdminGroupBookingController::class, 'markContacted'])->name('mark-contacted');
+        Route::post('/{id}/send-quote',      [AdminGroupBookingController::class, 'sendQuote'])->name('send-quote');
         Route::delete('/{id}',               [AdminGroupBookingController::class, 'destroy'])->name('destroy');
     });
 
