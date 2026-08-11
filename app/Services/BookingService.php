@@ -1368,11 +1368,13 @@ class BookingService
         }
 
         return [
-            'needs_switch'  => false,
-            'nights_added'  => $extension['nights_added'],
-            'extra_amount'  => $extension['extra_amount'],
-            'new_check_out' => $newCheckOut,
-            'switch'        => isset($extension['switch']) ? [
+            'needs_switch'        => false,
+            'nights_added'        => $extension['nights_added'],
+            'extra_amount'        => $extension['extra_amount'],
+            'new_check_out'       => $newCheckOut,
+            'rooms'               => collect($extension['items'] ?? [])->pluck('room_number')->filter()->values(),
+            'switch_alternatives' => $extension['switch_alternatives'] ?? [],
+            'switch'              => isset($extension['switch']) ? [
                 'room_type_id'   => $extension['switch']['room_type']->id,
                 'room_type_name' => $extension['switch']['room_type']->name,
                 'room_id'        => $extension['switch']['room']->id,
@@ -1423,12 +1425,12 @@ class BookingService
                     'adults'              => $oldItem->adults,
                     'children'            => $oldItem->children,
                     'infants'             => $oldItem->infants,
-                    'extra_beds'          => 0,
+                    'extra_beds'          => $switch['extra_beds_needed'] ?? 0,
                     'price_per_night'     => $switch['pricing']['unit_price'],
                     'nights'              => $switch['pricing']['nights'],
                     'subtotal'            => $switch['pricing']['room_subtotal'],
                     'child_surcharge'     => $switch['pricing']['child_surcharge'],
-                    'extra_bed_surcharge' => 0,
+                    'extra_bed_surcharge' => $switch['pricing']['extra_bed_surcharge'],
                     'price_breakdown'     => $switch['pricing']['nightly_breakdown'],
                 ]);
 
@@ -1454,10 +1456,11 @@ class BookingService
             } else {
                 foreach ($extension['items'] as $line) {
                     $line['item']->update([
-                        'nights'          => $line['item']->nights + $extension['nights_added'],
-                        'subtotal'        => $line['item']->subtotal + $line['pricing']['room_subtotal'],
-                        'child_surcharge' => $line['item']->child_surcharge + $line['pricing']['child_surcharge'],
-                        'price_breakdown' => array_merge($line['item']->price_breakdown ?? [], $line['pricing']['nightly_breakdown']),
+                        'nights'              => $line['item']->nights + $extension['nights_added'],
+                        'subtotal'            => $line['item']->subtotal + $line['pricing']['room_subtotal'],
+                        'child_surcharge'     => $line['item']->child_surcharge + $line['pricing']['child_surcharge'],
+                        'extra_bed_surcharge' => $line['item']->extra_bed_surcharge + $line['pricing']['extra_bed_surcharge'],
+                        'price_breakdown'     => array_merge($line['item']->price_breakdown ?? [], $line['pricing']['nightly_breakdown']),
                     ]);
 
                     $this->incidentalInvoiceService->addItem(
@@ -1538,6 +1541,25 @@ class BookingService
                 ]);
             }
 
+            if ($item->adults > $roomType->capacity) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ["Phòng \"{$roomType->name}\" tối đa {$roomType->capacity} người lớn, không đủ chỗ cho {$item->adults} người lớn của đơn này."],
+                ]);
+            }
+
+            $extraBedsNeeded = $this->extraBedsNeeded($roomType, 1, $item->adults, $item->children);
+            if ($extraBedsNeeded > 1) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ["Phòng \"{$roomType->name}\" không đủ sức chứa cho {$item->adults} người lớn + {$item->children} trẻ em của đơn này, kể cả khi dùng giường phụ."],
+                ]);
+            }
+
+            if ($extraBedsNeeded > 0 && $this->extraBedInventoryService->countAvailable($oldCheckOut, $newCheckOut) < $extraBedsNeeded) {
+                throw ValidationException::withMessages([
+                    'new_check_out' => ["Phòng \"{$roomType->name}\" cần giường phụ cho khoảng ngày này nhưng khách sạn đã hết giường phụ, vui lòng chọn phương án khác."],
+                ]);
+            }
+
             $availability = $this->availabilityService->check($roomType->id, $oldCheckOut, $newCheckOut, 1, null, $booking->id);
             if (! $availability['can_book']) {
                 throw ValidationException::withMessages([
@@ -1552,17 +1574,18 @@ class BookingService
                 ]);
             }
 
-            $pricing = $this->pricingService->calculate($roomType, $oldCheckOut, $newCheckOut, 1, $item->children);
+            $pricing = $this->pricingService->calculate($roomType, $oldCheckOut, $newCheckOut, 1, $item->children, $extraBedsNeeded);
 
             return [
                 'needs_switch' => false,
                 'nights_added' => $pricing['nights'],
                 'extra_amount' => $pricing['total_price'],
                 'switch'       => [
-                    'room_type' => $roomType,
-                    'room'      => $room,
-                    'pricing'   => $pricing,
-                    'old_item'  => $item,
+                    'room_type'         => $roomType,
+                    'room'              => $room,
+                    'pricing'           => $pricing,
+                    'old_item'          => $item,
+                    'extra_beds_needed' => $extraBedsNeeded,
                 ],
             ];
         }
@@ -1604,44 +1627,69 @@ class BookingService
         $lines       = [];
 
         foreach ($items as $item) {
-            $pricing = $this->pricingService->calculate($item->roomType, $oldCheckOut, $newCheckOut, $item->quantity, $item->children);
+            $pricing = $this->pricingService->calculate($item->roomType, $oldCheckOut, $newCheckOut, $item->quantity, $item->children, $item->extra_beds);
 
             $nightsAdded ??= $pricing['nights'];
             $extraAmount += $pricing['total_price'];
 
-            $lines[] = ['item' => $item, 'pricing' => $pricing];
+            $currentRoomNumber = $item->bookingItemRooms()->whereNull('checked_out_at')->with('room')->first()?->room?->room_number;
+
+            $lines[] = ['item' => $item, 'pricing' => $pricing, 'room_number' => $currentRoomNumber];
         }
 
         return [
-            'needs_switch' => false,
-            'nights_added' => $nightsAdded,
-            'extra_amount' => $extraAmount,
-            'items'        => $lines,
+            'needs_switch'         => false,
+            'nights_added'         => $nightsAdded,
+            'extra_amount'         => $extraAmount,
+            'items'                => $lines,
+            'switch_alternatives'  => count($items) === 1 ? $this->findSwitchAlternatives($items->first(), $oldCheckOut, $newCheckOut) : [],
         ];
     }
 
     /**
      * Các loại phòng khác (đang active, đủ sức chứa) còn trống cho khoảng
-     * ngày gia hạn khi loại phòng hiện tại của $item đã hết chỗ — dùng để
-     * lễ tân chọn phương án đổi phòng thay vì tự động chọn hộ (đã chốt với
-     * người dùng). Chỉ giữ những loại phòng có ít nhất 1 phòng vật lý đang
-     * không có khách ngay lúc gọi (roomService->availableForRoomType()) —
-     * đây là phòng cụ thể sẽ được gán ngay khi lễ tân xác nhận đổi.
+     * ngày gia hạn khi loại phòng hiện tại của $item đã hết chỗ, hoặc khi lễ
+     * tân muốn tự nguyện đổi phòng — dùng để lễ tân chọn phương án đổi phòng
+     * thay vì tự động chọn hộ (đã chốt với người dùng). Chỉ giữ những loại
+     * phòng có ít nhất 1 phòng vật lý đang không có khách ngay lúc gọi
+     * (roomService->availableForRoomType()) — đây là phòng cụ thể sẽ được
+     * gán ngay khi lễ tân xác nhận đổi.
      *
-     * @return array<int, array{room_type_id: int, name: string, extra_amount: float, available_rooms: array<int, array{id: int, room_number: string}>}>
+     * Sức chứa xét theo ĐÚNG rule dùng lúc tạo đơn (xem extraBedsNeeded()/
+     * validateGuestCapacity()): người lớn luôn bị chặn cứng theo capacity
+     * (không loại trừ), trẻ em dư ra được bù bằng tối đa 1 giường phụ/phòng
+     * — trước đây lọc cứng `capacity >= adults+children` khiến hầu hết loại
+     * phòng nhỏ (capacity 2) bị loại oan dù có thể bù bằng giường phụ, chỉ
+     * còn mỗi Family (capacity 4) lọt qua.
+     *
+     * @return array<int, array{room_type_id: int, name: string, extra_amount: float, extra_beds_needed: int, available_rooms: array<int, array{id: int, room_number: string}>}>
      */
     private function findSwitchAlternatives(BookingItem $item, string $checkIn, string $checkOut): array
     {
-        $guests = $item->adults + $item->children;
-
         $candidates = RoomType::where('status', 'active')
             ->where('id', '!=', $item->room_type_id)
-            ->where('capacity', '>=', $guests)
+            ->where('capacity', '>=', $item->adults)
             ->get();
+
+        $extraBedAvailable = null;
 
         $alternatives = [];
 
         foreach ($candidates as $roomType) {
+            $extraBedsNeeded = $this->extraBedsNeeded($roomType, 1, $item->adults, $item->children);
+
+            if ($extraBedsNeeded > 1) {
+                continue;
+            }
+
+            if ($extraBedsNeeded > 0) {
+                $extraBedAvailable ??= $this->extraBedInventoryService->countAvailable($checkIn, $checkOut);
+
+                if ($extraBedAvailable < $extraBedsNeeded) {
+                    continue;
+                }
+            }
+
             $availability = $this->availabilityService->check($roomType->id, $checkIn, $checkOut, 1, null, $item->booking_id);
 
             if (! $availability['can_book']) {
@@ -1654,13 +1702,14 @@ class BookingService
                 continue;
             }
 
-            $pricing = $this->pricingService->calculate($roomType, $checkIn, $checkOut, 1, $item->children);
+            $pricing = $this->pricingService->calculate($roomType, $checkIn, $checkOut, 1, $item->children, $extraBedsNeeded);
 
             $alternatives[] = [
-                'room_type_id'    => $roomType->id,
-                'name'            => $roomType->name,
-                'extra_amount'    => $pricing['total_price'],
-                'available_rooms' => $availableRooms->map(fn (Room $room) => [
+                'room_type_id'       => $roomType->id,
+                'name'               => $roomType->name,
+                'extra_amount'       => $pricing['total_price'],
+                'extra_beds_needed'  => $extraBedsNeeded,
+                'available_rooms'    => $availableRooms->map(fn (Room $room) => [
                     'id'          => $room->id,
                     'room_number' => $room->room_number,
                 ])->values()->all(),

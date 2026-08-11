@@ -1,0 +1,163 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="bd" name="Sơ đồ hoạt động chi tiết: Đặt phòng online &amp; xác nhận thanh toán">
+    <mxGraphModel dx="900" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="470" pageHeight="2302" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="bd_title" value="Sơ đồ hoạt động chi tiết: Đặt phòng online &amp; xác nhận thanh toán" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="470" height="30" as="geometry" />
+</mxCell>
+<mxCell id="bd_start_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="215.0" y="40" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_2" value="Khách chọn ngày check-in/check-out,&#10;số lượng khách, loại phòng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="110" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_d_3" value="AvailabilityService còn phòng trống&#10;trong khoảng ngày?&#10;(total_rooms − (đã đặt + đang giữ chỗ))" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="234" width="380" height="146" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_4" value="Báo hết phòng&#10;(không có gợi ý loại phòng khác)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="420" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_5" value="Tạo room_hold tạm thời cho phiên&#10;(giữ chỗ 15 phút — RoomHoldService)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="420" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_d_6" value="Đã đăng nhập là Customer?&#10;(chặn ngay tại route bởi middleware&#10;auth+role:customer)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="604" width="380" height="146" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_7" value="Yêu cầu đăng nhập / đăng ký&#10;(rồi quay lại bước này)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="790" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_8" value="Điền thông tin đặt phòng, chọn khuyến mãi,&#10;xem tạm tính (PricingService)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="790" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_9" value="Mở DB transaction, lockForUpdate&#10;trên room_types" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="974" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_d_10" value="Kiểm tra lại phòng trống&#10;trong transaction?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="40.0" y="1098" width="380" height="118" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_11" value="Rollback transaction,&#10;báo hết phòng — không tạo đơn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1256" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_12" value="Ghi bookings (status=pending_deposit,&#10;booking_code=HOMI-...) + booking_items +&#10;payment (status=unpaid), commit; giải&#10;phóng room_hold" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1256" width="340" height="132" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_13" value="Gửi thông báo cho khách &amp; nhân viên,&#10;hiển thị mã đơn (booking_code)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1440" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_d_14" value="Khách thanh toán bằng&#10;phương thức nào?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="30.0" y="1564" width="400" height="118" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_15" value="VNPay: cổng thanh toán thật gọi về&#10;(IPN/return) → payment=paid,&#10;booking=confirmed TỰ ĐỘNG&#10;(confirmAfterPayment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1722" width="220" height="126" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_16" value="Đặt cọc 30% (demo, không gọi&#10;cổng thật): payDepositDemo() →&#10;booking=confirmed TỰ ĐỘNG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="120.0" y="1722" width="220" height="104" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_17" value="Chuyển khoản: khách tự báo đã&#10;chuyển → booking=pending; nhân viên&#10;đối soát, đánh dấu payment=paid,&#10;rồi PHẢI bấm xác nhận đơn thủ công&#10;(confirm(): pending → confirmed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="180.0" y="1722" width="220" height="148" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_18" value="Ghi booking_status_logs ở mỗi bước&#10;chuyển trạng thái, gửi thông báo cho khách&#10;(BookingStatusChanged)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1910" width="340" height="108" as="geometry" />
+</mxCell>
+<mxCell id="bd_p_19" value="Check-in → Check-out&#10;(cập nhật housekeeping_status)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="2058" width="340" height="84" as="geometry" />
+</mxCell>
+<mxCell id="bd_endo_20" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="215.0" y="2182" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="bd_endi_21" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="221.0" y="2188" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="bd_e_22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_start_1" target="bd_p_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_2" target="bd_d_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_24" value="Hết phòng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_3" target="bd_p_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_25" value="Còn phòng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_3" target="bd_p_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_5" target="bd_d_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_27" value="Chưa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_6" target="bd_p_7">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_28" value="Đã đăng nhập" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_6" target="bd_p_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_8" target="bd_p_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_9" target="bd_d_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_31" value="Không đủ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_10" target="bd_p_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_32" value="Đủ phòng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_10" target="bd_p_12">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_12" target="bd_p_13">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_13" target="bd_d_14">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_35" value="VNPay" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_14" target="bd_p_15">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_36" value="Đặt cọc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_14" target="bd_p_16">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_37" value="Chuyển khoản" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_d_14" target="bd_p_17">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_15" target="bd_p_18">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_39" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_16" target="bd_p_18">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_40" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_17" target="bd_p_18">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_41" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_18" target="bd_p_19">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_e_42" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="bd_p_19" target="bd_endo_20">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="bd_cap" value="Sơ đồ hoạt động chi tiết chức năng đặt phòng online (khách hàng) — bao gồm transaction, xác nhận đơn theo từng phương thức thanh toán" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="2237" width="470" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
