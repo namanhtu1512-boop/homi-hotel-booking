@@ -285,13 +285,22 @@
                 </span>
             </div>
             @if ($booking->payment->deposit_paid_at)
+                @php $extraBedTotal = $booking->bookingItems->sum('extra_bed_surcharge'); @endphp
                 <div class="info-item">
                     <span class="label">Đã đặt cọc</span>
-                    <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                    <span class="value">
+                        {{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}
+                        @if ($extraBedTotal > 0)
+                            <div class="text-xs text-slate-500 dark:text-slate-400">(đã tính cả tiền giường phụ)</div>
+                        @endif
+                    </span>
                 </div>
                 <div class="info-item">
                     <span class="label">Còn lại (tiền mặt khi nhận phòng)</span>
-                    <span class="value">{{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ</span>
+                    <span class="value">
+                        {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ
+                        <span class="badge badge-orange">Thanh toán khi nhận phòng</span>
+                    </span>
                 </div>
             @endif
         </div>
@@ -319,6 +328,42 @@
             </div>
         </div>
     @endif
+
+    @php
+        $roomOnlyTotal = $booking->bookingItems->sum(fn ($item) => $item->subtotal + $item->child_surcharge);
+        $extraBedTotal = $booking->bookingItems->sum('extra_bed_surcharge');
+        $incidentalTotal = (float) ($incidentalInvoice->total_amount ?? 0);
+        $grandTotal = (float) $booking->total_amount + $incidentalTotal;
+    @endphp
+    <span class="section-kicker mt-5 block">Tổng số tiền phải trả</span>
+    <div class="info-list mt-2.5">
+        <div class="info-item">
+            <span class="label">Tiền phòng</span>
+            <span class="value">{{ number_format($roomOnlyTotal, 0, ',', '.') }}đ</span>
+        </div>
+        @if ($extraBedTotal > 0)
+            <div class="info-item">
+                <span class="label">Tiền giường phụ</span>
+                <span class="value">{{ number_format($extraBedTotal, 0, ',', '.') }}đ</span>
+            </div>
+        @endif
+        @if ($booking->discount_amount > 0)
+            <div class="info-item">
+                <span class="label">Giảm giá</span>
+                <span class="value text-accent">-{{ number_format($booking->discount_amount, 0, ',', '.') }}đ</span>
+            </div>
+        @endif
+        @if ($incidentalTotal > 0)
+            <div class="info-item">
+                <span class="label">Tiền phát sinh</span>
+                <span class="value">{{ number_format($incidentalTotal, 0, ',', '.') }}đ</span>
+            </div>
+        @endif
+        <div class="info-item">
+            <span class="label">Tổng cộng</span>
+            <span class="value text-lg text-primary">{{ number_format($grandTotal, 0, ',', '.') }}đ</span>
+        </div>
+    </div>
 
     <span class="section-kicker mt-5 block">Thông tin liên hệ</span>
     <div class="info-list mt-2.5">

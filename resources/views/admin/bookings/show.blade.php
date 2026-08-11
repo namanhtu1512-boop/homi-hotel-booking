@@ -82,7 +82,6 @@
                         <th>Số khách</th>
                         <th class="text-right">Giá/đêm</th>
                         <th class="text-center">Số đêm</th>
-                        <th class="text-right">Thành tiền</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -112,15 +111,6 @@
                             <td>{{ $item->adults }} người lớn{{ $item->children ? ', ' . $item->children . ' trẻ em' : '' }}{{ $item->infants ? ', ' . $item->infants . ' sơ sinh' : '' }}</td>
                             <td class="text-right">{{ number_format($item->price_per_night, 0, ',', '.') }}đ</td>
                             <td class="text-center">{{ $item->nights }}</td>
-                            <td class="text-right font-bold text-slate-900 dark:text-white">
-                                {{ number_format($item->subtotal + $item->child_surcharge + $item->extra_bed_surcharge, 0, ',', '.') }}đ
-                                @if ($item->child_surcharge > 0)
-                                    <div class="text-xs font-normal text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->child_surcharge, 0, ',', '.') }}đ phụ thu trẻ em)</div>
-                                @endif
-                                @if ($item->extra_bed_surcharge > 0)
-                                    <div class="text-xs font-normal text-slate-500 dark:text-slate-400">(gồm {{ number_format($item->extra_bed_surcharge, 0, ',', '.') }}đ phụ thu giường phụ)</div>
-                                @endif
-                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -128,10 +118,13 @@
         </div>
     </div>
 
-    {{-- Dịch vụ thêm --}}
-    @if ($booking->serviceItems->isNotEmpty())
+    {{-- Dịch vụ phát sinh --}}
+    @php
+        $extraBedItems = $booking->bookingItems->where('extra_bed_surcharge', '>', 0);
+    @endphp
+    @if ($booking->serviceItems->isNotEmpty() || $extraBedItems->isNotEmpty())
         <div class="card">
-            <div class="section-kicker">Dịch vụ thêm</div>
+            <div class="section-kicker">Dịch vụ phát sinh</div>
             <div class="table-wrapper mt-3">
                 <table>
                     <thead>
@@ -143,6 +136,14 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @foreach ($extraBedItems as $item)
+                            <tr>
+                                <td class="font-semibold text-slate-800 dark:text-slate-100">Phụ thu giường phụ ({{ $item->roomType->name ?? '—' }})</td>
+                                <td class="text-center">{{ $item->extra_beds }}</td>
+                                <td class="text-right">{{ number_format($item->extra_beds > 0 ? $item->extra_bed_surcharge / $item->extra_beds : $item->extra_bed_surcharge, 0, ',', '.') }}đ</td>
+                                <td class="text-right font-bold">{{ number_format($item->extra_bed_surcharge, 0, ',', '.') }}đ</td>
+                            </tr>
+                        @endforeach
                         @foreach ($booking->serviceItems as $serviceItem)
                             <tr>
                                 <td class="font-semibold text-slate-800 dark:text-slate-100">{{ $serviceItem->service?->name ?? '—' }}</td>
@@ -193,31 +194,6 @@
                     </div>
                 @endif
             </div>
-
-            <div class="section-kicker mt-5">Tổng kết chi phí</div>
-            <div class="info-list mt-3">
-                @if ($booking->discount_amount > 0)
-                    <div class="info-item">
-                        <span class="label">Tạm tính (trước giảm)</span>
-                        <span class="value">{{ number_format($booking->total_amount + $booking->discount_amount, 0, ',', '.') }}đ</span>
-                    </div>
-                    @forelse ($booking->promotions as $promo)
-                        <div class="info-item">
-                            <span class="label">Giảm giá ({{ $promo->code }})</span>
-                            <span class="value text-accent">-{{ number_format($promo->pivot->discount_amount, 0, ',', '.') }}đ</span>
-                        </div>
-                    @empty
-                        <div class="info-item">
-                            <span class="label">Giảm giá {{ $booking->promotion ? '(' . $booking->promotion->code . ')' : '' }}</span>
-                            <span class="value text-accent">-{{ number_format($booking->discount_amount, 0, ',', '.') }}đ</span>
-                        </div>
-                    @endforelse
-                @endif
-                <div class="info-item">
-                    <span class="label font-bold text-slate-700 dark:text-slate-200">Tổng tiền</span>
-                    <span class="value text-lg text-primary">{{ number_format($booking->total_amount, 0, ',', '.') }}đ</span>
-                </div>
-            </div>
         </div>
 
         {{-- Thanh toán --}}
@@ -225,6 +201,9 @@
             <div class="section-kicker">Thanh toán</div>
 
             @if ($booking->payment)
+                @php
+                    $extraBedTotal = $booking->bookingItems->sum('extra_bed_surcharge');
+                @endphp
                 <div class="info-list mt-3">
                     <div class="info-item">
                         <span class="label">Phương thức</span>
@@ -237,11 +216,19 @@
                     @if ($booking->payment->deposit_paid_at)
                         <div class="info-item">
                             <span class="label">Đã đặt cọc</span>
-                            <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                            <span class="value">
+                                {{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}
+                                @if ($extraBedTotal > 0)
+                                    <div class="text-xs font-normal text-slate-500 dark:text-slate-400">(đã tính cả tiền giường phụ)</div>
+                                @endif
+                            </span>
                         </div>
                         <div class="info-item">
                             <span class="label">Còn lại thu tiền mặt</span>
-                            <span class="value">{{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ</span>
+                            <span class="value">
+                                {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ
+                                <span class="badge badge-orange">Thanh toán khi nhận phòng</span>
+                            </span>
                         </div>
                     @endif
                     @if ($booking->payment->paid_at)
@@ -269,38 +256,57 @@
                 @endphp
                 @if ($incidentalItems->isNotEmpty())
                     <div class="section-kicker mt-5">Hóa đơn phát sinh</div>
-                    <div class="table-wrapper mt-3">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Loại</th>
-                                    <th>Mô tả</th>
-                                    <th class="text-center">SL</th>
-                                    <th class="text-right">Số tiền</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($incidentalItems as $item)
-                                    <tr>
-                                        <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
-                                        <td>{{ $item->description }}</td>
-                                        <td class="text-center">{{ $item->quantity }}</td>
-                                        <td class="text-right">{{ number_format($item->amount, 0, ',', '.') }}đ</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="3">
-                                        <strong>Tổng cộng</strong>
-                                        <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Đang mở' }}</span>
-                                    </td>
-                                    <td class="text-right"><strong>{{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ</strong></td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <div class="info-list mt-3">
+                        @foreach ($incidentalItems as $item)
+                            <div class="info-item">
+                                <span class="label">{{ $item->description }}</span>
+                                <span class="value">{{ number_format($item->amount, 0, ',', '.') }}đ</span>
+                            </div>
+                        @endforeach
+                        <div class="info-item">
+                            <span class="label">Tổng hóa đơn phát sinh</span>
+                            <span class="value">
+                                {{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ
+                                <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span>
+                            </span>
+                        </div>
                     </div>
                 @endif
+
+                @php
+                    $roomOnlyTotal = $booking->bookingItems->sum(fn ($item) => $item->subtotal + $item->child_surcharge);
+                    $incidentalTotal = (float) ($incidentalInvoice->total_amount ?? 0);
+                    $grandTotal = (float) $booking->total_amount + $incidentalTotal;
+                @endphp
+                <div class="section-kicker mt-5">Tổng số tiền phải trả</div>
+                <div class="info-list mt-3">
+                    <div class="info-item">
+                        <span class="label">Tiền phòng</span>
+                        <span class="value">{{ number_format($roomOnlyTotal, 0, ',', '.') }}đ</span>
+                    </div>
+                    @if ($extraBedTotal > 0)
+                        <div class="info-item">
+                            <span class="label">Tiền giường phụ</span>
+                            <span class="value">{{ number_format($extraBedTotal, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
+                    @if ($booking->discount_amount > 0)
+                        <div class="info-item">
+                            <span class="label">Giảm giá</span>
+                            <span class="value text-accent">-{{ number_format($booking->discount_amount, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
+                    @if ($incidentalTotal > 0)
+                        <div class="info-item">
+                            <span class="label">Tiền phát sinh</span>
+                            <span class="value">{{ number_format($incidentalTotal, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
+                    <div class="info-item">
+                        <span class="label font-bold text-slate-700 dark:text-slate-200">Tổng cộng</span>
+                        <span class="value text-lg text-primary">{{ number_format($grandTotal, 0, ',', '.') }}đ</span>
+                    </div>
+                </div>
 
                 @php
                     $latestEarlyCheckin = $booking->earlyCheckinRequests->sortByDesc('created_at')->first();
