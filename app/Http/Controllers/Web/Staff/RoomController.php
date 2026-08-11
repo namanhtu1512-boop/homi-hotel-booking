@@ -18,9 +18,9 @@ class RoomController extends Controller
     public function index(Request $request): View
     {
         return view('staff.rooms.index', [
-            'rooms'     => $this->roomService->list($request->integer('room_type_id') ?: null),
+            'rooms'     => $this->roomService->list($request->integer('room_type_id') ?: null, $request->string('status')->toString() ?: null),
             'roomTypes' => RoomType::orderBy('name')->get(),
-            'filters'   => $request->only('room_type_id'),
+            'filters'   => $request->only('room_type_id', 'status'),
         ]);
     }
 
