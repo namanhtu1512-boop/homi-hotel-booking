@@ -6,12 +6,10 @@
 
 @section('content')
 @php
-    // Tính trước ở top-level (không nằm trong form) để script cuối trang
-    // (đếm số dòng item ban đầu) luôn có $prefillItems, kể cả khi form tạo
-    // đơn bị ẩn do yêu cầu đã converted.
-    $prefillItems = old('items', $groupRequest->room_type_ids
-        ? array_map(fn($id) => ['room_type_id' => $id, 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0], $groupRequest->room_type_ids)
-        : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0]]);
+    // $prefillItems đến từ controller (ưu tiên số lượng phòng theo phương án
+    // khách đã chọn — GroupBookingRequestService::defaultPrefillItems()).
+    // old('items', ...) chỉ ghi đè khi form vừa submit lỗi validation.
+    $prefillItems = old('items', $prefillItems);
 @endphp
 <div class="grid gap-5 md:grid-cols-[1fr_1fr]">
 
@@ -245,5 +243,145 @@ function toggleGroupExtraBed(select) {
 }
 
 document.querySelectorAll('#items-container select[name*="room_type_id"]').forEach(toggleGroupExtraBed);
+</script>
+
+<div class="card mt-5">
+    <div class="section-kicker">Gửi báo giá qua chat</div>
+    <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Tin nhắn sẽ gửi đến hộp chat của <strong>{{ $groupRequest->user?->name ?? $groupRequest->email }}</strong> kèm bảng giá sơ bộ và link đặt phòng.</p>
+
+    @if (! $groupRequest->user)
+        <div class="alert alert-warning">Yêu cầu này không có tài khoản liên kết, không thể gửi báo giá qua chat.</div>
+    @else
+    <form method="POST" action="{{ route('admin.group-bookings.send-quote', $groupRequest->id) }}" class="space-y-4">
+        @csrf
+
+        <div>
+            <label class="form-label">Các loại phòng báo giá *</label>
+            <div id="quote-items-container" class="space-y-2">
+                @foreach ($prefillItems as $qi => $row)
+                    <div class="item-row flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                        <div class="flex min-w-[200px] flex-1 flex-col gap-1">
+                            <label class="text-xs font-bold whitespace-nowrap">Loại phòng</label>
+                            <select name="quote_items[{{ $qi }}][room_type_id]" class="input" required onchange="syncPrice(this); updateExtraBedWarning();">
+                                <option value="">-- Chọn loại phòng --</option>
+                                @foreach ($allRoomTypes as $rt)
+                                    <option value="{{ $rt->id }}" data-price="{{ $rt->price_per_night }}" data-supports-extra-bed="{{ $rt->supportsExtraBed() ? '1' : '0' }}" @selected((string)($row['room_type_id'] ?? '') === (string)$rt->id)>
+                                        {{ $rt->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex w-20 flex-col gap-1">
+                            <label class="text-xs font-bold whitespace-nowrap">Số phòng</label>
+                            <input type="number" name="quote_items[{{ $qi }}][quantity]" class="input" min="1" value="{{ $row['quantity'] ?? 1 }}" required>
+                        </div>
+                        <div class="flex w-36 flex-col gap-1">
+                            <label class="text-xs font-bold whitespace-nowrap">Giá/đêm</label>
+                            <input type="number" name="quote_items[{{ $qi }}][price_per_night]" class="input" min="0" step="1000"
+                                value="{{ $allRoomTypes->firstWhere('id', $row['room_type_id'] ?? null)?->price_per_night ?? '' }}"
+                                required>
+                        </div>
+                        <button type="button" onclick="this.closest('.item-row').remove(); updateExtraBedWarning();" class="btn btn-danger btn-sm">✕</button>
+                    </div>
+                @endforeach
+            </div>
+            <button type="button" onclick="addQuoteRow()" class="btn btn-outline btn-sm mt-2">➕ Thêm loại phòng</button>
+        </div>
+
+        @if ($groupRequest->num_children)
+            <div>
+                <label class="form-label">Giường phụ trẻ em (6-11 tuổi)</label>
+                <p class="mb-1 text-xs text-slate-500 dark:text-slate-400">Yêu cầu khai {{ $groupRequest->num_children }} trẻ em 6-11 tuổi — mọi loại phòng hiện đều hỗ trợ giường phụ, tự kiểm tra loại phòng đã chọn ở trên trước khi báo giá.</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold whitespace-nowrap" for="extra_beds">Số giường phụ</label>
+                        <input type="number" id="extra_beds" name="extra_beds" class="input" min="0"
+                            value="{{ old('extra_beds', $groupRequest->num_children) }}" oninput="updateExtraBedWarning()">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold whitespace-nowrap" for="extra_bed_price_per_night">Giá/giường/đêm</label>
+                        <input type="number" id="extra_bed_price_per_night" name="extra_bed_price_per_night" class="input" min="0" step="1000"
+                            value="{{ old('extra_bed_price_per_night', $extraBedSurchargePerNight) }}">
+                    </div>
+                </div>
+                <p id="extra-bed-warning" class="mt-1 hidden text-xs text-amber-600 dark:text-amber-400">
+                    Chưa chọn loại phòng nào hoặc loại phòng đã chọn không hỗ trợ giường phụ — báo giá sẽ vẫn cộng phụ thu này, vui lòng kiểm tra lại trước khi gửi.
+                </p>
+            </div>
+        @endif
+
+        <div>
+            <label class="form-label">Ghi chú thêm (hiển thị trong email)</label>
+            <textarea class="input" name="note" rows="3" placeholder="VD: Giá trên chưa bao gồm bữa sáng, liên hệ để được tư vấn thêm...">{{ old('note') }}</textarea>
+        </div>
+
+        <button type="submit" class="btn-primary w-full">Gửi báo giá</button>
+    </form>
+    @endif
+</div>
+
+<template id="quote-row-tpl">
+    <div class="item-row flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <div class="flex min-w-[200px] flex-1 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap">Loại phòng</label>
+            <select name="quote_items[__I__][room_type_id]" class="input" required onchange="syncPrice(this); updateExtraBedWarning();">
+                <option value="">-- Chọn loại phòng --</option>
+                @foreach ($allRoomTypes as $rt)
+                    <option value="{{ $rt->id }}" data-price="{{ $rt->price_per_night }}" data-supports-extra-bed="{{ $rt->supportsExtraBed() ? '1' : '0' }}">{{ $rt->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="flex w-20 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap">Số phòng</label>
+            <input type="number" name="quote_items[__I__][quantity]" class="input" min="1" value="1" required>
+        </div>
+        <div class="flex w-36 flex-col gap-1">
+            <label class="text-xs font-bold whitespace-nowrap">Giá/đêm</label>
+            <input type="number" name="quote_items[__I__][price_per_night]" class="input" min="0" step="1000" required>
+        </div>
+        <button type="button" onclick="this.closest('.item-row').remove(); updateExtraBedWarning();" class="btn btn-danger btn-sm">✕</button>
+    </div>
+</template>
+
+<script>
+let qIdx = {{ count($prefillItems) }};
+function addQuoteRow() {
+    const tpl = document.getElementById('quote-row-tpl').innerHTML.replace(/__I__/g, qIdx++);
+    document.getElementById('quote-items-container').insertAdjacentHTML('beforeend', tpl);
+    updateExtraBedWarning();
+}
+function syncPrice(select) {
+    const price = select.options[select.selectedIndex]?.dataset.price;
+    if (price) select.closest('.item-row').querySelector('[name*=price_per_night]').value = price;
+}
+document.querySelectorAll('#quote-items-container select').forEach(s => s.addEventListener('change', () => syncPrice(s)));
+
+// Chỉ cảnh báo tham khảo — không chặn submit. Nhân viên tự nhập số giường
+// phụ (không tự động suy ra từ num_children, xem ghi chú trong Controller),
+// nên cần nhắc rõ nếu TẤT CẢ loại phòng đã chọn trong báo giá đều không hỗ
+// trợ giường phụ thật (RoomType::supportsExtraBed() — đọc động qua
+// data-supports-extra-bed trên từng option, không hard-code tên category cụ
+// thể ở đây để luôn khớp danh sách category thật dù sau này có đổi).
+function updateExtraBedWarning() {
+    const extraBedsInput = document.getElementById('extra_beds');
+    const warningEl       = document.getElementById('extra-bed-warning');
+    if (! extraBedsInput || ! warningEl) return;
+
+    const extraBeds = parseInt(extraBedsInput.value, 10) || 0;
+
+    const selects = document.querySelectorAll('#quote-items-container select[name*="room_type_id"]');
+    const anySupports = Array.from(selects).some((s) => {
+        const opt = s.options[s.selectedIndex];
+        return opt && opt.value !== '' && opt.dataset.supportsExtraBed === '1';
+    });
+
+    if (extraBeds > 0 && selects.length > 0 && ! anySupports) {
+        warningEl.classList.remove('hidden');
+    } else {
+        warningEl.classList.add('hidden');
+    }
+}
+
+updateExtraBedWarning();
 </script>
 @endsection

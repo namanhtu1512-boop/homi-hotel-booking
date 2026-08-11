@@ -42,9 +42,7 @@ class GroupBookingController extends Controller
             'roomTypes'    => $allRoomTypes,
             'allRoomTypes' => $allRoomTypes,
             'chatUrl'      => $groupRequest->user_id ? route('staff.chat.show', $groupRequest->user_id) : null,
-            'prefillItems' => $groupRequest->room_type_ids
-                ? array_map(fn($rid) => ['room_type_id' => $rid, 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0], $groupRequest->room_type_ids)
-                : [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0]],
+            'prefillItems' => $this->groupBookingRequestService->defaultPrefillItems($groupRequest),
             'extraBedSurchargePerNight' => $this->hotelInfoService->current()->extra_bed_surcharge_per_night,
         ]);
     }
