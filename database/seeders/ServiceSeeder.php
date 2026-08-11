@@ -103,7 +103,7 @@ class ServiceSeeder extends Seeder
                 'Thuê xe tham quan' => null, 'Thuê xe đoàn' => null, 'Taxi' => null,
             ],
             'Phòng & tiện nghi' => [
-                'Giường phụ'          => 250000,
+                'Giường phụ'          => 200000,
                 'Nôi em bé'            => 0, // Miễn phí
                 'Cũi em bé'            => 0, // Miễn phí
                 'Thêm chăn'            => 50000,
