@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -427,5 +428,77 @@ class Booking extends Model
         $deposit = $depositPaid > 0 ? $depositPaid : $this->depositAmount();
 
         return round((float) $this->total_amount - $deposit);
+    }
+
+    /**
+     * Tổng tiền phòng đã thực thu tới hiện tại. Ưu tiên payment.amount_collected
+     * (ghi khi thu tại quầy hoặc gateway xác nhận); payDepositDemo() không ghi
+     * amount_collected khi mới đặt cọc nên fallback về deposit_amount trong
+     * trường hợp đó.
+     */
+    public function paidAmount(): float
+    {
+        if (! $this->payment) {
+            return 0.0;
+        }
+
+        // PAID nghĩa là đã thu đủ theo định nghĩa nghiệp vụ — dùng thẳng
+        // payment->amount thay vì amount_collected, vì một số đơn cũ được
+        // đánh dấu PAID mà không ghi amount_collected (dữ liệu trước khi có
+        // updatePaymentStatus() ghi nhận amount_collected cho thanh toán thủ công).
+        if ($this->payment->status === PaymentStatus::PAID) {
+            return (float) $this->payment->amount;
+        }
+
+        $collected = (float) ($this->payment->amount_collected ?? 0);
+
+        if ($collected <= 0 && $this->payment->status === PaymentStatus::DEPOSIT_PAID) {
+            $collected = (float) $this->payment->deposit_amount;
+        }
+
+        return $collected;
+    }
+
+    /**
+     * Số tiền phòng còn phải thu (dương) hoặc số dư cần hoàn khách (âm) —
+     * có thể âm sau khi đổi sang phòng giá thấp hơn làm total_amount giảm
+     * xuống dưới số đã thu (xem RoomChangeRequestService).
+     */
+    public function amountDue(): float
+    {
+        return round((float) $this->total_amount - $this->paidAmount());
+    }
+
+    /**
+     * Tiền phòng đã thu, tách thành từng khoản theo đúng kênh/thời điểm thu —
+     * CASH_WITH_DEPOSIT là 2 lượt thu riêng biệt (cọc online lúc đặt phòng,
+     * rồi tiền mặt lúc nhận phòng), không phải 1 khoản gộp, nên hoá đơn cần
+     * liệt kê riêng thay vì gắn cả total vào tên phương thức tổng quát.
+     */
+    public function paymentBreakdown(): array
+    {
+        if (! $this->payment) {
+            return [];
+        }
+
+        $payment = $this->payment;
+
+        if ($payment->method === PaymentMethod::CASH_WITH_DEPOSIT && (float) $payment->deposit_amount > 0) {
+            $rows = [
+                ['label' => 'Đặt cọc trực tuyến', 'amount' => (float) $payment->deposit_amount],
+            ];
+
+            $cashCollected = round($this->paidAmount() - (float) $payment->deposit_amount);
+
+            if ($cashCollected > 0) {
+                $rows[] = ['label' => 'Tiền mặt khi nhận phòng', 'amount' => $cashCollected];
+            }
+
+            return $rows;
+        }
+
+        $paid = $this->paidAmount();
+
+        return $paid > 0 ? [['label' => $payment->method->label(), 'amount' => $paid]] : [];
     }
 }

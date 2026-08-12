@@ -154,10 +154,6 @@
                     </tbody>
                 </table>
             </div>
-            <div class="mt-2 text-right text-sm text-slate-500 dark:text-slate-400">
-                Tổng hóa đơn phát sinh: <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($incidentalInvoice->total_amount, 0, ',', '.') }}đ</span>
-                ({{ $incidentalInvoice->isPaid() ? 'đã thanh toán' : 'chưa thanh toán' }})
-            </div>
         @endif
 
         <div class="mt-6 flex justify-end">
@@ -199,49 +195,58 @@
         <span class="section-kicker mt-6 block">Thanh toán</span>
         <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
             @if ($booking->payment)
-                <div class="grid gap-y-1.5 text-sm sm:grid-cols-2">
-                    <div class="flex items-center justify-between gap-2 sm:justify-start">
+                @php
+                    $roomPaid = $booking->paidAmount();
+                    $incidentalPaid = $incidentalItems->isNotEmpty() && $incidentalInvoice->isPaid()
+                        ? (float) $incidentalInvoice->total_amount
+                        : 0.0;
+                    $totalPaid = $roomPaid + $incidentalPaid;
+                    $totalDue = round($grandTotal - $totalPaid);
+                @endphp
+                <div class="grid gap-y-1.5 text-sm">
+                    <div class="flex items-center justify-between">
                         <span class="text-slate-500 dark:text-slate-400">Trạng thái</span>
                         <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span>
-                    </div>
-                    <div class="flex items-center justify-between sm:justify-end sm:gap-2">
-                        <span class="text-slate-500 dark:text-slate-400">Phương thức</span>
-                        <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->method->label() }}</span>
                     </div>
                     @if ($booking->payment->surcharge_amount > 0)
                         <div class="flex items-center justify-between">
                             <span class="text-slate-500 dark:text-slate-400">Phụ phí phát sinh</span>
                             <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($booking->payment->surcharge_amount, 0, ',', '.') }}đ</span>
                         </div>
-                        <div class="flex items-center justify-between sm:justify-end sm:gap-2">
+                        <div class="flex items-center justify-between">
                             <span class="text-slate-500 dark:text-slate-400">Lý do phụ phí</span>
                             <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->surcharge_note }}</span>
                         </div>
                     @endif
-                    @if ($booking->payment->isPaid())
+                    @foreach ($booking->paymentBreakdown() as $row)
                         <div class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">Số tiền đã thanh toán</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($booking->payment->amount, 0, ',', '.') }}đ</span>
+                            <span class="text-slate-500 dark:text-slate-400">Đã thanh toán tiền phòng</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ $row['label'] }} — {{ number_format($row['amount'], 0, ',', '.') }}đ</span>
                         </div>
-                        @if ($booking->payment->paid_at)
-                            <div class="flex items-center justify-between sm:justify-end sm:gap-2">
-                                <span class="text-slate-500 dark:text-slate-400">Thời gian thanh toán</span>
-                                <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
-                            </div>
-                        @endif
+                    @endforeach
+                    @if ($incidentalPaid > 0)
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Đã thanh toán tiền dịch vụ phát sinh</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100">Thanh toán tại quầy lễ tân — {{ number_format($incidentalPaid, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between border-t border-slate-200 pt-1.5 dark:border-slate-800">
+                        <span class="text-slate-500 dark:text-slate-400">TỔNG ĐÃ THANH TOÁN</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($totalPaid, 0, ',', '.') }}đ</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 dark:text-slate-400">{{ $totalDue < 0 ? 'SỐ DƯ HOÀN LẠI' : 'CÒN PHẢI THANH TOÁN' }}</span>
+                        <span class="font-bold {{ $totalDue < 0 ? 'text-accent-dark' : 'text-slate-800 dark:text-slate-100' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
+                    </div>
+                    @if ($booking->payment->paid_at)
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">Thời gian thanh toán</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                        </div>
                     @elseif ($booking->payment->deposit_paid_at)
                         <div class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">Đã đặt cọc</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ</span>
-                        </div>
-                        <div class="flex items-center justify-between sm:justify-end sm:gap-2">
-                            <span class="text-slate-500 dark:text-slate-400">Còn lại</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ</span>
-                        </div>
-                    @else
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">Còn phải thu</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ number_format($booking->total_amount, 0, ',', '.') }}đ</span>
+                            <span class="text-slate-500 dark:text-slate-400">Thời gian đặt cọc</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100">{{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
                         </div>
                     @endif
                 </div>
