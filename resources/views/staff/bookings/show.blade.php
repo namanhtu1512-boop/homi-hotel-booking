@@ -291,6 +291,21 @@
                         <span class="label">Tổng cộng</span>
                         <span class="value">{{ number_format($grandTotal, 0, ',', '.') }}đ</span>
                     </div>
+                    @php
+                        $incidentalPaid = $incidentalItems->isNotEmpty() && $incidentalInvoice->isPaid()
+                            ? (float) $incidentalInvoice->total_amount
+                            : 0.0;
+                        $totalPaid = $booking->paidAmount() + $incidentalPaid;
+                        $totalDue  = round($grandTotal - $totalPaid);
+                    @endphp
+                    <div class="info-item">
+                        <span class="label">Đã thanh toán</span>
+                        <span class="value">{{ number_format($totalPaid, 0, ',', '.') }}đ</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">{{ $totalDue < 0 ? 'Số dư hoàn lại' : 'Còn phải thanh toán' }}</span>
+                        <span class="value {{ $totalDue < 0 ? 'text-accent' : '' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
+                    </div>
                 </div>
 
                 @php
@@ -356,43 +371,11 @@
                 @endif
 
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
+                    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                        Dịch vụ/phụ phí phát sinh trong lúc khách lưu trú chỉ được ghi nhận ở bước
+                        <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}">Trả phòng</a> — không thêm được ở trang này nữa.
+                    </p>
                     <div class="action-row" style="margin-top: 16px; flex-wrap: wrap; gap: 12px; flex-direction: column; align-items: stretch;">
-                        <form method="POST" action="{{ route('staff.bookings.services.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $activeServices, 'hiddenField' => 'service_id', 'placeholder' => 'Gõ để tìm dịch vụ...'])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="20" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:150px;" min="1" step="1000" placeholder="Số tiền (nếu chưa có giá cố định)">
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Ghi chú (không bắt buộc)">
-                            <button type="submit" class="btn btn-outline btn-sm">🔵 Thêm dịch vụ phát sinh</button>
-                        </form>
-
-                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $damageItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm đồ hỏng/mất...', 'notePrefix' => 'Bồi thường: '])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
-                            <button type="submit" class="btn btn-outline btn-sm">🔴 Thêm phụ phí hỏng/mất đồ</button>
-                        </form>
-
-                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $violationItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm vi phạm...', 'notePrefix' => 'Vi phạm: '])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
-                            <button type="submit" class="btn btn-outline btn-sm">🟠 Thêm phụ phí vi phạm</button>
-                        </form>
-
-                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $cleaningItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm khoản vệ sinh...', 'notePrefix' => 'Vệ sinh đặc biệt: '])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
-                            <button type="submit" class="btn btn-outline btn-sm">🟡 Thêm phụ phí vệ sinh đặc biệt</button>
-                        </form>
-
                         <form method="POST" action="{{ route('staff.bookings.extend-stay.store', $booking->id) }}" id="extend-stay-form" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
                             <span style="font-size: 12px; color: #64748b;">Từ {{ $booking->check_out->format('d/m/Y') }} đến:</span>
