@@ -2,12 +2,11 @@
 
 @section('title', 'Lịch phòng · Homi Nhân viên')
 @section('page_title', 'Lịch phòng')
-@section('page_subtitle', 'Xem theo tháng: phòng nào trả phòng ngày nào, và ngày nào loại phòng nào còn lịch đặt.')
+@section('page_subtitle', 'Chọn khoảng ngày để xem: phòng nào trả phòng ngày nào, và ngày nào loại phòng nào còn lịch đặt. Mặc định hiển thị tháng hiện tại.')
 
 @section('content')
 <div class="card">
     <form method="GET" class="filter-bar">
-        <input type="month" name="month" value="{{ $month->format('Y-m') }}" onchange="this.form.submit()">
         <select name="room_type_id" onchange="this.form.submit()">
             <option value="">Tất cả loại phòng</option>
             @foreach ($roomTypes as $roomType)
@@ -27,15 +26,15 @@
         <button type="submit" class="btn btn-outline">Lọc</button>
 
         @if (($filters['start_date'] ?? '') !== '' || ($filters['end_date'] ?? '') !== '')
-            <a href="{{ route('staff.rooms.calendar', ['month' => $filters['month'] ?? null, 'room_type_id' => $filters['room_type_id'] ?? null]) }}" class="btn btn-outline">Xóa lọc ngày</a>
+            <a href="{{ route('staff.rooms.calendar', ['room_type_id' => $filters['room_type_id'] ?? null]) }}" class="btn btn-outline">Xóa lọc ngày</a>
         @endif
     </form>
     @if (($filters['start_date'] ?? '') !== '' || ($filters['end_date'] ?? '') !== '')
-        <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Đang lọc theo khoảng ngày{{ ($filters['start_date'] ?? '') !== '' ? ' từ ' . \Carbon\Carbon::parse($filters['start_date'])->format('d/m/Y') : '' }}{{ ($filters['end_date'] ?? '') !== '' ? ' đến ' . \Carbon\Carbon::parse($filters['end_date'])->format('d/m/Y') : '' }} (bỏ qua chọn tháng ở trên).</p>
+        <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Đang lọc theo khoảng ngày{{ ($filters['start_date'] ?? '') !== '' ? ' từ ' . \Carbon\Carbon::parse($filters['start_date'])->format('d/m/Y') : '' }}{{ ($filters['end_date'] ?? '') !== '' ? ' đến ' . \Carbon\Carbon::parse($filters['end_date'])->format('d/m/Y') : '' }}.</p>
     @endif
 
     <div class="mb-4 flex flex-wrap gap-3 text-xs">
-        <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-slate-200 dark:bg-slate-700"></span> Trống</span>
+        <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded border border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700"></span> Trống</span>
         <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-blue-400"></span> Đang ở</span>
         <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-amber-400"></span> Trả phòng</span>
         <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-red-500"></span> Quá giờ trả phòng</span>
@@ -96,6 +95,11 @@
 
     <div class="section-kicker">Theo loại phòng — ngày nào còn lịch đặt</div>
     <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Số phòng đã có booking / tổng số phòng của loại đó (mọi đơn còn giữ phòng, kể cả chưa nhận phòng).</p>
+    <div class="mb-2 flex flex-wrap gap-3 text-xs">
+        <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded border border-slate-300 dark:border-slate-600"></span> Còn trống, chưa có đặt</span>
+        <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-blue-100 dark:bg-blue-900/40"></span> Đã có đặt — còn phòng trống</span>
+        <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-red-100 dark:bg-red-900/40"></span> Hết phòng (đã đặt kín)</span>
+    </div>
     @if ($roomTypeRows->isEmpty())
         <div class="empty-box">Chưa có loại phòng nào.</div>
     @else
@@ -116,9 +120,13 @@
                             @foreach ($row['cells'] as $cell)
                                 @php
                                     $full = $cell['total'] > 0 && $cell['booked'] >= $cell['total'];
-                                    $textClass = $full ? 'text-red-600 dark:text-red-400 font-bold' : ($cell['booked'] > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400');
+                                    $cellClass = $full
+                                        ? 'bg-red-100 text-red-700 font-bold dark:bg-red-900/40 dark:text-red-300'
+                                        : ($cell['booked'] > 0
+                                            ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-blue-900/40 dark:text-blue-300'
+                                            : 'text-slate-400');
                                 @endphp
-                                <td class="px-1 text-center {{ $textClass }}">{{ $cell['booked'] }}/{{ $cell['total'] }}</td>
+                                <td class="px-1 text-center {{ $cellClass }}">{{ $cell['booked'] }}/{{ $cell['total'] }}</td>
                             @endforeach
                         </tr>
                     @endforeach
