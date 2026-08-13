@@ -170,10 +170,16 @@ class BookingController extends Controller
         $booking = $this->bookingService->findForAdmin($id);
 
         return view('bookings.check-out', [
-            'booking'    => $booking,
-            'formAction' => route('staff.bookings.check-out', $id),
-            'backRoute'  => route('staff.bookings.show', $id),
-            'layout'     => 'layouts.staff',
+            'booking'            => $booking,
+            'formAction'         => route('staff.bookings.check-out', $id),
+            'backRoute'          => route('staff.bookings.show', $id),
+            'serviceStoreRoute'  => route('staff.bookings.services.store', $id),
+            'surchargeStoreRoute' => route('staff.bookings.surcharge.store', $id),
+            'activeServices'     => $this->serviceService->activePublic(),
+            'damageItems'        => $this->surchargeItemService->activePublic(SurchargeCategory::Damage),
+            'violationItems'     => $this->surchargeItemService->activePublic(SurchargeCategory::Violation),
+            'cleaningItems'      => $this->surchargeItemService->activePublic(SurchargeCategory::Cleaning),
+            'layout'             => 'layouts.staff',
         ]);
     }
 
@@ -227,7 +233,7 @@ class BookingController extends Controller
         $this->auditLog->log('booking.service_added', $booking, "Thêm dịch vụ phát sinh cho đơn \"{$booking->booking_code}\".");
 
         return redirect()
-            ->route('staff.bookings.show', $id)
+            ->back()
             ->with('success', "Đã thêm dịch vụ phát sinh cho đơn {$booking->booking_code}.");
     }
 
@@ -245,7 +251,7 @@ class BookingController extends Controller
         $this->auditLog->log('booking.surcharge_added', $booking, "Thêm phụ phí phát sinh cho đơn \"{$booking->booking_code}\".");
 
         return redirect()
-            ->route('staff.bookings.show', $id)
+            ->back()
             ->with('success', "Đã thêm phụ phí phát sinh cho đơn {$booking->booking_code}.");
     }
 

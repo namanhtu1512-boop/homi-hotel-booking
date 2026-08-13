@@ -363,6 +363,21 @@
             <span class="label">Tổng cộng</span>
             <span class="value text-lg text-primary">{{ number_format($grandTotal, 0, ',', '.') }}đ</span>
         </div>
+        @php
+            $incidentalPaid = $incidentalItems->isNotEmpty() && $incidentalInvoice->isPaid()
+                ? (float) $incidentalInvoice->total_amount
+                : 0.0;
+            $totalPaid = $booking->paidAmount() + $incidentalPaid;
+            $totalDue  = round($grandTotal - $totalPaid);
+        @endphp
+        <div class="info-item">
+            <span class="label">Đã thanh toán</span>
+            <span class="value">{{ number_format($totalPaid, 0, ',', '.') }}đ</span>
+        </div>
+        <div class="info-item">
+            <span class="label">{{ $totalDue < 0 ? 'Số dư hoàn lại' : 'Còn phải thanh toán' }}</span>
+            <span class="value {{ $totalDue < 0 ? 'text-accent' : '' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
+        </div>
     </div>
 
     <span class="section-kicker mt-5 block">Thông tin liên hệ</span>
