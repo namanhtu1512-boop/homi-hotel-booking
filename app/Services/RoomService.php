@@ -77,11 +77,21 @@ class RoomService
      *
      * @return array{days: \Illuminate\Support\Collection<int, Carbon>, roomRows: \Illuminate\Support\Collection, roomTypeRows: \Illuminate\Support\Collection}
      */
-    public function monthlyOccupancy(Carbon $month, ?int $roomTypeId = null): array
+    /**
+     * @param  Carbon|null  $rangeStart  Khi truyền kèm $rangeEnd, ghi đè khoảng ngày hiển thị
+     *                                    thay vì dùng trọn tháng của $month (bộ lọc "Từ ngày — Đến ngày").
+     */
+    public function monthlyOccupancy(Carbon $month, ?int $roomTypeId = null, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
-        $start = $month->copy()->startOfMonth()->timezone('Asia/Ho_Chi_Minh')->startOfDay();
-        $end   = $month->copy()->endOfMonth()->timezone('Asia/Ho_Chi_Minh')->startOfDay();
-        $days  = collect(range(0, $start->diffInDays($end)))->map(fn (int $i) => $start->copy()->addDays($i));
+        $start = ($rangeStart ?? $month->copy()->startOfMonth())->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+        $end   = ($rangeEnd ?? $month->copy()->endOfMonth())->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+
+        // Chặn khoảng ngày quá dài (bảng sẽ quá rộng để dùng được) — giới hạn tối đa 1 quý.
+        if ($start->diffInDays($end) > 92) {
+            $end = $start->copy()->addDays(92);
+        }
+
+        $days = collect(range(0, $start->diffInDays($end)))->map(fn (int $i) => $start->copy()->addDays($i));
 
         $rooms = Room::with(['roomType', 'bookingItemRooms' => function ($q) use ($start, $end) {
                 $q->whereDate('checked_in_at', '<=', $end->toDateString())

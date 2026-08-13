@@ -14,7 +14,25 @@
                 <option value="{{ $roomType->id }}" @selected(($filters['room_type_id'] ?? '') == $roomType->id)>{{ $roomType->name }}</option>
             @endforeach
         </select>
+
+        <div class="form-group">
+            <label for="start_date">Từ ngày</label>
+            <input type="date" id="start_date" name="start_date" value="{{ $filters['start_date'] ?? '' }}">
+        </div>
+        <div class="form-group">
+            <label for="end_date">Đến ngày</label>
+            <input type="date" id="end_date" name="end_date" value="{{ $filters['end_date'] ?? '' }}">
+        </div>
+
+        <button type="submit" class="btn btn-outline">Lọc</button>
+
+        @if (($filters['start_date'] ?? '') !== '' || ($filters['end_date'] ?? '') !== '')
+            <a href="{{ route('admin.rooms.calendar', ['month' => $filters['month'] ?? null, 'room_type_id' => $filters['room_type_id'] ?? null]) }}" class="btn btn-outline">Xóa lọc ngày</a>
+        @endif
     </form>
+    @if (($filters['start_date'] ?? '') !== '' || ($filters['end_date'] ?? '') !== '')
+        <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Đang lọc theo khoảng ngày{{ ($filters['start_date'] ?? '') !== '' ? ' từ ' . \Carbon\Carbon::parse($filters['start_date'])->format('d/m/Y') : '' }}{{ ($filters['end_date'] ?? '') !== '' ? ' đến ' . \Carbon\Carbon::parse($filters['end_date'])->format('d/m/Y') : '' }} (bỏ qua chọn tháng ở trên).</p>
+    @endif
 
     <div class="mb-4 flex flex-wrap gap-3 text-xs">
         <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-slate-200 dark:bg-slate-700"></span> Trống</span>

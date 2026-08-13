@@ -42,11 +42,18 @@ class RoomController extends Controller
 
         $roomTypeId = $request->integer('room_type_id') ?: null;
 
+        $startDate = $request->filled('start_date') ? \Carbon\Carbon::parse($request->string('start_date')) : null;
+        $endDate   = $request->filled('end_date') ? \Carbon\Carbon::parse($request->string('end_date')) : null;
+
+        if ($startDate && $endDate && $endDate->lt($startDate)) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
+
         return view('admin.rooms.calendar', [
             'month'     => $month,
             'roomTypes' => RoomType::orderBy('name')->get(),
-            'filters'   => $request->only('room_type_id', 'month'),
-        ] + $this->roomService->monthlyOccupancy($month, $roomTypeId));
+            'filters'   => $request->only('room_type_id', 'month', 'start_date', 'end_date'),
+        ] + $this->roomService->monthlyOccupancy($month, $roomTypeId, $startDate, $endDate));
     }
 
     public function store(Request $request): RedirectResponse
