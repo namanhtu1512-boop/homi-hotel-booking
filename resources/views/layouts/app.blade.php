@@ -11,6 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="@yield('title', 'Homi · Đặt phòng khách sạn')">
     <meta property="og:description" content="@yield('meta_description', 'Homi Hotel — đặt phòng trực tiếp, xem phòng trống theo ngày, giá minh bạch, xác nhận nhanh.')">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
     @include('partials._theme-script')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -18,7 +19,10 @@
 <body class="font-sans text-slate-800 dark:text-slate-100">
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <div class="mx-auto flex w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4 py-4">
-            <a href="{{ route('home') }}" class="font-heading text-2xl font-extrabold text-primary">Homi</a>
+            <a href="{{ route('home') }}" class="flex items-center gap-2 font-heading text-2xl font-extrabold text-primary">
+                <img src="{{ asset('images/logo.svg') }}" alt="Homi" class="h-9 w-9 rounded-[10px]">
+                Homi
+            </a>
 
             <nav class="hidden items-center gap-1 lg:flex">
                 <a href="{{ route('home') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Trang chủ</a>
@@ -52,16 +56,37 @@
                             <a href="{{ route('staff.dashboard') }}" class="btn-outline btn-sm">Khu vực nhân viên</a>
                         @else
                             <a href="{{ route('customer.wishlist.index') }}" class="btn-outline btn-sm">Yêu thích ({{ auth()->user()->wishlistItems()->count() }})</a>
-                            <a href="{{ route('customer.bookings.index') }}" class="btn-outline btn-sm">Đơn của tôi</a>
-                            <a href="{{ route('customer.chat.index') }}" class="btn-outline btn-sm">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
                             @include('partials._notification-bell')
-                            <a href="{{ route('customer.profile.show') }}" class="btn-outline btn-sm">Tài khoản</a>
                             <a href="{{ route('customer.bookings.create') }}" class="btn-primary btn-sm">Đặt phòng</a>
                         @endif
-                        <form method="POST" action="{{ route('logout') }}" class="m-0">
-                            @csrf
-                            <button type="submit" class="btn-outline btn-sm">Đăng xuất</button>
-                        </form>
+
+                        <div class="relative" x-data="{ open: false }">
+                            <button type="button" @click="open = !open"
+                                class="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                <span class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-light text-sm font-bold text-primary dark:bg-primary/15">
+                                    @if (auth()->user()->avatar_url)
+                                        <img src="{{ auth()->user()->avatar_url }}" class="h-full w-full object-cover" alt="{{ auth()->user()->name }}">
+                                    @else
+                                        {{ Str::substr(auth()->user()->name, 0, 1) }}
+                                    @endif
+                                </span>
+                                <span class="max-w-[120px] truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{{ auth()->user()->name }}</span>
+                            </button>
+
+                            <div x-show="open" x-cloak @click.outside="open = false" x-transition
+                                class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                                @unless (auth()->user()->isAdmin() || auth()->user()->isStaff())
+                                    <a href="{{ route('customer.bookings.index') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
+                                    <a href="{{ route('customer.chat.index') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
+                                    <a href="{{ route('customer.profile.show') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
+                                    <div class="my-1 border-t border-slate-100 dark:border-slate-800"></div>
+                                @endunless
+                                <form method="POST" action="{{ route('logout') }}" class="m-0">
+                                    @csrf
+                                    <button type="submit" class="block w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Đăng xuất</button>
+                                </form>
+                            </div>
+                        </div>
                     @else
                         <a href="{{ route('login') }}" class="btn-outline btn-sm">Đăng nhập</a>
                         <a href="{{ route('register') }}" class="btn-primary btn-sm">Đăng ký</a>
@@ -93,21 +118,39 @@
                 @endif
                 <div class="my-2 border-t border-slate-200 dark:border-slate-800"></div>
                 @auth
+                    <div x-data="{ open: false }">
+                        <button type="button" @click="open = !open"
+                            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+                            <span class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-light text-sm font-bold text-primary dark:bg-primary/15">
+                                @if (auth()->user()->avatar_url)
+                                    <img src="{{ auth()->user()->avatar_url }}" class="h-full w-full object-cover" alt="{{ auth()->user()->name }}">
+                                @else
+                                    {{ Str::substr(auth()->user()->name, 0, 1) }}
+                                @endif
+                            </span>
+                            <span class="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{{ auth()->user()->name }}</span>
+                            <svg class="ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak x-transition class="flex flex-col gap-1 pl-3">
+                            @unless (auth()->user()->isAdmin() || auth()->user()->isStaff())
+                                <a href="{{ route('customer.bookings.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
+                                <a href="{{ route('customer.chat.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
+                                <a href="{{ route('customer.profile.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
+                            @endunless
+                            <form method="POST" action="{{ route('logout') }}" class="m-0">
+                                @csrf
+                                <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đăng xuất</button>
+                            </form>
+                        </div>
+                    </div>
                     @if (auth()->user()->isAdmin())
                         <a href="{{ route('admin.dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Trang quản trị</a>
                     @elseif (auth()->user()->isStaff())
                         <a href="{{ route('staff.dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khu vực nhân viên</a>
                     @else
                         <a href="{{ route('customer.wishlist.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Yêu thích</a>
-                        <a href="{{ route('customer.bookings.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
-                        <a href="{{ route('customer.chat.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
-                        <a href="{{ route('customer.profile.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
                         <a href="{{ route('customer.bookings.create') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-slate-100 dark:hover:bg-slate-800">Đặt phòng</a>
                     @endif
-                    <form method="POST" action="{{ route('logout') }}" class="m-0">
-                        @csrf
-                        <button type="submit" class="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đăng xuất</button>
-                    </form>
                 @else
                     <a href="{{ route('login') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đăng nhập</a>
                     <a href="{{ route('register') }}" class="rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-slate-100 dark:hover:bg-slate-800">Đăng ký</a>

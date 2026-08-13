@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Quản trị · Homi')</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
     @include('partials._theme-script')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
@@ -14,9 +15,12 @@
 <body class="bg-slate-50 font-sans text-slate-800 dark:bg-slate-950 dark:text-slate-100">
     <div class="flex min-h-screen flex-col md:flex-row">
         <aside class="flex shrink-0 flex-col gap-1 overflow-y-auto bg-slate-950 p-4 text-slate-300 md:sticky md:top-0 md:h-screen md:w-64 md:p-5">
-            <div class="px-2 pb-5">
-                <div class="font-heading text-xl font-extrabold text-white">Homi</div>
-                <small class="text-xs font-semibold text-slate-400">Khu vực quản trị</small>
+            <div class="flex items-center gap-2 px-2 pb-5">
+                <img src="{{ asset('images/logo.svg') }}" alt="Homi" class="h-9 w-9 shrink-0 rounded-[10px]">
+                <div>
+                    <div class="font-heading text-xl font-extrabold text-white">Homi</div>
+                    <small class="text-xs font-semibold text-slate-400">Khu vực quản trị</small>
+                </div>
             </div>
 
             <nav class="flex flex-row flex-wrap gap-1 md:flex-col md:flex-nowrap">

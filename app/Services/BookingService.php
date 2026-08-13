@@ -403,7 +403,7 @@ class BookingService
             $promoLines = [];
 
             if (! empty($data['promo_codes'])) {
-                $promotions = $this->promotionService->findValidManyByCodes($data['promo_codes']);
+                $promotions = $this->promotionService->findValidManyByCodes($data['promo_codes'], $customer);
 
                 // Mỗi mã tính giảm trên PHẦN CÒN LẠI sau các mã trước đó (tuần
                 // tự), tự động cap về 0 — không thể giảm vượt quá tổng đơn dù
