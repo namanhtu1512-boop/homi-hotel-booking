@@ -1,7 +1,10 @@
 <footer class="mt-16 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
     <div class="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-            <div class="font-heading text-2xl font-extrabold text-primary">Homi</div>
+            <div class="flex items-center gap-2 font-heading text-2xl font-extrabold text-primary">
+                <img src="{{ asset('images/logo.svg') }}" alt="Homi" class="h-9 w-9 rounded-[10px]">
+                Homi
+            </div>
             <p class="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 Nền tảng đặt phòng khách sạn hiện đại — trải nghiệm đặt phòng nhanh chóng, minh bạch và đáng tin cậy.
             </p>

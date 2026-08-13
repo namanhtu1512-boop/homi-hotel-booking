@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Models\Promotion;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PromotionService
@@ -45,10 +48,12 @@ class PromotionService
 
     /**
      * Tìm khuyến mãi hợp lệ theo mã — dùng khi khách nhập mã ở bước đặt phòng.
+     * Nếu truyền $user, mã đã được chính tài khoản đó dùng ở một đơn chưa
+     * hủy trước đó sẽ bị từ chối — mỗi tài khoản chỉ được dùng 1 lần/mã.
      *
      * @throws ValidationException
      */
-    public function findValidByCode(string $code): Promotion
+    public function findValidByCode(string $code, ?User $user = null): Promotion
     {
         $promotion = Promotion::where('code', $code)->first();
 
@@ -58,7 +63,28 @@ class PromotionService
             ]);
         }
 
+        if ($user && $this->alreadyUsedByUser($promotion, $user)) {
+            throw ValidationException::withMessages([
+                'promo_codes' => ["Bạn đã sử dụng mã \"{$code}\" rồi — mỗi tài khoản chỉ được dùng 1 lần cho mỗi mã."],
+            ]);
+        }
+
         return $promotion;
+    }
+
+    /**
+     * Tài khoản đã dùng mã này ở một đơn chưa hủy (booking_promotions nối
+     * bookings) chưa — đơn đã hủy không tính là "đã dùng" để khách có thể
+     * dùng lại mã sau khi hủy đơn.
+     */
+    private function alreadyUsedByUser(Promotion $promotion, User $user): bool
+    {
+        return DB::table('booking_promotions')
+            ->join('bookings', 'bookings.id', '=', 'booking_promotions.booking_id')
+            ->where('booking_promotions.promotion_id', $promotion->id)
+            ->where('bookings.user_id', $user->id)
+            ->where('bookings.status', '!=', BookingStatus::CANCELLED->value)
+            ->exists();
     }
 
     /**
@@ -72,9 +98,9 @@ class PromotionService
      *
      * @throws ValidationException
      */
-    public function findValidManyByCodes(array $codes): SupportCollection
+    public function findValidManyByCodes(array $codes, ?User $user = null): SupportCollection
     {
-        $promotions = collect($codes)->map(fn (string $code) => $this->findValidByCode($code));
+        $promotions = collect($codes)->map(fn (string $code) => $this->findValidByCode($code, $user));
 
         if ($promotions->count() > 1 && $promotions->contains(fn (Promotion $p) => ! $p->stackable)) {
             throw ValidationException::withMessages([

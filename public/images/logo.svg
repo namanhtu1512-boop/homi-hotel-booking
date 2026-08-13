@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="homiBadge" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="13" fill="url(#homiBadge)"/>
+  <polygon points="24,9.5 10.5,21 37.5,21" fill="#fff"/>
+  <rect x="14.5" y="21" width="19" height="13.5" rx="1.5" fill="#fff"/>
+  <rect x="21" y="27" width="6" height="7.5" rx="1" fill="#1d4ed8"/>
+</svg>
