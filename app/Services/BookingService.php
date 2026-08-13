@@ -79,6 +79,8 @@ class BookingService
         private IncidentalInvoiceService $incidentalInvoiceService,
         private ExtraBedInventoryService $extraBedInventoryService,
         private RoomService $roomService,
+        private GroupDiscountPolicyService $groupDiscountPolicyService,
+        private GroupDiscountRequestService $groupDiscountRequestService,
     ) {}
 
     // ----------------------------------------------------------------
@@ -103,7 +105,9 @@ class BookingService
         $this->validateGuestCapacity($data['items'], $roomTypes);
         $this->checkAvailabilityForAllItems($data['items'], $roomTypes, $data['check_in'], $data['check_out']);
 
-        $booking = DB::transaction(function () use ($data, $roomTypes) {
+        $roomCount = array_sum(array_column($data['items'], 'quantity'));
+
+        $booking = DB::transaction(function () use ($data, $roomTypes, $roomCount) {
             RoomType::whereIn('id', $roomTypes->keys()->sort()->values())->lockForUpdate()->get();
 
             $nights = null;
@@ -181,6 +185,15 @@ class BookingService
                 }
             }
 
+            // Ưu đãi đoàn/nhóm theo bậc số phòng (GroupDiscountPolicy) — tự động
+            // áp ngay, không cần duyệt, vì admin đã duyệt sẵn qua chính sách
+            // (xem GroupDiscountRequestService, ghi nhận lại bên dưới sau khi
+            // có $booking để trace "nhân viên nào áp dụng ưu đãi gì").
+            $groupDiscountPolicy = $this->groupDiscountPolicyService->matchTierFor($roomCount);
+            $groupDiscount = $groupDiscountPolicy
+                ? (int) round($total * (float) $groupDiscountPolicy->discount_percent / 100)
+                : 0;
+
             $booking = Booking::create([
                 'user_id'        => $data['user_id'] ?? null,
                 'booking_code'   => $this->generateCode(),
@@ -195,8 +208,8 @@ class BookingService
                 'customer_email' => $data['customer_email'] ?? null,
                 'national_id'    => $data['national_id'] ?? null,
                 'note'           => $data['note'] ?? null,
-                'total_amount'   => $total,
-                'discount_amount'=> 0,
+                'total_amount'   => $total - $groupDiscount,
+                'discount_amount'=> $groupDiscount,
                 'status'         => $pendingConsultation ? BookingStatus::PENDING_CONSULTATION : BookingStatus::PENDING_DEPOSIT,
                 'deposit_expires_at' => $pendingConsultation ? null : now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
             ]);
@@ -232,10 +245,16 @@ class BookingService
             }
 
             $booking->payment()->create([
-                'amount' => $total,
+                'amount' => $total - $groupDiscount,
                 'status' => PaymentStatus::UNPAID,
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
+
+            if ($groupDiscountPolicy) {
+                $this->groupDiscountRequestService->recordAutoTierApplied(
+                    $booking, $groupDiscountPolicy, $roomCount, $total, $groupDiscount, Auth::id()
+                );
+            }
 
             return $booking->load(['bookingItems.roomType', 'payment', 'extraBedRequests']);
         });

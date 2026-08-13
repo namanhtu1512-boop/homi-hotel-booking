@@ -108,6 +108,11 @@
                 <input id="extra_bed_surcharge_per_night" type="number" min="0" name="extra_bed_surcharge_per_night" value="{{ old('extra_bed_surcharge_per_night', $hotel->extra_bed_surcharge_per_night) }}">
                 <p class="section-desc">Cộng thẳng vào tổng tiền đơn khi giường phụ được cấp lúc đặt phòng, tính theo đúng số đêm ở.</p>
             </div>
+            <div class="form-group">
+                <label for="staff_max_group_discount_percent">Trần % giảm giá đoàn nhân viên tự áp dụng</label>
+                <input id="staff_max_group_discount_percent" type="number" min="0" max="100" step="0.1" name="staff_max_group_discount_percent" value="{{ old('staff_max_group_discount_percent', $hotel->staff_max_group_discount_percent) }}">
+                <p class="section-desc">Nhân viên đề xuất giảm THÊM (ngoài chính sách ưu đãi đoàn tự động) vượt mức này sẽ phải chờ admin duyệt thay vì áp dụng ngay.</p>
+            </div>
         </div>
 
         <div class="form-group">

@@ -370,6 +370,40 @@
                     </div>
                 @endif
 
+                @php
+                    $latestGroupDiscount = $booking->groupDiscountRequests->sortByDesc('created_at')->first();
+                @endphp
+                @if ($latestGroupDiscount)
+                    @php
+                        $gdBadge = ['pending' => 'badge-orange', 'approved' => 'badge-green', 'rejected' => 'badge-red'][$latestGroupDiscount->status] ?? 'badge-green';
+                        $gdLabel = ['pending' => 'Chờ duyệt', 'approved' => 'Đã duyệt', 'rejected' => 'Đã từ chối'][$latestGroupDiscount->status] ?? $latestGroupDiscount->status;
+                    @endphp
+                    <div class="info-list mt-3">
+                        <div class="info-item">
+                            <span class="label">Ưu đãi đoàn</span>
+                            <span class="value">
+                                {{ (float) $latestGroupDiscount->requested_percent }}%
+                                <span class="badge {{ $gdBadge }}">{{ $gdLabel }}</span>
+                                — <a href="{{ route('staff.group-discount-requests.show', $latestGroupDiscount->id) }}">Xem</a>
+                            </span>
+                        </div>
+                    </div>
+                @endif
+
+                @if ($booking->canApplyGroupDiscount())
+                    <div class="mt-3">
+                        <div class="section-kicker">Đề xuất giảm giá đoàn thêm</div>
+                        <form method="POST" action="{{ route('staff.bookings.group-discount.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap; margin-top: 8px;">
+                            @csrf
+                            <input type="number" name="percent" min="0.01" max="100" step="0.1" class="input" style="width:100px;" placeholder="VD 5" required>
+                            <span>%</span>
+                            <input type="text" name="reason" class="input" style="width:260px;" placeholder="Lý do (VD: khách đặt 7 đêm)">
+                            <button type="submit" class="btn btn-outline btn-sm">💸 Áp dụng / đề xuất giảm thêm</button>
+                        </form>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Nếu mức đề xuất vượt trần cho phép, hệ thống sẽ gửi yêu cầu chờ admin duyệt thay vì áp dụng ngay.</p>
+                    </div>
+                @endif
+
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
                     <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
                         Dịch vụ/phụ phí phát sinh trong lúc khách lưu trú chỉ được ghi nhận ở bước

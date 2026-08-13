@@ -243,8 +243,14 @@ document.querySelectorAll('#items-container select[name*="room_type_id"]').forEa
 </script>
 
 <div class="card mt-5">
-    <div class="section-kicker">Gửi báo giá qua chat</div>
-    <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Tin nhắn sẽ gửi đến hộp chat của <strong>{{ $groupRequest->user?->name ?? $groupRequest->email }}</strong> kèm bảng giá sơ bộ và link đặt phòng.</p>
+    <div class="section-kicker">Gửi báo giá</div>
+    <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
+        Báo giá sẽ gửi qua email đến <strong>{{ $groupRequest->email }}</strong>
+        @if ($groupRequest->user)
+            và qua hộp chat của <strong>{{ $groupRequest->user->name }}</strong>
+        @endif
+        kèm bảng giá sơ bộ và link đặt phòng.
+    </p>
 
     <form method="POST" action="{{ route('staff.group-bookings.send-quote', $groupRequest->id) }}" class="space-y-4">
         @csrf

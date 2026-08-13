@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Staff;
 
+use App\Mail\GroupBookingQuoteMail;
 use App\Models\ChatMessage;
 use App\Models\GroupBookingRequest;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class GroupBookingSendQuoteExtraBedTest extends TestCase
@@ -96,6 +98,27 @@ class GroupBookingSendQuoteExtraBedTest extends TestCase
         $message = ChatMessage::where('customer_id', $customer->id)->latest()->first();
         $this->assertNotNull($message);
         $this->assertStringNotContainsString('Giường phụ', $message->body);
+    }
+
+    public function test_gui_bao_gia_luon_gui_email_du_co_hay_khong_tai_khoan_lien_ket(): void
+    {
+        Mail::fake();
+
+        $this->loginAsStaff();
+        $roomType     = RoomType::factory()->create(['price_per_night' => 900000]);
+        $groupRequest = GroupBookingRequest::factory()->create(['user_id' => null]);
+
+        $response = $this->post(route('staff.group-bookings.send-quote', $groupRequest->id), [
+            'quote_items' => [
+                ['room_type_id' => $roomType->id, 'quantity' => 1, 'price_per_night' => 900000],
+            ],
+        ]);
+
+        $response->assertRedirect(route('staff.group-bookings.show', $groupRequest->id));
+        $this->assertSame(0, ChatMessage::count());
+        $this->assertSame('contacted', $groupRequest->fresh()->status);
+
+        Mail::assertSent(GroupBookingQuoteMail::class, fn (GroupBookingQuoteMail $mail) => $mail->hasTo($groupRequest->email));
     }
 
     public function test_trang_show_hien_khoi_giuong_phu_khi_co_num_children(): void

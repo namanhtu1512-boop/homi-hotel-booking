@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GroupBookingRequest;
+use App\Models\RoomType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class GroupBookingRequestService
@@ -84,5 +85,72 @@ class GroupBookingRequestService
         }
 
         return [['room_type_id' => '', 'quantity' => 1, 'adults' => 2, 'children' => 0, 'infants' => 0]];
+    }
+
+    /**
+     * Dựng báo giá từ dữ liệu form "Gửi báo giá" (đã validate) — dùng chung
+     * cho cả gửi chat (đoạn text $lines) và gửi email (mảng $items có cấu
+     * trúc để render bảng HTML), tránh lặp lại logic tính tiền ở 2 kênh.
+     */
+    public function buildQuote(GroupBookingRequest $groupRequest, array $data): array
+    {
+        $roomTypes = RoomType::whereIn('id', array_column($data['quote_items'], 'room_type_id'))->get()->keyBy('id');
+
+        // max(1, ...) — nếu khách chọn check_in = check_out (0 đêm theo diffInDays)
+        // vẫn tính tối thiểu 1 đêm, tránh báo giá 0đ vô nghĩa.
+        $nights = ($groupRequest->check_in && $groupRequest->check_out)
+            ? max(1, $groupRequest->check_in->diffInDays($groupRequest->check_out))
+            : null;
+
+        $lines = ["**Báo giá đặt phòng đoàn/nhóm** (Yêu cầu #{$groupRequest->id})"];
+        if ($nights) $lines[] = "Thời gian: {$groupRequest->check_in->format('d/m/Y')} → {$groupRequest->check_out->format('d/m/Y')} ({$nights} đêm)";
+
+        $items = [];
+        $total = 0;
+        foreach ($data['quote_items'] as $item) {
+            $name     = $roomTypes[$item['room_type_id']]?->name ?? '?';
+            $subtotal = $item['quantity'] * $item['price_per_night'] * ($nights ?? 1);
+            $total   += $subtotal;
+            $items[]  = [
+                'name'            => $name,
+                'quantity'        => $item['quantity'],
+                'price_per_night' => $item['price_per_night'],
+                'subtotal'        => $subtotal,
+            ];
+            $lines[]  = "- {$name}: {$item['quantity']} phòng × " . number_format($item['price_per_night'], 0, ',', '.') . 'đ/đêm'
+                . ($nights ? ' = ' . number_format($subtotal, 0, ',', '.') . 'đ' : '');
+        }
+
+        // Phụ thu giường phụ (trẻ em 6-11 tuổi) — nhân viên tự nhập số giường
+        // và giá, KHÔNG tự động suy ra từ num_children của yêu cầu đoàn, vì
+        // chỉ loại phòng có RoomType::supportsExtraBed() = true mới hỗ trợ
+        // giường phụ thật — form này không biết nhân viên đã chọn đúng loại
+        // phòng phù hợp hay chưa, để nhân viên tự quyết (blade cảnh báo qua
+        // updateExtraBedWarning() đọc động data-supports-extra-bed).
+        $extraBeds        = (int) ($data['extra_beds'] ?? 0);
+        $extraBedPrice    = (float) ($data['extra_bed_price_per_night'] ?? 0);
+        $extraBedSubtotal = 0;
+        if ($extraBeds > 0) {
+            $extraBedSubtotal = $extraBeds * $extraBedPrice * ($nights ?? 1);
+            $total           += $extraBedSubtotal;
+            $lines[]          = "- Giường phụ trẻ em (6-11 tuổi): {$extraBeds} giường × " . number_format($extraBedPrice, 0, ',', '.') . 'đ/đêm'
+                . ($nights ? ' = ' . number_format($extraBedSubtotal, 0, ',', '.') . 'đ' : '');
+        }
+
+        if ($nights) $lines[] = "**Tổng dự kiến: " . number_format($total, 0, ',', '.') . 'đ** (chưa bao gồm dịch vụ phát sinh)';
+        $note = $data['note'] ?? null;
+        if ($note) $lines[] = "\n{$note}";
+        $lines[] = "\nXem phòng và đặt ngay: " . route('rooms.index');
+
+        return [
+            'lines'                     => $lines,
+            'items'                     => $items,
+            'nights'                    => $nights,
+            'extra_beds'                => $extraBeds,
+            'extra_bed_price_per_night' => $extraBedPrice,
+            'extra_bed_subtotal'        => $extraBedSubtotal,
+            'total'                     => $total,
+            'note'                      => $note,
+        ];
     }
 }

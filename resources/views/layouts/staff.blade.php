@@ -35,6 +35,7 @@
                         ['route' => 'staff.payments.index', 'pattern' => 'staff.payments.*', 'label' => 'Thanh toán'],
                         ['route' => 'staff.chat.index', 'pattern' => 'staff.chat.*', 'label' => 'Chat khách hàng'],
                         ['route' => 'staff.group-bookings.index', 'pattern' => 'staff.group-bookings.*', 'label' => 'Đặt đoàn/nhóm'],
+                        ['route' => 'staff.group-discount-requests.index', 'pattern' => 'staff.group-discount-requests.*', 'label' => 'Ưu đãi đoàn của tôi'],
                         ['route' => 'staff.room-change-requests.index', 'pattern' => 'staff.room-change-requests.*', 'label' => 'Yêu cầu đổi phòng'],
                         ['route' => 'staff.extra-bed-requests.index', 'pattern' => 'staff.extra-bed-requests.*', 'label' => 'Yêu cầu giường phụ'],
                         ['route' => 'staff.early-checkin-requests.index', 'pattern' => 'staff.early-checkin-requests.*', 'label' => 'Yêu cầu nhận phòng sớm'],

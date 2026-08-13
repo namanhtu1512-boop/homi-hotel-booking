@@ -36,6 +36,8 @@
                         ['route' => 'admin.customers.index', 'pattern' => 'admin.customers.*', 'label' => 'Khách hàng'],
                         ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Người dùng'],
                         ['route' => 'admin.promotions.index', 'pattern' => 'admin.promotions.*', 'label' => 'Khuyến mãi'],
+                        ['route' => 'admin.group-discount-policies.index', 'pattern' => 'admin.group-discount-policies.*', 'label' => 'Chính sách ưu đãi đoàn'],
+                        ['route' => 'admin.group-discount-requests.index', 'pattern' => 'admin.group-discount-requests.*', 'label' => 'Ưu đãi đoàn', 'badge' => $groupDiscountRequestNewCount ?? 0],
                         ['route' => 'admin.seasonal-rates.index', 'pattern' => 'admin.seasonal-rates.*', 'label' => 'Giá theo mùa'],
                         ['route' => 'admin.services.index', 'pattern' => 'admin.services.*', 'label' => 'Dịch vụ'],
                         ['route' => 'admin.surcharge-items.index', 'pattern' => 'admin.surcharge-items.*', 'label' => 'Phụ phí phát sinh'],
