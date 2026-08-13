@@ -11,14 +11,6 @@
         <a href="{{ $backRoute }}" class="btn btn-outline">Quay lại</a>
     </div>
 
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            @foreach ($errors->all() as $error)
-                <div>{{ $error }}</div>
-            @endforeach
-        </div>
-    @endif
-
     @if ($booking->isEarlyCheckoutToday())
         <div class="alert alert-warning">
             ⚠ Khách trả phòng SỚM hơn ngày đã đặt — còn {{ $booking->nightsRemainingForEarlyCheckout() }} đêm
