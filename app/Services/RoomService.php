@@ -75,11 +75,9 @@ class RoomService
      *    mọi trạng thái còn giữ phòng — BookingStatus::holdingStatuses()) —
      *    trả lời "ngày nào còn lịch đặt", bao phủ cả đơn tương lai chưa check-in.
      *
-     * @return array{days: \Illuminate\Support\Collection<int, Carbon>, roomRows: \Illuminate\Support\Collection, roomTypeRows: \Illuminate\Support\Collection}
-     */
-    /**
      * @param  Carbon|null  $rangeStart  Khi truyền kèm $rangeEnd, ghi đè khoảng ngày hiển thị
      *                                    thay vì dùng trọn tháng của $month (bộ lọc "Từ ngày — Đến ngày").
+     * @return array{days: \Illuminate\Support\Collection<int, Carbon>, roomRows: \Illuminate\Support\Collection, roomTypeRows: \Illuminate\Support\Collection}
      */
     public function monthlyOccupancy(Carbon $month, ?int $roomTypeId = null, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {

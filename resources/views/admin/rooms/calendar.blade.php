@@ -94,7 +94,7 @@
     @endif
 
     <div class="section-kicker">Theo loại phòng — ngày nào còn lịch đặt</div>
-    <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Số phòng đã có booking / tổng số phòng của loại đó (mọi đơn còn giữ phòng, kể cả chưa nhận phòng).</p>
+    <p class="mb-2 text-xs text-slate-500 dark:text-slate-400">Số phòng đã có booking trong ngày đó (mọi đơn còn giữ phòng, kể cả chưa nhận phòng). Di chuột vào ô để xem tổng số phòng của loại đó.</p>
     <div class="mb-2 flex flex-wrap gap-3 text-xs">
         <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded border border-slate-300 dark:border-slate-600"></span> Còn trống, chưa có đặt</span>
         <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-blue-100 dark:bg-blue-900/40"></span> Đã có đặt — còn phòng trống</span>
@@ -126,7 +126,7 @@
                                             ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-blue-900/40 dark:text-blue-300'
                                             : 'text-slate-400');
                                 @endphp
-                                <td class="px-1 text-center {{ $cellClass }}">{{ $cell['booked'] }}/{{ $cell['total'] }}</td>
+                                <td class="px-1 text-center {{ $cellClass }}" title="{{ $cell['booked'] }}/{{ $cell['total'] }} đã đặt">{{ $cell['booked'] > 0 ? $cell['booked'] : '' }}</td>
                             @endforeach
                         </tr>
                     @endforeach
