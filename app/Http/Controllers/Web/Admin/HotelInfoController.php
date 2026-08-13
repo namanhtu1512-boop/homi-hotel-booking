@@ -74,6 +74,7 @@ class HotelInfoController extends Controller
             'cancellation_hours_before'       => ['nullable', 'integer', 'min:0', 'max:720'],
             'extra_beds_total' => ['nullable', 'integer', 'min:0', 'max:100'],
             'extra_bed_surcharge_per_night' => ['nullable', 'integer', 'min:0'],
+            'staff_max_group_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'amenity_ids'    => ['nullable', 'array'],
             'amenity_ids.*'  => ['integer', 'exists:amenities,id'],
             'images_text'    => ['nullable', 'string', $this->eachImageLineMax500()],
@@ -97,6 +98,7 @@ class HotelInfoController extends Controller
             'cancellation_hours_before'       => 'số giờ phải hủy trước',
             'extra_beds_total' => 'tổng số giường phụ',
             'extra_bed_surcharge_per_night' => 'phụ thu giường phụ/đêm',
+            'staff_max_group_discount_percent' => 'trần % giảm giá nhân viên tự áp dụng',
             'amenity_ids'    => 'tiện ích',
             'image_files.*'  => 'file ảnh',
         ]);

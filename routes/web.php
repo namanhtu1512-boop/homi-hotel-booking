@@ -15,6 +15,9 @@ use App\Http\Controllers\Web\Admin\CustomerController as AdminCustomerController
 use App\Http\Controllers\Web\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Web\Admin\GroupDiscountPolicyController as AdminGroupDiscountPolicyController;
+use App\Http\Controllers\Web\Admin\GroupDiscountRequestController as AdminGroupDiscountRequestController;
+use App\Http\Controllers\Web\Staff\GroupDiscountRequestController as StaffGroupDiscountRequestController;
 use App\Http\Controllers\Web\Admin\SeasonalRateController as AdminSeasonalRateController;
 use App\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Web\Admin\SurchargeItemController as AdminSurchargeItemController;
@@ -275,6 +278,10 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
 
         Route::get('/{id}/extend-stay/preview', [AdminBookingController::class, 'previewExtendStay'])->name('extend-stay.preview');
         Route::post('/{id}/extend-stay',         [AdminBookingController::class, 'extendStay'])->name('extend-stay.store');
+
+        // Ưu đãi đoàn/nhóm — admin áp trực tiếp, không bị trần cấu hình (xem
+        // GroupDiscountRequestController@store).
+        Route::post('/{id}/group-discount', [AdminGroupDiscountRequestController::class, 'store'])->name('group-discount.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
@@ -294,6 +301,16 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::put('/{id}',           [AdminPromotionController::class, 'update'])->name('update');
         Route::delete('/{id}',        [AdminPromotionController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/restore',  [AdminPromotionController::class, 'restore'])->name('restore');
+    });
+
+    Route::prefix('group-discount-policies')->name('group-discount-policies.')->group(function () {
+        Route::get('/',               [AdminGroupDiscountPolicyController::class, 'index'])->name('index');
+        Route::get('/create',         [AdminGroupDiscountPolicyController::class, 'create'])->name('create');
+        Route::post('/',              [AdminGroupDiscountPolicyController::class, 'store'])->name('store');
+        Route::get('/{id}/edit',      [AdminGroupDiscountPolicyController::class, 'edit'])->name('edit');
+        Route::put('/{id}',           [AdminGroupDiscountPolicyController::class, 'update'])->name('update');
+        Route::delete('/{id}',        [AdminGroupDiscountPolicyController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/restore',  [AdminGroupDiscountPolicyController::class, 'restore'])->name('restore');
     });
 
     Route::prefix('seasonal-rates')->name('seasonal-rates.')->group(function () {
@@ -391,6 +408,14 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/reject',  [AdminLateCheckoutRequestController::class, 'reject'])->name('reject');
     });
 
+    Route::prefix('group-discount-requests')->name('group-discount-requests.')->group(function () {
+        Route::get('/',              [AdminGroupDiscountRequestController::class, 'index'])->name('index');
+        Route::get('/{id}',          [AdminGroupDiscountRequestController::class, 'show'])->name('show');
+        Route::post('/{id}/approve', [AdminGroupDiscountRequestController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject',  [AdminGroupDiscountRequestController::class, 'reject'])->name('reject');
+        Route::post('/{id}/adjust',  [AdminGroupDiscountRequestController::class, 'adjust'])->name('adjust');
+    });
+
     Route::prefix('chat')->name('chat.')->group(function () {
         Route::get('/',                 [AdminChatController::class, 'index'])->name('index');
         Route::get('/{customerId}',     [AdminChatController::class, 'show'])->name('show');
@@ -445,6 +470,8 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
 
         Route::get('/{id}/extend-stay/preview', [StaffBookingController::class, 'previewExtendStay'])->name('extend-stay.preview');
         Route::post('/{id}/extend-stay',         [StaffBookingController::class, 'extendStay'])->name('extend-stay.store');
+
+        Route::post('/{id}/group-discount', [StaffGroupDiscountRequestController::class, 'store'])->name('group-discount.store');
     });
 
     Route::prefix('payments')->name('payments.')->group(function () {
@@ -492,5 +519,12 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/{id}',          [StaffLateCheckoutRequestController::class, 'show'])->name('show');
         Route::post('/{id}/approve', [StaffLateCheckoutRequestController::class, 'approve'])->name('approve');
         Route::post('/{id}/reject',  [StaffLateCheckoutRequestController::class, 'reject'])->name('reject');
+    });
+
+    // Chỉ xem lịch sử đề xuất CỦA CHÍNH MÌNH — duyệt/từ chối/điều chỉnh chỉ
+    // admin làm được (xem StaffGroupDiscountRequestController).
+    Route::prefix('group-discount-requests')->name('group-discount-requests.')->group(function () {
+        Route::get('/',     [StaffGroupDiscountRequestController::class, 'index'])->name('index');
+        Route::get('/{id}', [StaffGroupDiscountRequestController::class, 'show'])->name('show');
     });
 });

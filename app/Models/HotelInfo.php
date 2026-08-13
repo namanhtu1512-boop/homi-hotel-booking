@@ -39,6 +39,7 @@ class HotelInfo extends Model
         'cancellation_hours_before',
         'extra_beds_total',
         'extra_bed_surcharge_per_night',
+        'staff_max_group_discount_percent',
     ];
 
     protected $casts = [
@@ -50,6 +51,7 @@ class HotelInfo extends Model
         'cancellation_hours_before' => 'integer',
         'extra_beds_total'          => 'integer',
         'extra_bed_surcharge_per_night' => 'integer',
+        'staff_max_group_discount_percent' => 'decimal:2',
         'latitude'                  => 'decimal:7',
         'longitude'                 => 'decimal:7',
     ];

@@ -132,6 +132,11 @@ class Booking extends Model
         return $this->hasMany(LateCheckoutRequest::class);
     }
 
+    public function groupDiscountRequests()
+    {
+        return $this->hasMany(GroupDiscountRequest::class);
+    }
+
     public function incidentalInvoice()
     {
         return $this->hasOne(IncidentalInvoice::class)->latestOfMany();
@@ -402,6 +407,20 @@ class Booking extends Model
     public function canExtendStay(): bool
     {
         return $this->status === BookingStatus::CHECKED_IN;
+    }
+
+    /**
+     * Còn có thể cộng thêm giảm giá đoàn/nhóm (tự động theo chính sách hoặc
+     * nhân viên/admin đề xuất thêm) hay không — chặn khi đơn đã hủy/trả
+     * phòng/hoàn thành (không còn gì để giảm) hoặc đã thanh toán ĐỦ (PAID),
+     * tránh giảm giá sau khi đã thu đủ tiền tạo ra công nợ âm; trường hợp đó
+     * nên xử lý hoàn tiền thủ công thay vì qua luồng này.
+     */
+    public function canApplyGroupDiscount(): bool
+    {
+        return ! in_array($this->status, [BookingStatus::CANCELLED, BookingStatus::CHECKED_OUT, BookingStatus::COMPLETED], true)
+            && $this->payment
+            && $this->payment->status !== PaymentStatus::PAID;
     }
 
     /**

@@ -8,6 +8,8 @@ use App\Models\ContactMessage;
 use App\Models\EarlyCheckinRequest;
 use App\Models\ExtraBedRequest;
 use App\Models\GroupBookingRequest;
+use App\Models\GroupDiscountPolicy;
+use App\Models\GroupDiscountRequest;
 use App\Models\HotelInfo;
 use App\Models\LateCheckoutRequest;
 use App\Models\News;
@@ -59,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
             'rooms' => Room::class,
             'room_change_requests' => RoomChangeRequest::class,
             'early_checkin_requests' => EarlyCheckinRequest::class,
+            'group_discount_policies' => GroupDiscountPolicy::class,
         ]);
 
         // Footer hiển thị trên mọi trang khách hàng — chia sẻ thông tin khách sạn
@@ -79,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
             $view->with('extraBedNewCount', ExtraBedRequest::where('status', 'pending')->count());
             $view->with('earlyCheckinNewCount', EarlyCheckinRequest::where('status', 'pending')->count());
             $view->with('lateCheckoutNewCount', LateCheckoutRequest::where('status', 'pending')->count());
+            $view->with('groupDiscountRequestNewCount', GroupDiscountRequest::where('status', 'pending')->where('type', 'staff_extra')->count());
             $user = Auth::user();
             $view->with('adminNotifUnread', $user ? $user->unreadNotifications()->latest()->take(10)->get() : collect());
         });
