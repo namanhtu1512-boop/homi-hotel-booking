@@ -34,7 +34,7 @@
                 <tbody>
                     @foreach ($roomTypes as $room)
                         <tr>
-                            <td><a href="{{ route('admin.room-types.show', $room->id) }}">{{ $room->name }}</a></td>
+                            <td>{{ $room->name }}</td>
                             <td>{{ $room->capacity }} khách</td>
                             <td>{{ number_format($room->price_per_night, 0, ',', '.') }}đ</td>
                             <td>{{ $room->total_rooms }}</td>
@@ -58,6 +58,7 @@
                             </td>
                             <td>
                                 <div class="action-row">
+                                    <a href="{{ route('admin.room-types.show', $room->id) }}" class="btn btn-outline btn-sm">Xem</a>
                                     <a href="{{ route('admin.room-types.edit', $room->id) }}" class="btn btn-outline btn-sm">Sửa</a>
                                     <form method="POST" action="{{ route('admin.room-types.toggle-status', $room->id) }}">
                                         @csrf

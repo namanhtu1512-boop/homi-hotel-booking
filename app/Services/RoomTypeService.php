@@ -141,7 +141,7 @@ class RoomTypeService
 
     public function find(int $id): RoomType
     {
-        return RoomType::with('images')->findOrFail($id);
+        return RoomType::with(['images', 'amenities'])->findOrFail($id);
     }
 
     public function featured(int $limit = 6): Collection
