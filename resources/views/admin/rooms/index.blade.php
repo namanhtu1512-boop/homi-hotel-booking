@@ -36,7 +36,6 @@
                         <th>Loại phòng</th>
                         <th>Nhận / trả phòng</th>
                         <th>Trạng thái dọn phòng</th>
-                        <th>Hành động</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -71,16 +70,6 @@
                                         <option value="maintenance" @selected($room->housekeeping_status === 'maintenance')>Bảo trì</option>
                                     </select>
                                 </form>
-                            </td>
-                            <td>
-                                <div class="action-row">
-                                    <a href="{{ route('admin.rooms.edit', $room->id) }}" class="btn btn-outline btn-sm">Sửa</a>
-                                    <form method="POST" action="{{ route('admin.rooms.destroy', $room->id) }}" onsubmit="return confirm('Xóa phòng này?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-sm">Xóa</button>
-                                    </form>
-                                </div>
                             </td>
                         </tr>
                     @endforeach
