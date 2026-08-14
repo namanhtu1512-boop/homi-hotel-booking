@@ -168,6 +168,29 @@
                 </div>
             </div>
             <div>
+                <label class="form-label" for="promo_codes_text">Mã giảm giá</label>
+                <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text') }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Áp dụng cộng thêm vào ưu đãi theo bậc số phòng (nếu có) — trừ trực tiếp vào tổng tiền đơn.</p>
+
+                @if ($groupPromotions->isNotEmpty())
+                    <p class="mt-2 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">Chọn nhanh ưu đãi đoàn/nhóm đang có — bấm để thêm mã, không cần gõ tay:</p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($groupPromotions as $promo)
+                            <button type="button"
+                                class="promo-pick-btn rounded-lg border border-dashed border-primary px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-primary-light/40 dark:hover:bg-slate-800"
+                                data-code="{{ $promo->code }}">
+                                <span class="font-mono font-bold text-primary">{{ $promo->code }}</span>
+                                @if ($promo->stackable)
+                                    <span class="badge badge-blue !px-1.5 !py-0 text-[10px]">Stack được</span>
+                                @endif
+                                <span class="block text-slate-500 dark:text-slate-400">{{ $promo->description }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            <div>
                 <label class="form-label">Ghi chú</label>
                 <textarea class="input" name="note" rows="2">{{ old('note', $groupRequest->message) }}</textarea>
             </div>
@@ -243,6 +266,38 @@ function toggleGroupExtraBed(select) {
 }
 
 document.querySelectorAll('#items-container select[name*="room_type_id"]').forEach(toggleGroupExtraBed);
+
+// Bấm 1 mã ưu đãi đoàn để thêm/bỏ khỏi ô "Mã giảm giá" — khỏi phải gõ tay,
+// vẫn cho gõ thêm mã khác không có trong danh sách gợi ý (không loại trừ
+// nhau với ô nhập tự do).
+(function () {
+    const promoInput = document.getElementById('promo_codes_text');
+    if (! promoInput) return;
+
+    function currentCodes() {
+        return promoInput.value.split(',').map((c) => c.trim()).filter(Boolean);
+    }
+
+    function syncButtonStates() {
+        const codes = currentCodes();
+        document.querySelectorAll('.promo-pick-btn').forEach((btn) => {
+            btn.classList.toggle('bg-primary', codes.includes(btn.dataset.code));
+            btn.classList.toggle('text-white', codes.includes(btn.dataset.code));
+        });
+    }
+
+    document.querySelectorAll('.promo-pick-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const codes = currentCodes();
+            const i = codes.indexOf(btn.dataset.code);
+            i === -1 ? codes.push(btn.dataset.code) : codes.splice(i, 1);
+            promoInput.value = codes.join(', ');
+            syncButtonStates();
+        });
+    });
+
+    syncButtonStates();
+})();
 </script>
 
 <div class="card mt-5">

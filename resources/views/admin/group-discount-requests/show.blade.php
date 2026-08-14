@@ -86,7 +86,7 @@
 
             <form method="POST" action="{{ route('admin.group-discount-requests.adjust', $groupDiscountRequest->id) }}" style="display:flex; gap:8px; align-items:center;">
                 @csrf
-                <input type="number" name="percent" min="0.01" max="100" step="0.1" class="input" style="width:100px;" placeholder="VD 7" value="{{ old('percent') }}" required>
+                <input type="number" name="percent" min="0.01" max="100" step="any" class="input" style="width:100px;" placeholder="VD 7" value="{{ old('percent') }}" required>
                 <span>%</span>
                 <input type="text" name="admin_note" placeholder="Ghi chú (tuỳ chọn)" class="input">
                 <button type="submit" class="btn btn-outline" onclick="return confirm('Áp dụng mức % đã điều chỉnh thay vì mức đề xuất?');">✏️ Điều chỉnh &amp; duyệt</button>

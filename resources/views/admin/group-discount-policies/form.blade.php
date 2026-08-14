@@ -35,7 +35,7 @@
             </div>
             <div class="form-group">
                 <label for="discount_percent">Giảm giá (%) *</label>
-                <input id="discount_percent" type="number" min="0.01" max="100" step="0.1" name="discount_percent" value="{{ old('discount_percent', $policy->discount_percent ?? '') }}" required>
+                <input id="discount_percent" type="number" min="0.01" max="100" step="any" name="discount_percent" value="{{ old('discount_percent', $policy->discount_percent ?? '') }}" required>
             </div>
         </div>
         <p class="section-desc">Đơn có tổng số phòng ≥ ngưỡng này sẽ tự động được giảm đúng % trên — hệ thống chọn bậc cao nhất mà đơn đạt được, không cộng dồn nhiều bậc.</p>

@@ -133,17 +133,10 @@
 
             @if ($groupPromotions->isNotEmpty())
                 <div class="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
-                    <span class="text-xs font-bold uppercase tracking-wide text-primary">Mã giảm giá đoàn/nhóm hiện có:</span>
-                    <ul class="mt-2 space-y-2">
+                    <span class="text-xs font-bold uppercase tracking-wide text-primary">Ưu đãi đoàn/nhóm hiện có:</span>
+                    <ul class="mt-2 list-disc space-y-2 pl-4 text-sm text-slate-500 dark:text-slate-400">
                         @foreach ($groupPromotions as $promo)
-                            <li class="flex items-start gap-2 text-sm">
-                                <button type="button"
-                                    class="promo-copy-btn shrink-0 whitespace-nowrap rounded-md border border-dashed border-primary px-2 py-0.5 font-mono text-xs font-bold text-primary hover:bg-primary-light/40 dark:hover:bg-slate-800"
-                                    data-code="{{ $promo->code }}">
-                                    <span class="promo-copy-label">{{ $promo->code }} 📋</span>
-                                </button>
-                                <span class="text-slate-500 dark:text-slate-400">{{ $promo->description }}</span>
-                            </li>
+                            <li>{{ $promo->description }}</li>
                         @endforeach
                     </ul>
                 </div>
@@ -151,32 +144,6 @@
         </div>
     </div>
 </div>
-
-<script>
-(function () {
-    document.querySelectorAll('.promo-copy-btn').forEach((btn) => {
-        const label = btn.querySelector('.promo-copy-label');
-        const originalHtml = label.innerHTML;
-        const code = btn.dataset.code;
-
-        btn.addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(code);
-            } catch (e) {
-                return;
-            }
-
-            label.textContent = 'Đã sao chép ✓';
-            btn.disabled = true;
-
-            setTimeout(() => {
-                label.innerHTML = originalHtml;
-                btn.disabled = false;
-            }, 1500);
-        });
-    });
-})();
-</script>
 
 <script>
 (function () {

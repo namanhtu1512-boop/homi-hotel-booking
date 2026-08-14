@@ -11,6 +11,7 @@ use App\Services\BookingService;
 use App\Services\ChatService;
 use App\Services\GroupBookingRequestService;
 use App\Services\HotelInfoService;
+use App\Services\PromotionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -24,6 +25,7 @@ class GroupBookingController extends Controller
         private readonly AuditLogService $auditLog,
         private readonly ChatService $chatService,
         private readonly HotelInfoService $hotelInfoService,
+        private readonly PromotionService $promotionService,
     ) {}
 
     public function index(Request $request): View
@@ -45,6 +47,7 @@ class GroupBookingController extends Controller
             'allRoomTypes' => $allRoomTypes,
             'prefillItems' => $this->groupBookingRequestService->defaultPrefillItems($groupRequest),
             'extraBedSurchargePerNight' => $this->hotelInfoService->current()->extra_bed_surcharge_per_night,
+            'groupPromotions' => $this->promotionService->activeGroupPromotions(),
         ]);
     }
 
@@ -72,12 +75,21 @@ class GroupBookingController extends Controller
             'customer_phone'  => ['required', 'string', 'max:20'],
             'customer_email'  => ['nullable', 'email', 'max:150'],
             'note'            => ['nullable', 'string', 'max:2000'],
+            'promo_codes_text' => ['nullable', 'string', 'max:250'],
         ]);
 
         // Gắn đơn vào tài khoản khách (nếu yêu cầu đoàn được gửi khi đã đăng
         // nhập) — thiếu dòng này khiến đơn bị tạo với user_id = null, không
         // hiện trong "đơn của tôi" dù khách đã tự gửi yêu cầu.
         $data['user_id'] = $groupRequest->user_id;
+
+        // 1 ô nhập, nhiều mã ngăn cách bằng dấu phẩy — cùng cách
+        // customer/booking/create.blade.php làm cho khách tự đặt.
+        $data['promo_codes'] = collect(explode(',', $data['promo_codes_text'] ?? ''))
+            ->map(fn ($code) => trim($code))
+            ->filter()
+            ->values()
+            ->all();
 
         $booking = $this->bookingService->createByAdmin($data);
 
