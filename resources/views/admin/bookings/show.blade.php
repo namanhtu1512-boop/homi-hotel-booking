@@ -396,20 +396,6 @@
                     </div>
                 @endif
 
-                @if ($booking->canApplyGroupDiscount())
-                    <div class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
-                        <div class="section-kicker">Áp dụng giảm giá đoàn thêm</div>
-                        <form method="POST" action="{{ route('admin.bookings.group-discount.store', $booking->id) }}" class="mt-2 flex flex-wrap items-center gap-2">
-                            @csrf
-                            <input type="number" name="percent" min="0.01" max="100" step="0.1" class="input" style="width:100px;" placeholder="VD 5" required>
-                            <span>%</span>
-                            <input type="text" name="reason" class="input" style="width:260px;" placeholder="Lý do (tuỳ chọn)">
-                            <button type="submit" class="btn btn-outline btn-sm">💸 Áp dụng giảm thêm</button>
-                        </form>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Admin áp dụng trực tiếp, không bị giới hạn bởi trần cấu hình cho nhân viên.</p>
-                    </div>
-                @endif
-
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
                     <div class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
                         <div class="section-kicker">Thao tác trong lúc lưu trú</div>

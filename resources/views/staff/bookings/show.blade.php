@@ -395,7 +395,7 @@
                         <div class="section-kicker">Đề xuất giảm giá đoàn thêm</div>
                         <form method="POST" action="{{ route('staff.bookings.group-discount.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap; margin-top: 8px;">
                             @csrf
-                            <input type="number" name="percent" min="0.01" max="100" step="0.1" class="input" style="width:100px;" placeholder="VD 5" required>
+                            <input type="number" name="percent" min="0.01" max="100" step="any" class="input" style="width:100px;" placeholder="VD 5" required>
                             <span>%</span>
                             <input type="text" name="reason" class="input" style="width:260px;" placeholder="Lý do (VD: khách đặt 7 đêm)">
                             <button type="submit" class="btn btn-outline btn-sm">💸 Áp dụng / đề xuất giảm thêm</button>

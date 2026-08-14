@@ -20,9 +20,9 @@ class GroupBookingPromoSidebarTest extends TestCase
         $response = $this->get(route('group-bookings.show'));
 
         $response->assertOk();
-        $response->assertSee('Mã giảm giá đoàn/nhóm hiện có:');
-        $response->assertSee('GROUPTEST');
+        $response->assertSee('Ưu đãi đoàn/nhóm hiện có:');
         $response->assertSee('Mo ta test group promo');
+        $response->assertDontSee('GROUPTEST');
     }
 
     public function test_promotion_khong_phai_group_thi_khong_hien_muc_nay(): void
@@ -32,7 +32,7 @@ class GroupBookingPromoSidebarTest extends TestCase
         $response = $this->get(route('group-bookings.show'));
 
         $response->assertOk();
-        $response->assertDontSee('Mã giảm giá đoàn/nhóm hiện có:');
+        $response->assertDontSee('Ưu đãi đoàn/nhóm hiện có:');
         $response->assertDontSee('NORMALPROMO');
     }
 
@@ -41,7 +41,7 @@ class GroupBookingPromoSidebarTest extends TestCase
         $response = $this->get(route('group-bookings.show'));
 
         $response->assertOk();
-        $response->assertDontSee('Mã giảm giá đoàn/nhóm hiện có:');
+        $response->assertDontSee('Ưu đãi đoàn/nhóm hiện có:');
     }
 
     public function test_promotion_group_da_het_han_khong_hien_du_is_group_promo_true(): void
@@ -52,7 +52,7 @@ class GroupBookingPromoSidebarTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('EXPIREDGROUP');
-        $response->assertDontSee('Mã giảm giá đoàn/nhóm hiện có:');
+        $response->assertDontSee('Ưu đãi đoàn/nhóm hiện có:');
     }
 
     public function test_promotion_group_chua_toi_ngay_bat_dau_khong_hien(): void

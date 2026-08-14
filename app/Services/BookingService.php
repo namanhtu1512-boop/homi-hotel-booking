@@ -194,8 +194,32 @@ class BookingService
                 ? (int) round($total * (float) $groupDiscountPolicy->discount_percent / 100)
                 : 0;
 
+            // Mã giảm giá admin/staff tự nhập khi tạo đơn thủ công — tính trên
+            // phần còn lại SAU ưu đãi tier tự động ở trên, cùng cách stack tuần
+            // tự đã dùng ở create() (khách tự đặt), để không giảm vượt quá tổng
+            // đơn dù cộng dồn cả 2 loại ưu đãi.
+            $promotions   = collect();
+            $promoDiscount = 0;
+            $promoLines   = [];
+
+            if (! empty($data['promo_codes'])) {
+                $promoCustomer = User::find($data['user_id'] ?? null);
+                $promotions = $this->promotionService->findValidManyByCodes($data['promo_codes'], $promoCustomer);
+
+                $remaining = $total - $groupDiscount;
+                foreach ($promotions as $promotion) {
+                    $lineDiscount = min((int) $promotion->discountFor($remaining), $remaining);
+                    $promoDiscount += $lineDiscount;
+                    $remaining     -= $lineDiscount;
+                    $promoLines[]   = ['promotion_id' => $promotion->id, 'discount_amount' => $lineDiscount];
+                }
+            }
+
+            $discount = $groupDiscount + $promoDiscount;
+
             $booking = Booking::create([
                 'user_id'        => $data['user_id'] ?? null,
+                'promotion_id'   => $promotions->first()?->id,
                 'booking_code'   => $this->generateCode(),
                 'check_in'       => $data['check_in'],
                 'check_out'      => $data['check_out'],
@@ -208,8 +232,8 @@ class BookingService
                 'customer_email' => $data['customer_email'] ?? null,
                 'national_id'    => $data['national_id'] ?? null,
                 'note'           => $data['note'] ?? null,
-                'total_amount'   => $total - $groupDiscount,
-                'discount_amount'=> $groupDiscount,
+                'total_amount'   => $total - $discount,
+                'discount_amount'=> $discount,
                 'status'         => $pendingConsultation ? BookingStatus::PENDING_CONSULTATION : BookingStatus::PENDING_DEPOSIT,
                 'deposit_expires_at' => $pendingConsultation ? null : now()->addMinutes(self::DEPOSIT_HOLD_MINUTES),
             ]);
@@ -244,8 +268,12 @@ class BookingService
                 ]);
             }
 
+            foreach ($promoLines as $promoLine) {
+                $booking->promotions()->attach($promoLine['promotion_id'], ['discount_amount' => $promoLine['discount_amount']]);
+            }
+
             $booking->payment()->create([
-                'amount' => $total - $groupDiscount,
+                'amount' => $total - $discount,
                 'status' => PaymentStatus::UNPAID,
                 'method' => PaymentMethod::PAY_AT_HOTEL,
             ]);
