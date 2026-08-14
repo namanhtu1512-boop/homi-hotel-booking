@@ -1,9 +1,14 @@
 <footer class="mt-16 border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
     <div class="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-            <div class="flex items-center gap-2 font-heading text-2xl font-extrabold text-primary">
-                <img src="{{ asset('images/logo.svg') }}" alt="Homi" class="h-9 w-9 rounded-[10px]">
-                Homi
+            <div class="flex items-center gap-2">
+                <img src="{{ asset('images/logo.png') }}" alt="Homi" class="h-9 w-9 rounded-[10px] object-cover">
+                <span class="flex flex-col justify-center gap-0.5">
+                    <img src="{{ asset('images/logo-wordmark.png') }}" alt="Homi" class="h-5 w-auto object-contain dark:hidden">
+                    <img src="{{ asset('images/logo-wordmark-white.png') }}" alt="Homi" class="hidden h-5 w-auto object-contain dark:block">
+                    <img src="{{ asset('images/logo-tagline.png') }}" alt="Stay. Book. Smile." class="h-[7px] w-auto object-contain dark:hidden">
+                    <img src="{{ asset('images/logo-tagline-white.png') }}" alt="Stay. Book. Smile." class="hidden h-[7px] w-auto object-contain dark:block">
+                </span>
             </div>
             <p class="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 Nền tảng đặt phòng khách sạn hiện đại — trải nghiệm đặt phòng nhanh chóng, minh bạch và đáng tin cậy.
