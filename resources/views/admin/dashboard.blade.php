@@ -73,6 +73,169 @@
     </div>
 </div>
 
+<div class="card" style="margin-bottom: 20px;">
+    <div class="section-kicker">Thống kê và phân tích tình hình kinh doanh phòng</div>
+    <h2 class="section-title" style="font-size: 18px; margin-bottom: 14px;">Bộ lọc thống kê chi tiết</h2>
+
+    <form method="GET" action="{{ route('admin.dashboard') }}" class="filter-bar" style="margin-bottom: 0;">
+        <div class="form-group">
+            <label for="from">Từ ngày</label>
+            <input type="date" id="from" name="from" value="{{ $filters['from'] }}">
+        </div>
+        <div class="form-group">
+            <label for="to">Đến ngày</label>
+            <input type="date" id="to" name="to" value="{{ $filters['to'] }}">
+        </div>
+        <div class="form-group">
+            <label for="period">Gộp theo</label>
+            <select id="period" name="period">
+                <option value="day" @selected($filters['period'] === 'day')>Ngày</option>
+                <option value="month" @selected($filters['period'] === 'month')>Tháng</option>
+                <option value="year" @selected($filters['period'] === 'year')>Năm</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-outline" style="align-self: end;">Áp dụng</button>
+    </form>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div class="section-kicker">Thời gian</div>
+    <h2 class="section-title" style="font-size: 18px;">Số lượt đặt phòng &amp; doanh thu</h2>
+    <div class="stats-grid" style="margin-top: 14px;">
+        <div class="stat-card">
+            <div class="stat-label">Số lượt đặt phòng</div>
+            <div class="stat-value">{{ array_sum($periodStats['bookings']) }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Doanh thu trong kỳ</div>
+            <div class="stat-value">{{ number_format(array_sum($periodStats['revenue']), 0, ',', '.') }}đ</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Số phòng đã sử dụng</div>
+            <div class="stat-value">{{ $roomsUsed }}</div>
+            <div class="stat-note">Phòng đã có khách nhận trong kỳ</div>
+        </div>
+    </div>
+    <canvas id="period-chart" height="220"></canvas>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div class="section-kicker">Loại phòng</div>
+    <h2 class="section-title" style="font-size: 18px;">Số lượt thuê &amp; doanh thu theo loại phòng</h2>
+    <canvas id="room-type-chart" height="180"></canvas>
+
+    @if ($roomTypeStats->isEmpty())
+        <div class="empty-box" style="margin-top: 14px;">Chưa có đơn đặt phòng nào trong khoảng đã chọn.</div>
+    @else
+        <div class="table-wrapper" style="margin-top: 14px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Loại phòng</th>
+                        <th>Số lượt đặt</th>
+                        <th>Số lượt thuê (phòng)</th>
+                        <th>Doanh thu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($roomTypeStats as $index => $row)
+                        <tr>
+                            <td>
+                                {{ $row->name }}
+                                @if ($index === 0)
+                                    <span class="badge badge-blue">Phổ biến nhất</span>
+                                @endif
+                            </td>
+                            <td>{{ $row->bookings_count }}</td>
+                            <td>{{ $row->rooms_booked }}</td>
+                            <td>{{ number_format($row->revenue, 0, ',', '.') }}đ</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
+
+<div class="dashboard-grid" style="margin-bottom: 20px;">
+    <div class="card">
+        <div class="section-kicker">Thời gian lưu trú</div>
+        <h2 class="section-title" style="font-size: 18px;">Ngắn ngày / dài ngày</h2>
+        <div class="stats-grid" style="margin-top: 14px;">
+            <div class="stat-card">
+                <div class="stat-label">Tổng số đêm khách thuê</div>
+                <div class="stat-value">{{ $stayDuration['total_nights'] }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Thời gian thuê trung bình</div>
+                <div class="stat-value">{{ $stayDuration['average_nights'] }} đêm</div>
+            </div>
+        </div>
+        <canvas id="stay-duration-chart" height="220"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="section-kicker">Tỷ lệ lấp đầy</div>
+        <h2 class="section-title" style="font-size: 18px;">Công suất phòng theo kỳ đã lọc</h2>
+        <div class="stats-grid" style="margin-top: 14px;">
+            <div class="stat-card">
+                <div class="stat-label">Tỷ lệ lấp đầy kỳ này</div>
+                <div class="stat-value">{{ $occupancyRange['rate'] }}%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Tỷ lệ phòng còn trống</div>
+                <div class="stat-value">{{ 100 - $occupancyRange['rate'] }}%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Tỷ lệ lấp đầy kỳ trước</div>
+                <div class="stat-value">{{ $previousOccupancy['rate'] }}%</div>
+                <div class="stat-note">
+                    @php $diff = $occupancyRange['rate'] - $previousOccupancy['rate']; @endphp
+                    {{ $diff >= 0 ? '+' : '' }}{{ $diff }} điểm % so với kỳ trước liền kề
+                </div>
+            </div>
+        </div>
+        <canvas id="occupancy-by-type-chart" height="220"></canvas>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div class="section-kicker">Đồ vật / Tiện nghi</div>
+    <h2 class="section-title" style="font-size: 18px;">Tiện nghi của từng loại phòng</h2>
+    <canvas id="amenity-chart" height="200"></canvas>
+
+    @if ($amenityStats['room_types']->isEmpty())
+        <div class="empty-box" style="margin-top: 14px;">Chưa có loại phòng đang hoạt động.</div>
+    @else
+        <div class="table-wrapper" style="margin-top: 14px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Loại phòng</th>
+                        <th>Số lượng tiện nghi</th>
+                        <th>Tiện nghi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($amenityStats['room_types'] as $roomType)
+                        <tr>
+                            <td>{{ $roomType->name }}</td>
+                            <td>{{ $roomType->amenities->count() }}</td>
+                            <td>
+                                @forelse ($roomType->amenities as $amenity)
+                                    <span class="badge badge-gray">{{ $amenity->name }}</span>
+                                @empty
+                                    <span class="stat-note">Chưa có tiện nghi</span>
+                                @endforelse
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
+
 <div class="card">
     <div class="section-kicker">Hoạt động gần đây</div>
     <h2 class="section-title">5 đơn đặt phòng mới nhất</h2>
@@ -144,6 +307,108 @@
             }],
         },
         options: { plugins: { legend: { position: 'bottom' } } },
+    });
+
+    const periodCtx = document.getElementById('period-chart');
+    new Chart(periodCtx, {
+        data: {
+            labels: @json($periodStats['labels']),
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Số lượt đặt phòng',
+                    data: @json($periodStats['bookings']),
+                    backgroundColor: 'rgba(37,99,235,0.5)',
+                    yAxisID: 'y',
+                },
+                {
+                    type: 'line',
+                    label: 'Doanh thu (đ)',
+                    data: @json($periodStats['revenue']),
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245,158,11,0.15)',
+                    tension: 0.3,
+                    yAxisID: 'y1',
+                },
+            ],
+        },
+        options: {
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { position: 'left', beginAtZero: true, ticks: { precision: 0 } },
+                y1: {
+                    position: 'right',
+                    beginAtZero: true,
+                    grid: { drawOnChartArea: false },
+                    ticks: { callback: (v) => Number(v).toLocaleString('vi-VN') },
+                },
+            },
+        },
+    });
+
+    const stayDurationCtx = document.getElementById('stay-duration-chart');
+    new Chart(stayDurationCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Ngắn ngày (≤ 2 đêm)', 'Dài ngày (≥ 3 đêm)'],
+            datasets: [{
+                data: [{{ $stayDuration['short_stay_count'] }}, {{ $stayDuration['long_stay_count'] }}],
+                backgroundColor: ['#2563eb', '#10b981'],
+            }],
+        },
+        options: { plugins: { legend: { position: 'bottom' } } },
+    });
+
+    const roomTypeCtx = document.getElementById('room-type-chart');
+    new Chart(roomTypeCtx, {
+        type: 'bar',
+        data: {
+            labels: @json($roomTypeStats->pluck('name')),
+            datasets: [{
+                label: 'Số lượt thuê (phòng)',
+                data: @json($roomTypeStats->pluck('rooms_booked')),
+                backgroundColor: '#2563eb',
+            }],
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+    });
+
+    const occupancyByTypeCtx = document.getElementById('occupancy-by-type-chart');
+    new Chart(occupancyByTypeCtx, {
+        type: 'bar',
+        data: {
+            labels: @json($occupancyByType->pluck('name')),
+            datasets: [{
+                label: 'Tỷ lệ lấp đầy (%)',
+                data: @json($occupancyByType->pluck('rate')),
+                backgroundColor: '#0ea5e9',
+            }],
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 100, ticks: { callback: (v) => v + '%' } } },
+        },
+    });
+
+    const amenityCtx = document.getElementById('amenity-chart');
+    new Chart(amenityCtx, {
+        type: 'bar',
+        data: {
+            labels: @json($amenityStats['amenities']->pluck('name')),
+            datasets: [{
+                label: 'Số loại phòng',
+                data: @json($amenityStats['amenities']->pluck('room_types_count')),
+                backgroundColor: '#f59e0b',
+            }],
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
     });
 })();
 </script>
