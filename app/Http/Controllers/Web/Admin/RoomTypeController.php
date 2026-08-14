@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\Concerns\ValidatesImageText;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
+use App\Services\ReviewService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class RoomTypeController extends Controller
     public function __construct(
         private readonly RoomTypeService $roomTypeService,
         private readonly AuditLogService $auditLog,
+        private readonly ReviewService $reviewService,
     ) {}
 
     public function index(): View
@@ -31,7 +33,12 @@ class RoomTypeController extends Controller
     {
         $roomType = $this->roomTypeService->find($id);
 
-        return view('admin.room-types.show', ['roomType' => $roomType]);
+        return view('admin.room-types.show', [
+            'roomType'      => $roomType,
+            'amenityTiers'  => $this->roomTypeService->amenityTiers($roomType),
+            'reviews'       => $this->reviewService->forRoomType($roomType->id),
+            'reviewSummary' => $this->reviewService->summaryFor($roomType->id),
+        ]);
     }
 
     public function create(): View
