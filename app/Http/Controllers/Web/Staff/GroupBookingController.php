@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Mail\GroupBookingConfirmedMail;
 use App\Mail\GroupBookingQuoteMail;
 use App\Models\GroupBookingRequest;
 use App\Models\RoomType;
@@ -74,7 +75,7 @@ class GroupBookingController extends Controller
             'items.*.extra_bed'    => ['nullable', 'boolean'],
             'customer_name'        => ['required', 'string', 'max:100'],
             'customer_phone'       => ['required', 'string', 'max:20'],
-            'customer_email'       => ['nullable', 'email', 'max:150'],
+            'customer_email'       => ['required', 'email', 'max:150'],
             'note'                 => ['nullable', 'string', 'max:2000'],
             'promo_codes_text'     => ['nullable', 'string', 'max:250'],
         ]);
@@ -97,6 +98,12 @@ class GroupBookingController extends Controller
         // Đánh dấu yêu cầu đoàn đã được chuyển thành đơn — trạng thái cuối,
         // chặn tạo đơn trùng nếu staff submit lại form.
         $this->groupBookingRequestService->markConverted($groupRequest);
+
+        // Gửi email xác nhận tới đúng địa chỉ khách nhập trên form (bắt buộc
+        // nhập) — không phụ thuộc đơn có gắn tài khoản hay không, khác với
+        // thông báo trong app (BookingService::createByAdmin() chỉ bắn được
+        // nếu có $booking->user, nên nhiều đơn đoàn/nhóm không có ai nhận).
+        Mail::to($booking->customer_email)->send(new GroupBookingConfirmedMail($booking));
 
         $this->auditLog->log('group_booking_request.booking_created', $booking, "Tạo đơn {$booking->booking_code} từ yêu cầu đoàn #{$groupRequest->id}.");
 
