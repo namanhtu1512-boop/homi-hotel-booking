@@ -163,8 +163,9 @@
                     <input class="input" type="text" name="customer_phone" value="{{ old('customer_phone', $groupRequest->phone) }}" required>
                 </div>
                 <div>
-                    <label class="form-label">Email</label>
-                    <input class="input" type="email" name="customer_email" value="{{ old('customer_email', $groupRequest->email) }}">
+                    <label class="form-label">Email *</label>
+                    <input class="input" type="email" name="customer_email" value="{{ old('customer_email', $groupRequest->email) }}" required>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Bắt buộc — hệ thống sẽ gửi email xác nhận đơn tới địa chỉ này.</p>
                 </div>
             </div>
             <div>
