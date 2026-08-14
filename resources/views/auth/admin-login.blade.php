@@ -59,18 +59,6 @@
             margin-bottom: 36px;
         }
 
-        .brand-mark {
-            width: 40px;
-            height: 40px;
-            display: grid;
-            place-items: center;
-            border-radius: 12px;
-            background: var(--primary);
-            color: var(--white);
-            font-size: 18px;
-            font-weight: 900;
-        }
-
         .side-kicker {
             font-size: 11px;
             font-weight: 800;
@@ -233,8 +221,11 @@
     <div class="login-wrapper">
         <div class="login-side">
             <div class="brand">
-                <div class="brand-mark">H</div>
-                Homi
+                <img src="{{ asset('images/logo.png') }}" alt="Homi" style="width:40px;height:40px;border-radius:12px;object-fit:cover;">
+                <span style="display:flex;flex-direction:column;justify-content:center;gap:3px;">
+                    <img src="{{ asset('images/logo-wordmark-white.png') }}" alt="Homi" style="height:22px;width:auto;object-fit:contain;">
+                    <img src="{{ asset('images/logo-tagline-white.png') }}" alt="Stay. Book. Smile." style="height:8px;width:auto;object-fit:contain;">
+                </span>
             </div>
 
             <div class="side-kicker">Khu vực quản trị</div>

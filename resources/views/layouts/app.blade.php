@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="@yield('title', 'Homi · Đặt phòng khách sạn')">
     <meta property="og:description" content="@yield('meta_description', 'Homi Hotel — đặt phòng trực tiếp, xem phòng trống theo ngày, giá minh bạch, xác nhận nhanh.')">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
     @include('partials._theme-script')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -19,9 +19,14 @@
 <body class="font-sans text-slate-800 dark:text-slate-100">
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <div class="mx-auto flex w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4 py-4">
-            <a href="{{ route('home') }}" class="flex items-center gap-2 font-heading text-2xl font-extrabold text-primary">
-                <img src="{{ asset('images/logo.svg') }}" alt="Homi" class="h-9 w-9 rounded-[10px]">
-                Homi
+            <a href="{{ route('home') }}" class="flex items-center gap-2">
+                <img src="{{ asset('images/logo.png') }}" alt="Homi" class="h-9 w-9 rounded-[10px] object-cover">
+                <span class="flex flex-col justify-center gap-0.5">
+                    <img src="{{ asset('images/logo-wordmark.png') }}" alt="Homi" class="h-5 w-auto object-contain dark:hidden">
+                    <img src="{{ asset('images/logo-wordmark-white.png') }}" alt="Homi" class="hidden h-5 w-auto object-contain dark:block">
+                    <img src="{{ asset('images/logo-tagline.png') }}" alt="Stay. Book. Smile." class="h-[7px] w-auto object-contain dark:hidden">
+                    <img src="{{ asset('images/logo-tagline-white.png') }}" alt="Stay. Book. Smile." class="hidden h-[7px] w-auto object-contain dark:block">
+                </span>
             </a>
 
             <nav class="hidden items-center gap-1 lg:flex">
