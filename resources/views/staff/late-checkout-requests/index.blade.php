@@ -5,8 +5,53 @@
 @section('page_subtitle', 'Khách đang lưu trú gửi yêu cầu trả phòng muộn hơn giờ chuẩn — duyệt hoặc từ chối.')
 
 @section('content')
+<div class="card" style="margin-bottom: 20px;">
+    <div class="section-kicker">Trả phòng muộn đang áp dụng</div>
+    <h2 class="section-title" style="font-size: 18px;">Phòng nào đang trả phòng muộn trong ngày</h2>
+
+    <form method="GET" class="filter-bar">
+        <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
+        <input type="date" name="date" value="{{ $usageDate }}" onchange="this.form.submit()">
+        <button type="submit" class="btn btn-outline btn-sm">Xem</button>
+    </form>
+
+    @if ($usage->isEmpty())
+        <div class="empty-box">Không có phòng nào trả phòng muộn trong ngày {{ \Carbon\Carbon::parse($usageDate)->format('d/m/Y') }}.</div>
+    @else
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Phòng</th>
+                        <th>Loại phòng</th>
+                        <th>Đơn</th>
+                        <th>Khách</th>
+                        <th>Giờ trả muộn</th>
+                        <th>Phụ phí</th>
+                        <th>Trạng thái đơn</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($usage as $row)
+                        <tr>
+                            <td>{{ $row['bookingItem']->rooms->isNotEmpty() ? $row['bookingItem']->rooms->pluck('room_number')->implode(', ') : 'Chưa gán phòng' }}</td>
+                            <td>{{ $row['bookingItem']->roomType->name ?? '—' }}</td>
+                            <td>{{ $row['booking']->booking_code }}</td>
+                            <td>{{ $row['booking']->customer_name }}</td>
+                            <td>{{ substr($row['request']->requested_checkout_time, 0, 5) }}</td>
+                            <td>{{ number_format($row['request']->fee_amount, 0, ',', '.') }}đ</td>
+                            <td><span class="badge {{ $row['booking']->status->badgeClass() }}">{{ $row['booking']->status->label() }}</span></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
+
 <div class="card">
     <form method="GET" class="filter-bar">
+        <input type="hidden" name="date" value="{{ $usageDate }}">
         <select name="status" onchange="this.form.submit()">
             <option value="">Tất cả trạng thái</option>
             <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>Chờ duyệt</option>

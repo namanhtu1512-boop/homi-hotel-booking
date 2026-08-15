@@ -11,6 +11,7 @@ use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewEarlyCheckinRequest;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -120,6 +121,30 @@ class EarlyCheckinRequestService
         }
 
         return $query->paginate(15)->withQueryString();
+    }
+
+    /**
+     * Danh sách phòng đang nhận phòng sớm trong 1 ngày cụ thể — chỉ tính các
+     * yêu cầu ĐÃ DUYỆT có booking.check_in đúng ngày đó (nhận phòng sớm chỉ
+     * áp dụng cho đúng ngày nhận phòng), loại đơn đã hủy. Trả về 1 dòng cho
+     * mỗi booking_item của đơn vì yêu cầu là theo cả đơn, không tách theo
+     * từng phòng.
+     */
+    public function usageOnDate(string $date): Collection
+    {
+        return EarlyCheckinRequest::with(['booking.bookingItems.roomType', 'booking.bookingItems.rooms'])
+            ->where('status', 'approved')
+            ->whereHas('booking', fn ($q) => $q
+                ->whereDate('check_in', $date)
+                ->where('status', '!=', BookingStatus::CANCELLED->value)
+            )
+            ->get()
+            ->flatMap(fn (EarlyCheckinRequest $request) => $request->booking->bookingItems->map(fn ($item) => [
+                'request'     => $request,
+                'booking'     => $request->booking,
+                'bookingItem' => $item,
+            ]))
+            ->values();
     }
 
     /**

@@ -62,7 +62,7 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
         return $booking;
     }
 
-    public function test_khong_con_nut_them_phu_phi_o_trang_chi_tiet_khi_dang_luu_tru(): void
+    public function test_nut_them_phu_phi_hien_thi_o_trang_chi_tiet_khi_dang_luu_tru(): void
     {
         $this->loginAsStaff();
 
@@ -73,12 +73,11 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
         $response = $this->get(route('staff.bookings.show', $booking->id));
 
         $response->assertOk();
-        $response->assertDontSee('Thêm dịch vụ phát sinh');
-        $response->assertDontSee('Thêm phụ phí hỏng/mất đồ');
-        $response->assertSee('chỉ được ghi nhận', false);
+        $response->assertSee('Thêm dịch vụ phát sinh');
+        $response->assertSee('Thêm phụ phí hỏng/mất đồ');
     }
 
-    public function test_nut_them_phu_phi_hien_thi_o_trang_tra_phong(): void
+    public function test_khong_con_nut_them_phu_phi_o_trang_tra_phong(): void
     {
         $this->loginAsStaff();
 
@@ -89,11 +88,11 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
         $response = $this->get(route('staff.bookings.check-out.show', $booking->id));
 
         $response->assertOk();
-        $response->assertSee('Thêm dịch vụ phát sinh');
-        $response->assertSee('Thêm phụ phí hỏng/mất đồ');
+        $response->assertDontSee('Thêm dịch vụ phát sinh');
+        $response->assertDontSee('Thêm phụ phí hỏng/mất đồ');
     }
 
-    public function test_them_dich_vu_phat_sinh_tu_trang_tra_phong_quay_lai_dung_trang(): void
+    public function test_them_dich_vu_phat_sinh_tu_trang_chi_tiet_quay_lai_dung_trang(): void
     {
         $this->loginAsStaff();
 
@@ -107,17 +106,17 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
             'status' => 'active',
         ]);
 
-        $checkoutUrl = route('staff.bookings.check-out.show', $booking->id);
+        $showUrl = route('staff.bookings.show', $booking->id);
 
         $response = $this
-            ->withHeaders(['referer' => $checkoutUrl])
+            ->withHeaders(['referer' => $showUrl])
             ->post(route('staff.bookings.services.store', $booking->id), [
                 'service_id' => $service->id,
                 'quantity'   => 1,
                 'note'       => 'Giặt ủi 1 lần',
             ]);
 
-        $response->assertRedirect($checkoutUrl);
+        $response->assertRedirect($showUrl);
 
         $booking->refresh();
         $this->assertNotNull($booking->incidentalInvoice);

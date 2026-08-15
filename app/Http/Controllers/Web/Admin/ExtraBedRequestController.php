@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ExtraBedRequest;
 use App\Services\AuditLogService;
+use App\Services\ExtraBedInventoryService;
 use App\Services\ExtraBedRequestService;
 use App\Services\RoomTypeService;
 use Illuminate\Http\RedirectResponse;
@@ -16,15 +17,19 @@ class ExtraBedRequestController extends Controller
 {
     public function __construct(
         private readonly ExtraBedRequestService $extraBedRequestService,
+        private readonly ExtraBedInventoryService $extraBedInventoryService,
         private readonly AuditLogService $auditLog,
         private readonly RoomTypeService $roomTypeService,
     ) {}
 
     public function index(Request $request): View
     {
+        $date = $request->input('date') ?: now()->toDateString();
+
         return view('admin.extra-bed-requests.index', [
             'requests' => $this->extraBedRequestService->adminList($request->only('status')),
             'filters'  => $request->only('status'),
+            'usage'    => $this->extraBedInventoryService->usageOnDate($date),
         ]);
     }
 

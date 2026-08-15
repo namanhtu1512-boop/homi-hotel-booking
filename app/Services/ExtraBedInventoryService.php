@@ -33,4 +33,35 @@ class ExtraBedInventoryService
 
         return max(0, HotelInfo::instance()->extra_beds_total - $used);
     }
+
+    /**
+     * Danh sách các dòng đơn (booking_items) đang chiếm giường phụ trong 1
+     * ngày cụ thể — dùng cho báo cáo "giường phụ đang sử dụng" của
+     * admin/staff. Cùng điều kiện overlap với countAvailable() nhưng thu hẹp
+     * về đúng 1 đêm (check_in <= date < check_out).
+     */
+    public function usageOnDate(string $date): array
+    {
+        $items = BookingItem::with(['roomType', 'rooms', 'booking'])
+            ->where('extra_beds', '>', 0)
+            ->whereHas('booking', fn ($q) => $q
+                ->whereIn('status', BookingStatus::holdingStatuses())
+                ->whereDate('check_in', '<=', $date)
+                ->whereDate('check_out', '>', $date)
+            )
+            ->get()
+            ->sortBy(fn ($item) => $item->booking->check_in)
+            ->values();
+
+        $total = HotelInfo::instance()->extra_beds_total;
+        $used = (int) $items->sum('extra_beds');
+
+        return [
+            'date'      => $date,
+            'total'     => $total,
+            'used'      => $used,
+            'available' => max(0, $total - $used),
+            'items'     => $items,
+        ];
+    }
 }

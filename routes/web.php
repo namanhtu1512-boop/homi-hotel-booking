@@ -17,7 +17,10 @@ use App\Http\Controllers\Web\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Web\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Web\Admin\GroupDiscountPolicyController as AdminGroupDiscountPolicyController;
 use App\Http\Controllers\Web\Admin\GroupDiscountRequestController as AdminGroupDiscountRequestController;
+use App\Http\Controllers\Web\Admin\PromotionRequestController as AdminPromotionRequestController;
 use App\Http\Controllers\Web\Staff\GroupDiscountRequestController as StaffGroupDiscountRequestController;
+use App\Http\Controllers\Web\Staff\PromotionRequestController as StaffPromotionRequestController;
+use App\Http\Controllers\Web\Staff\PromotionController as StaffPromotionController;
 use App\Http\Controllers\Web\Admin\SeasonalRateController as AdminSeasonalRateController;
 use App\Http\Controllers\Web\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Web\Admin\SurchargeItemController as AdminSurchargeItemController;
@@ -416,6 +419,13 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/adjust',  [AdminGroupDiscountRequestController::class, 'adjust'])->name('adjust');
     });
 
+    // Nhân viên đề xuất mã ưu đãi đoàn cho khách quen — duyệt/từ chối ngay
+    // trên trang Khuyến mãi (xem admin/promotions/index.blade.php).
+    Route::prefix('promotion-requests')->name('promotion-requests.')->group(function () {
+        Route::post('/{id}/approve', [AdminPromotionRequestController::class, 'approve'])->name('approve');
+        Route::post('/{id}/reject',  [AdminPromotionRequestController::class, 'reject'])->name('reject');
+    });
+
     Route::prefix('chat')->name('chat.')->group(function () {
         Route::get('/',                 [AdminChatController::class, 'index'])->name('index');
         Route::get('/{customerId}',     [AdminChatController::class, 'show'])->name('show');
@@ -522,9 +532,16 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
     });
 
     // Chỉ xem lịch sử đề xuất CỦA CHÍNH MÌNH — duyệt/từ chối/điều chỉnh chỉ
-    // admin làm được (xem StaffGroupDiscountRequestController).
+    // admin làm được (xem StaffGroupDiscountRequestController). Trang này còn
+    // hiển thị form tạo đề xuất mã ưu đãi khách quen (PromotionRequestController).
     Route::prefix('group-discount-requests')->name('group-discount-requests.')->group(function () {
         Route::get('/',     [StaffGroupDiscountRequestController::class, 'index'])->name('index');
         Route::get('/{id}', [StaffGroupDiscountRequestController::class, 'show'])->name('show');
     });
+
+    Route::post('/promotion-requests', [StaffPromotionRequestController::class, 'store'])->name('promotion-requests.store');
+
+    // Chỉ xem — không tạo/sửa/xóa được, xem group-discount-requests.index để
+    // đề xuất mã mới.
+    Route::get('/promotions', [StaffPromotionController::class, 'index'])->name('promotions.index');
 });

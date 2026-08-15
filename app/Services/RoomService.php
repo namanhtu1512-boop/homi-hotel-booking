@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\BookingItem;
 use App\Models\Room;
 use App\Models\RoomType;
 use Carbon\Carbon;
@@ -81,8 +82,14 @@ class RoomService
      */
     public function monthlyOccupancy(Carbon $month, ?int $roomTypeId = null, ?Carbon $rangeStart = null, ?Carbon $rangeEnd = null): array
     {
-        $start = ($rangeStart ?? $month->copy()->startOfMonth())->timezone('Asia/Ho_Chi_Minh')->startOfDay();
-        $end   = ($rangeEnd ?? $month->copy()->endOfMonth())->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+        // Đổi múi giờ SANG Asia/Ho_Chi_Minh TRƯỚC khi lấy đầu/cuối tháng — nếu
+        // đổi SAU, startOfMonth()/endOfMonth() chạy theo múi giờ gốc của
+        // $month (mặc định UTC), rồi convert instant đó sang giờ VN (+7h) có
+        // thể đẩy cuối tháng lệch sang ngày 1 tháng sau (cùng cạm bẫy double
+        // timezone convert đã ghi trong Booking::todayForCheckoutComparison()).
+        $monthVn = $month->copy()->timezone('Asia/Ho_Chi_Minh');
+        $start   = ($rangeStart ?? $monthVn->copy()->startOfMonth())->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+        $end     = ($rangeEnd ?? $monthVn->copy()->endOfMonth())->timezone('Asia/Ho_Chi_Minh')->startOfDay();
 
         // Chặn khoảng ngày quá dài (bảng sẽ quá rộng để dùng được) — giới hạn tối đa 1 quý.
         if ($start->diffInDays($end) > 92) {
@@ -101,13 +108,34 @@ class RoomService
             ->orderBy('room_number')
             ->get();
 
-        $roomRows = $rooms->map(function (Room $room) use ($days) {
-            $cells = $days->map(function (Carbon $day) use ($room) {
-                $stay = $room->bookingItemRooms->first(function ($bir) use ($day) {
-                    $checkedIn  = $bir->checked_in_at->timezone('Asia/Ho_Chi_Minh')->startOfDay();
-                    $checkedOut = $bir->checked_out_at?->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+        $today = Carbon::now('Asia/Ho_Chi_Minh')->startOfDay();
 
-                    return $day->gte($checkedIn) && ($checkedOut === null || $day->lte($checkedOut));
+        $roomRows = $rooms->map(function (Room $room) use ($days, $today) {
+            $cells = $days->map(function (Carbon $day) use ($room, $today) {
+                $stay = $room->bookingItemRooms->first(function ($bir) use ($day, $today) {
+                    $checkedIn = $bir->checked_in_at->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+
+                    if ($day->lt($checkedIn)) {
+                        return false;
+                    }
+
+                    // Đã có ngày trả phòng THỰC TẾ — dùng luôn, đây là dữ liệu
+                    // chắc chắn nhất (khách có thể nhận/trả phòng sớm/muộn hơn
+                    // nhiều so với ngày ghi trên đơn, ví dụ đơn đặt 05-06 nhưng
+                    // thực tế ở từ 04 tới 09 — bám theo ngày đặt sẽ làm mất
+                    // đúng những ngày khách còn ở và bỏ sót mốc trả phòng thật).
+                    if ($bir->checked_out_at !== null) {
+                        return $day->lte($bir->checked_out_at->timezone('Asia/Ho_Chi_Minh')->startOfDay());
+                    }
+
+                    // Chưa có ngày trả phòng thực tế: chỉ chiếu "đang ở" tới
+                    // ngày trả dự kiến trên đơn, hoặc tới HÔM NAY nếu đã quá
+                    // hạn — không bao giờ lan sang những ngày/tháng CHƯA xảy ra
+                    // (bug cũ: checked_out_at NULL bị chiếu "đang ở" vô hạn).
+                    $scheduledCheckout = $bir->bookingItem->booking->check_out->timezone('Asia/Ho_Chi_Minh')->startOfDay();
+                    $effectiveEnd = $scheduledCheckout->gt($today) ? $scheduledCheckout : $today;
+
+                    return $day->lte($effectiveEnd);
                 });
 
                 if (! $stay) {
@@ -129,6 +157,8 @@ class RoomService
 
             return ['room' => $room, 'cells' => $cells];
         });
+
+        $this->assignPendingReservationsToRooms($roomRows, $days, $start, $end);
 
         $roomTypes       = RoomType::when($roomTypeId, fn ($q) => $q->where('id', $roomTypeId))->orderBy('name')->get();
         $roomCountByType = Room::selectRaw('room_type_id, count(*) as c')->groupBy('room_type_id')->pluck('c', 'room_type_id');
@@ -164,6 +194,115 @@ class RoomService
         });
 
         return ['days' => $days, 'roomRows' => $roomRows, 'roomTypeRows' => $roomTypeRows];
+    }
+
+    /**
+     * Gán TẠM các đơn còn giữ chỗ nhưng CHƯA check-in vào phòng vật lý còn
+     * trống cùng loại (chuyển ô từ 'empty' sang 'booked' — "Đã đặt", màu
+     * xanh lá, phân biệt với "Đang ở" đã check-in thật). Hệ thống chỉ biết
+     * đơn sẽ vào đúng phòng số mấy lúc lễ tân check-in, nên đây chỉ là gán
+     * ảo phục vụ xem trước lịch (tham lam: đơn nhận phòng sớm hơn được chọn
+     * phòng trống trước) — KHÔNG ghi CSDL, không ảnh hưởng việc gán phòng
+     * thật lúc check-in.
+     */
+    private function assignPendingReservationsToRooms(\Illuminate\Support\Collection $roomRows, \Illuminate\Support\Collection $days, Carbon $start, Carbon $end): void
+    {
+        $roomsByType = $roomRows->groupBy(fn (array $row) => $row['room']->room_type_id);
+
+        if ($roomsByType->isEmpty()) {
+            return;
+        }
+
+        // room_id => [ngày (Y-m-d) => true] các ngày phòng đã bận, dù là do
+        // check-in thật hay đã được gán ảo cho 1 đơn khác trong vòng lặp này.
+        $busyDates = [];
+        foreach ($roomRows as $row) {
+            $busy = [];
+            foreach ($row['cells'] as $idx => $cell) {
+                if ($cell['state'] !== 'empty') {
+                    $busy[$days[$idx]->toDateString()] = true;
+                }
+            }
+            $busyDates[$row['room']->id] = $busy;
+        }
+
+        // Chỉ xem trước các đơn còn "sống" bình thường — CỐ Ý bỏ
+        // EXPIRED_PENDING_CHECK (đã hết hạn giữ chỗ, chỉ còn chờ job quét tự
+        // hủy hẳn) dù trạng thái này vẫn nằm trong holdingStatuses() và vẫn
+        // được TÍNH vào số phòng còn trống ở bảng "Theo loại phòng" bên dưới
+        // (đúng, để tránh bán trùng phòng lúc IPN VNPay có thể tới trễ) —
+        // nhưng hiển thị nó như 1 booking bình thường ở đây (xanh lá/vàng)
+        // gây hiểu lầm là còn khách thật sắp tới, trong khi đơn gần như chắc
+        // chắn sẽ bị hủy trong vài phút tới.
+        $previewableStatuses = array_diff(BookingStatus::holdingStatuses(), [BookingStatus::EXPIRED_PENDING_CHECK->value]);
+
+        $pendingItems = BookingItem::query()
+            ->whereIn('room_type_id', $roomsByType->keys())
+            ->whereHas('booking', function ($q) use ($start, $end, $previewableStatuses) {
+                $q->whereIn('status', $previewableStatuses)
+                    ->whereDate('check_in', '<=', $end->toDateString())
+                    ->whereDate('check_out', '>=', $start->toDateString());
+            })
+            ->with(['booking', 'bookingItemRooms'])
+            ->get()
+            ->sortBy(fn (BookingItem $item) => $item->booking->check_in);
+
+        foreach ($pendingItems as $item) {
+            $remaining = $item->quantity - $item->bookingItemRooms->count();
+
+            if ($remaining <= 0) {
+                continue;
+            }
+
+            $booking     = $item->booking;
+            $checkInStr  = $booking->check_in->toDateString();
+            $checkOutStr = $booking->check_out->toDateString();
+
+            $rangeIdx = $days->keys()->filter(
+                fn ($idx) => $days[$idx]->toDateString() >= $checkInStr && $days[$idx]->toDateString() < $checkOutStr
+            );
+
+            if ($rangeIdx->isEmpty()) {
+                continue;
+            }
+
+            $rangeDates     = $rangeIdx->map(fn ($idx) => $days[$idx]->toDateString());
+            $candidateRooms = $roomsByType->get($item->room_type_id, collect());
+
+            for ($n = 0; $n < $remaining; $n++) {
+                $targetRow = $candidateRooms->first(function (array $row) use ($busyDates, $rangeDates) {
+                    foreach ($rangeDates as $d) {
+                        if (! empty($busyDates[$row['room']->id][$d])) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                if (! $targetRow) {
+                    break; // Hết phòng trống loại này cho khoảng ngày đó — không gán được.
+                }
+
+                foreach ($rangeIdx as $idx) {
+                    $busyDates[$targetRow['room']->id][$days[$idx]->toDateString()] = true;
+                    $targetRow['cells'][$idx] = ['state' => 'booked', 'booking' => $booking];
+                }
+
+                // Đánh dấu luôn NGÀY TRẢ PHÒNG DỰ KIẾN trên đơn (chưa check-in
+                // nên chưa có checked_out_at thật) — chỉ khi ngày đó còn trong
+                // phạm vi hiển thị và phòng vừa gán chưa bận sẵn đúng ngày đó
+                // (tránh đè lên 1 lượt ở/trả phòng khác, ví dụ khách cũ trả
+                // sáng — khách mới nhận chiều cùng ngày, không dùng lại được
+                // đúng phòng này để hiển thị "trả phòng" cho cả 2 đơn).
+                $checkoutIdx = $days->keys()->first(fn ($idx) => $days[$idx]->toDateString() === $checkOutStr);
+
+                if ($checkoutIdx !== null && empty($busyDates[$targetRow['room']->id][$checkOutStr])) {
+                    $busyDates[$targetRow['room']->id][$checkOutStr] = true;
+                    $targetRow['cells'][$checkoutIdx] = ['state' => 'checkout', 'booking' => $booking];
+                }
+            }
+        }
     }
 
     public function find(int $id): Room

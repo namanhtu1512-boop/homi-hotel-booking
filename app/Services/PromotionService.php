@@ -17,6 +17,15 @@ class PromotionService
         return Promotion::withTrashed()->latest()->get();
     }
 
+    /**
+     * Danh sách cho nhân viên xem tham khảo (VD báo mã cho khách) — không có
+     * quyền tạo/sửa/xóa nên không cần thấy các mã đã xóa như admin.
+     */
+    public function listVisible(): Collection
+    {
+        return Promotion::latest()->get();
+    }
+
     public function activePublic(): Collection
     {
         return $this->activeNowQuery()->orderBy('ends_at')->get();
@@ -109,6 +118,20 @@ class PromotionService
         }
 
         return $promotions;
+    }
+
+    /**
+     * Xếp hạng danh sách khuyến mãi theo số tiền giảm giảm dần cho một tổng
+     * tiền cụ thể — dùng để tự động đề xuất mã "giảm nhiều nhất" lên đầu (VD
+     * form Gửi báo giá đoàn/nhóm) thay vì bắt người dùng tự so sánh % vs số
+     * tiền cố định.
+     *
+     * @param  iterable<int, Promotion>  $promotions
+     * @return SupportCollection<int, Promotion>
+     */
+    public function rankForAmount(iterable $promotions, float $amount): SupportCollection
+    {
+        return collect($promotions)->sortByDesc(fn (Promotion $p) => $p->discountFor($amount))->values();
     }
 
     public function create(array $data): Promotion

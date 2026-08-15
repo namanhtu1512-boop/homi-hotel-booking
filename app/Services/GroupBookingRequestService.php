@@ -5,9 +5,14 @@ namespace App\Services;
 use App\Models\GroupBookingRequest;
 use App\Models\RoomType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class GroupBookingRequestService
 {
+    public function __construct(
+        private readonly PromotionService $promotionService,
+    ) {}
+
     public function create(array $data): GroupBookingRequest
     {
         return GroupBookingRequest::create($data);
@@ -88,6 +93,32 @@ class GroupBookingRequestService
     }
 
     /**
+     * Ước tính tổng tiền báo giá dựa trên dòng gợi ý mặc định
+     * (defaultPrefillItems) và giá phòng hiện tại — chỉ dùng để xếp hạng mã
+     * giảm giá "giảm nhiều nhất" cho admin/staff xem trước khi vào form thật
+     * (buildQuote), KHÔNG phải giá cuối cùng gửi khách vì admin/staff có thể
+     * đổi số phòng/giá trước khi bấm "Gửi báo giá".
+     */
+    public function estimateQuoteTotal(GroupBookingRequest $request, array $prefillItems, Collection $roomTypes): float
+    {
+        $items = collect($prefillItems)
+            ->filter(fn (array $row) => ! empty($row['room_type_id']))
+            ->map(fn (array $row) => [
+                'room_type_id'    => $row['room_type_id'],
+                'quantity'        => $row['quantity'] ?? 1,
+                'price_per_night' => $roomTypes->firstWhere('id', $row['room_type_id'])?->price_per_night ?? 0,
+            ])
+            ->values()
+            ->all();
+
+        if (! $items) {
+            return 0.0;
+        }
+
+        return (float) $this->buildQuote($request, ['quote_items' => $items])['total'];
+    }
+
+    /**
      * Dựng báo giá từ dữ liệu form "Gửi báo giá" (đã validate) — dùng chung
      * cho cả gửi chat (đoạn text $lines) và gửi email (mảng $items có cấu
      * trúc để render bảng HTML), tránh lặp lại logic tính tiền ở 2 kênh.
@@ -137,6 +168,29 @@ class GroupBookingRequestService
                 . ($nights ? ' = ' . number_format($extraBedSubtotal, 0, ',', '.') . 'đ' : '');
         }
 
+        // Mã giảm giá (nếu có) — trừ tuần tự vào phần còn lại, giống hệt cách
+        // BookingService::createByAdmin() áp mã khi tạo đơn thật (quá 1 mã thì
+        // TẤT CẢ phải stackable — PromotionService::findValidManyByCodes()),
+        // để hành vi tính giảm giá nhất quán giữa báo giá và đơn thật. Báo giá
+        // này chưa gắn vào 1 đơn thật nên không ghi booking_promotions ở đây.
+        $subtotalBeforeDiscount = $total;
+        $discount               = 0;
+        $appliedPromotions      = [];
+        $promoCodes             = $data['promo_codes'] ?? [];
+        if ($promoCodes) {
+            $promotions = $this->promotionService->findValidManyByCodes($promoCodes, $groupRequest->user);
+            $lines[]    = "Tạm tính: " . number_format($subtotalBeforeDiscount, 0, ',', '.') . 'đ';
+            $remaining  = $subtotalBeforeDiscount;
+            foreach ($promotions as $promotion) {
+                $lineDiscount = min((int) $promotion->discountFor($remaining), $remaining);
+                $discount    += $lineDiscount;
+                $remaining   -= $lineDiscount;
+                $appliedPromotions[] = ['code' => $promotion->code, 'discount_amount' => $lineDiscount];
+                $lines[] = "- Mã giảm giá {$promotion->code}: -" . number_format($lineDiscount, 0, ',', '.') . 'đ';
+            }
+        }
+        $total -= $discount;
+
         if ($nights) $lines[] = "**Tổng dự kiến: " . number_format($total, 0, ',', '.') . 'đ** (chưa bao gồm dịch vụ phát sinh)';
         $note = $data['note'] ?? null;
         if ($note) $lines[] = "\n{$note}";
@@ -149,6 +203,9 @@ class GroupBookingRequestService
             'extra_beds'                => $extraBeds,
             'extra_bed_price_per_night' => $extraBedPrice,
             'extra_bed_subtotal'        => $extraBedSubtotal,
+            'subtotal'                  => $subtotalBeforeDiscount,
+            'discount_amount'           => $discount,
+            'applied_promotions'        => $appliedPromotions,
             'total'                     => $total,
             'note'                      => $note,
         ];

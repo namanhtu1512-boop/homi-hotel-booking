@@ -167,8 +167,12 @@
             </div>
             <div>
                 <label class="form-label" for="promo_codes_text">Mã giảm giá</label>
-                <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text') }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Áp dụng cộng thêm vào ưu đãi theo bậc số phòng (nếu có) — trừ trực tiếp vào tổng tiền đơn.</p>
+                <input class="input" type="text" id="promo_codes_text" name="promo_codes_text" value="{{ old('promo_codes_text', $bestGroupPromoCode) }}" placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
+                @if ($bestGroupPromoCode)
+                    <p class="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Đã tự động điền mã giảm nhiều nhất theo gợi ý hiện tại — có thể xóa hoặc đổi mã khác bên dưới trước khi tạo đơn.</p>
+                @else
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Áp dụng cộng thêm vào ưu đãi theo bậc số phòng (nếu có) — trừ trực tiếp vào tổng tiền đơn.</p>
+                @endif
 
                 @if ($groupPromotions->isNotEmpty())
                     <p class="mt-2 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">Chọn nhanh ưu đãi đoàn/nhóm đang có — bấm để thêm mã, không cần gõ tay:</p>
@@ -178,6 +182,9 @@
                                 class="promo-pick-btn rounded-lg border border-dashed border-primary px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-primary-light/40 dark:hover:bg-slate-800"
                                 data-code="{{ $promo->code }}">
                                 <span class="font-mono font-bold text-primary">{{ $promo->code }}</span>
+                                @if ($bestGroupPromoCode === $promo->code)
+                                    <span class="badge badge-green !px-1.5 !py-0 text-[10px]">🏆 Giảm nhiều nhất</span>
+                                @endif
                                 @if ($promo->stackable)
                                     <span class="badge badge-blue !px-1.5 !py-0 text-[10px]">Stack được</span>
                                 @endif
@@ -344,6 +351,41 @@ document.querySelectorAll('#items-container select[name*="room_type_id"]').forEa
             <button type="button" onclick="addQuoteRow()" class="btn btn-outline btn-sm mt-2">➕ Thêm loại phòng</button>
         </div>
 
+        <div>
+            <label class="form-label" for="quote_promo_codes_text">Mã giảm giá</label>
+            <div class="flex gap-2">
+                <input class="input" type="text" id="quote_promo_codes_text" name="promo_codes_text"
+                    value="{{ old('promo_codes_text', $bestGroupPromoCode) }}"
+                    placeholder="VD: SUMMER2026 (nhiều mã cách nhau bằng dấu phẩy)">
+                <button type="button" id="quote-add-promo-btn" class="btn btn-outline btn-sm whitespace-nowrap">➕ Thêm mã giảm giá</button>
+            </div>
+            @if ($bestGroupPromoCode)
+                <p class="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Đã tự động điền mã giảm nhiều nhất theo báo giá hiện tại — có thể xóa hoặc đổi mã khác bên dưới trước khi gửi.</p>
+            @else
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Trừ trực tiếp vào tổng báo giá, hiển thị trong email/chat gửi khách.</p>
+            @endif
+
+            @if ($groupPromotions->isNotEmpty())
+                <p class="mt-2 mb-1 text-xs font-bold text-slate-500 dark:text-slate-400">Các mã đoàn/nhóm đơn này có thể dùng — bấm để thêm/bỏ khỏi ô trên:</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach ($groupPromotions as $promo)
+                        <button type="button"
+                            class="quote-promo-pick-btn rounded-lg border border-dashed border-primary px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-primary-light/40 dark:hover:bg-slate-800"
+                            data-code="{{ $promo->code }}">
+                            <span class="font-mono font-bold text-primary">{{ $promo->code }}</span>
+                            @if ($bestGroupPromoCode === $promo->code)
+                                <span class="badge badge-green !px-1.5 !py-0 text-[10px]">🏆 Giảm nhiều nhất</span>
+                            @endif
+                            @if ($promo->stackable)
+                                <span class="badge badge-blue !px-1.5 !py-0 text-[10px]">Stack được</span>
+                            @endif
+                            <span class="block text-slate-500 dark:text-slate-400">{{ $promo->description }}</span>
+                        </button>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
         @if ($groupRequest->num_children)
             <div>
                 <label class="form-label">Giường phụ trẻ em (6-11 tuổi)</label>
@@ -438,5 +480,45 @@ function updateExtraBedWarning() {
 }
 
 updateExtraBedWarning();
+
+// Bấm 1 mã ưu đãi đoàn để thêm/bỏ khỏi ô "Mã giảm giá" của form Gửi báo giá
+// — cùng cơ chế với ô promo_codes_text của form "Tạo đơn" phía trên, nhưng
+// dùng id/class riêng (quote_promo_codes_text / .quote-promo-pick-btn) để 2
+// bộ nút không đụng nhau trên cùng 1 trang. Nút "➕ Thêm mã giảm giá" chỉ
+// thêm dấu phẩy + focus vào ô để gõ thêm mã không có trong danh sách gợi ý.
+(function () {
+    const promoInput = document.getElementById('quote_promo_codes_text');
+    if (! promoInput) return;
+
+    function currentCodes() {
+        return promoInput.value.split(',').map((c) => c.trim()).filter(Boolean);
+    }
+
+    function syncButtonStates() {
+        const codes = currentCodes();
+        document.querySelectorAll('.quote-promo-pick-btn').forEach((btn) => {
+            btn.classList.toggle('bg-primary', codes.includes(btn.dataset.code));
+            btn.classList.toggle('text-white', codes.includes(btn.dataset.code));
+        });
+    }
+
+    document.querySelectorAll('.quote-promo-pick-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const codes = currentCodes();
+            const i = codes.indexOf(btn.dataset.code);
+            i === -1 ? codes.push(btn.dataset.code) : codes.splice(i, 1);
+            promoInput.value = codes.join(', ');
+            syncButtonStates();
+        });
+    });
+
+    document.getElementById('quote-add-promo-btn')?.addEventListener('click', () => {
+        const val = promoInput.value.trim();
+        promoInput.value = val && ! val.endsWith(',') ? val + ', ' : val;
+        promoInput.focus();
+    });
+
+    syncButtonStates();
+})();
 </script>
 @endsection
