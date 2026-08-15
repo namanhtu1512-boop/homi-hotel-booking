@@ -98,6 +98,10 @@
         @apply bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400;
     }
 
+    .badge-blue-solid {
+        @apply bg-blue-600 text-white dark:bg-blue-500;
+    }
+
     /* Nhãn mã khuyến mãi dạng "coupon" — viền đứt nét + font monospace để mã
        dễ đọc/dễ phân biệt với chữ thường xung quanh, khác với .badge dùng
        chung cho mọi trạng thái (đơn, phòng...). */

@@ -20,7 +20,7 @@ enum BookingStatus: string
             self::PENDING              => 'Chờ xác nhận',
             self::PENDING_DEPOSIT      => 'Chờ đặt cọc/thanh toán',
             self::PENDING_CONSULTATION => 'Chờ tư vấn (giường phụ)',
-            self::EXPIRED_PENDING_CHECK => 'Đã hết hạn giữ chỗ, đang xác minh thanh toán',
+            self::EXPIRED_PENDING_CHECK => 'Đã hết hạn giữ chỗ',
             self::CONFIRMED            => 'Đã xác nhận',
             self::CANCELLED            => 'Đã hủy',
             self::CHECKED_IN           => 'Đang lưu trú',
@@ -35,10 +35,13 @@ enum BookingStatus: string
     public function badgeClass(): string
     {
         return match($this) {
-            self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION, self::EXPIRED_PENDING_CHECK => 'badge-orange',
+            self::PENDING, self::PENDING_DEPOSIT, self::PENDING_CONSULTATION => 'badge-orange',
             self::CONFIRMED, self::CHECKED_IN => 'badge-blue',
             self::CHECKED_OUT, self::COMPLETED => 'badge-green',
-            self::CANCELLED   => 'badge-red',
+            // Đã quá hạn giữ chỗ, chỉ còn chờ job quét tự hủy hẳn — tô đỏ để
+            // phân biệt rõ với "Chờ đặt cọc/thanh toán" bình thường (còn hạn),
+            // báo cho nhân viên biết đơn này sắp/nên bị hủy.
+            self::EXPIRED_PENDING_CHECK, self::CANCELLED => 'badge-red',
         };
     }
 

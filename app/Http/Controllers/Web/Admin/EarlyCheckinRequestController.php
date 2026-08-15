@@ -20,9 +20,13 @@ class EarlyCheckinRequestController extends Controller
 
     public function index(Request $request): View
     {
+        $date = $request->input('date') ?: now()->toDateString();
+
         return view('admin.early-checkin-requests.index', [
             'requests' => $this->earlyCheckinRequestService->adminList($request->only('status')),
             'filters'  => $request->only('status'),
+            'usage'    => $this->earlyCheckinRequestService->usageOnDate($date),
+            'usageDate' => $date,
         ]);
     }
 

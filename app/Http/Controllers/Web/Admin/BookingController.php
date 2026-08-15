@@ -170,16 +170,10 @@ class BookingController extends Controller
         $booking = $this->bookingService->findForAdmin($id);
 
         return view('bookings.check-out', [
-            'booking'            => $booking,
-            'formAction'         => route('admin.bookings.check-out', $id),
-            'backRoute'          => route('admin.bookings.show', $id),
-            'serviceStoreRoute'  => route('admin.bookings.services.store', $id),
-            'surchargeStoreRoute' => route('admin.bookings.surcharge.store', $id),
-            'activeServices'     => $this->serviceService->activePublic(),
-            'damageItems'        => $this->surchargeItemService->activePublic(SurchargeCategory::Damage),
-            'violationItems'     => $this->surchargeItemService->activePublic(SurchargeCategory::Violation),
-            'cleaningItems'      => $this->surchargeItemService->activePublic(SurchargeCategory::Cleaning),
-            'layout'             => 'layouts.admin',
+            'booking'    => $booking,
+            'formAction' => route('admin.bookings.check-out', $id),
+            'backRoute'  => route('admin.bookings.show', $id),
+            'layout'     => 'layouts.admin',
         ]);
     }
 

@@ -126,21 +126,41 @@
                 <tbody>
                     @foreach ($extraBedItems as $item)
                         <tr>
-                            <td>Phụ thu giường phụ ({{ $item->roomType->name ?? '—' }})</td>
-                            <td>{{ $item->extra_beds }}</td>
-                            <td>{{ number_format($item->extra_beds > 0 ? $item->extra_bed_surcharge / $item->extra_beds : $item->extra_bed_surcharge, 0, ',', '.') }}đ</td>
+                            <td>
+                                Phụ thu giường phụ ({{ $item->roomType->name ?? '—' }})
+                                @if ($booking->payment)
+                                    <div class="mt-1"><span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span></div>
+                                @endif
+                            </td>
+                            <td>
+                                {{ $item->extra_beds }}
+                                <div class="text-xs" style="color: #64748b;">× {{ $item->nights }} đêm</div>
+                            </td>
+                            <td>{{ number_format($item->extra_beds > 0 && $item->nights > 0 ? $item->extra_bed_surcharge / $item->extra_beds / $item->nights : $item->extra_bed_surcharge, 0, ',', '.') }}đ/đêm</td>
                             <td>{{ number_format($item->extra_bed_surcharge, 0, ',', '.') }}đ</td>
                         </tr>
                     @endforeach
+                    @php
+                        $incidentalPaidNow = $booking->incidentalInvoice?->isPaid();
+                    @endphp
                     @foreach ($booking->serviceItems as $serviceItem)
                         <tr>
-                            <td>{{ $serviceItem->service?->name ?? '—' }}</td>
+                            <td>
+                                {{ $serviceItem->service?->name ?? '—' }}
+                                <div class="mt-1"><span class="badge {{ $incidentalPaidNow ? 'badge-green' : 'badge-orange' }}">{{ $incidentalPaidNow ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span></div>
+                            </td>
                             <td>{{ $serviceItem->quantity }}</td>
                             <td>{{ number_format($serviceItem->unit_price, 0, ',', '.') }}đ</td>
                             <td>{{ number_format($serviceItem->subtotal, 0, ',', '.') }}đ</td>
                         </tr>
                     @endforeach
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" style="text-align:right; font-weight:700;">Tổng phụ phí dịch vụ phát sinh</td>
+                        <td style="font-weight:700;">{{ number_format($extraBedItems->sum('extra_bed_surcharge') + $booking->serviceItems->sum('subtotal'), 0, ',', '.') }}đ</td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     @endif
@@ -188,38 +208,57 @@
             @if ($booking->payment)
                 @php
                     $extraBedTotal = $booking->bookingItems->sum('extra_bed_surcharge');
+                    $isCashMethod = in_array($booking->payment->method, [\App\Enums\PaymentMethod::PAY_AT_HOTEL, \App\Enums\PaymentMethod::CASH_WITH_DEPOSIT]);
+                    $dueAtCheckInLabel = $isCashMethod ? 'Thanh toán tiền mặt khi nhận phòng' : 'Thanh toán chuyển khoản khi nhận phòng';
+                    $pendingIncidentalTotal = (float) ($booking->incidentalInvoice?->isOpen() ? $booking->incidentalInvoice->total_amount : 0);
                 @endphp
                 <div class="info-list" style="margin-top: 10px;">
-                    <div class="info-item">
-                        <span class="label">Phương thức</span>
-                        <span class="value">{{ $booking->payment->method->label() }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Số tiền</span>
-                        <span class="value">{{ number_format($booking->payment->amount, 0, ',', '.') }}đ</span>
-                    </div>
                     @if ($booking->payment->deposit_paid_at)
                         <div class="info-item">
                             <span class="label">Đã đặt cọc</span>
                             <span class="value">
                                 {{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ lúc {{ $booking->payment->deposit_paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}
-                                @if ($extraBedTotal > 0)
-                                    <div class="text-xs text-slate-500 dark:text-slate-400">(đã tính cả tiền giường phụ)</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ $booking->payment->method->label() }}
+                                    @if ($extraBedTotal > 0)
+                                        · đã tính cả tiền giường phụ
+                                    @endif
+                                </div>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Số tiền cần thanh toán khi nhận phòng</span>
+                            <span class="value">
+                                {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ
+                                <span class="badge badge-orange">{{ $dueAtCheckInLabel }}</span>
+                                @if ($booking->payment->paid_at)
+                                    <div class="mt-1">
+                                        <span class="badge badge-blue-solid">Đã thanh toán lúc {{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                                    </div>
                                 @endif
                             </span>
                         </div>
+                    @else
                         <div class="info-item">
-                            <span class="label">Còn lại thu tiền mặt</span>
+                            <span class="label">Số tiền</span>
                             <span class="value">
-                                {{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ
-                                <span class="badge badge-orange">Thanh toán khi nhận phòng</span>
+                                {{ number_format($booking->payment->amount, 0, ',', '.') }}đ
+                                <div class="text-xs text-slate-500 dark:text-slate-400">{{ $booking->payment->method->label() }}</div>
+                                @if ($booking->payment->paid_at)
+                                    <div class="mt-1">
+                                        <span class="badge badge-blue-solid">Đã thanh toán lúc {{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                                    </div>
+                                @endif
                             </span>
                         </div>
                     @endif
-                    @if ($booking->payment->paid_at)
+                    @if ($pendingIncidentalTotal > 0)
                         <div class="info-item">
-                            <span class="label">Đã thanh toán lúc</span>
-                            <span class="value">{{ $booking->payment->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                            <span class="label">Phụ phí cần thanh toán khi trả phòng</span>
+                            <span class="value">
+                                {{ number_format($pendingIncidentalTotal, 0, ',', '.') }}đ
+                                <span class="badge badge-orange">Thanh toán khi trả phòng</span>
+                            </span>
                         </div>
                     @endif
                     @if ($booking->payment->surcharge_amount > 0)
@@ -255,6 +294,12 @@
                                 <span class="badge {{ $incidentalInvoice->isPaid() ? 'badge-green' : 'badge-orange' }}">{{ $incidentalInvoice->isPaid() ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span>
                             </span>
                         </div>
+                        @if ($incidentalInvoice->isPaid() && $incidentalInvoice->paid_at)
+                            <div class="info-item">
+                                <span class="label">Đã thanh toán lúc</span>
+                                <span class="value">{{ $incidentalInvoice->paid_at->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                            </div>
+                        @endif
                     </div>
                 @endif
 
@@ -295,16 +340,42 @@
                         $incidentalPaid = $incidentalItems->isNotEmpty() && $incidentalInvoice->isPaid()
                             ? (float) $incidentalInvoice->total_amount
                             : 0.0;
-                        $totalPaid = $booking->paidAmount() + $incidentalPaid;
+                        $roomPaidAmount = $booking->paidAmount();
+                        $totalPaid = $roomPaidAmount + $incidentalPaid;
                         $totalDue  = round($grandTotal - $totalPaid);
                     @endphp
-                    <div class="info-item">
-                        <span class="label">Đã thanh toán</span>
-                        <span class="value">{{ number_format($totalPaid, 0, ',', '.') }}đ</span>
-                    </div>
+                    @if ($booking->payment->deposit_paid_at)
+                        <div class="info-item">
+                            <span class="label"><span class="badge badge-green">Đã đặt cọc</span></span>
+                            <span class="value">{{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ</span>
+                        </div>
+                        @if ($booking->payment->status === \App\Enums\PaymentStatus::PAID)
+                            <div class="info-item">
+                                <span class="label"><span class="badge badge-green">Đã thanh toán khi nhận phòng</span></span>
+                                <span class="value">{{ number_format($roomPaidAmount - $booking->payment->deposit_amount, 0, ',', '.') }}đ</span>
+                            </div>
+                        @endif
+                    @elseif ($roomPaidAmount > 0)
+                        <div class="info-item">
+                            <span class="label"><span class="badge badge-green">Đã thanh toán tiền phòng{{ $extraBedTotal > 0 ? ' (gồm giường phụ)' : '' }}</span></span>
+                            <span class="value">{{ number_format($roomPaidAmount, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
+                    @if ($incidentalPaid > 0)
+                        <div class="info-item">
+                            <span class="label"><span class="badge badge-green">Đã thanh toán tiền phát sinh</span></span>
+                            <span class="value">{{ number_format($incidentalPaid, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
+                    @if ($totalPaid > 0)
+                        <div class="info-item">
+                            <span class="label font-bold"><span class="badge badge-green">Tổng cộng đã thanh toán</span></span>
+                            <span class="value font-bold text-emerald-600 dark:text-emerald-400">{{ number_format($totalPaid, 0, ',', '.') }}đ</span>
+                        </div>
+                    @endif
                     <div class="info-item">
                         <span class="label">{{ $totalDue < 0 ? 'Số dư hoàn lại' : 'Còn phải thanh toán' }}</span>
-                        <span class="value {{ $totalDue < 0 ? 'text-accent' : '' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
+                        <span class="value {{ $totalDue < 0 ? 'text-accent' : 'text-red-600 dark:text-red-400' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
                     </div>
                 </div>
 
@@ -405,11 +476,43 @@
                 @endif
 
                 @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
-                    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                        Dịch vụ/phụ phí phát sinh trong lúc khách lưu trú chỉ được ghi nhận ở bước
-                        <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}">Trả phòng</a> — không thêm được ở trang này nữa.
-                    </p>
                     <div class="action-row" style="margin-top: 16px; flex-wrap: wrap; gap: 12px; flex-direction: column; align-items: stretch;">
+                        <form method="POST" action="{{ route('staff.bookings.services.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                            @csrf
+                            @include('partials.surcharge-item-select', ['items' => $activeServices, 'hiddenField' => 'service_id', 'placeholder' => 'Gõ để tìm dịch vụ...'])
+                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="20" value="1" title="Số lượng">
+                            <input type="number" name="amount" class="input surcharge-amount" style="width:150px;" min="1000" step="1000" placeholder="Số tiền (nếu chưa có giá cố định)">
+                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Ghi chú (không bắt buộc)">
+                            <button type="submit" class="btn btn-outline btn-sm">🔵 Thêm dịch vụ phát sinh</button>
+                        </form>
+
+                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                            @csrf
+                            @include('partials.surcharge-item-select', ['items' => $damageItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm đồ hỏng/mất...', 'notePrefix' => 'Bồi thường: '])
+                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
+                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
+                            <button type="submit" class="btn btn-outline btn-sm">🔴 Thêm phụ phí hỏng/mất đồ</button>
+                        </form>
+
+                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                            @csrf
+                            @include('partials.surcharge-item-select', ['items' => $violationItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm vi phạm...', 'notePrefix' => 'Vi phạm: '])
+                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
+                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
+                            <button type="submit" class="btn btn-outline btn-sm">🟠 Thêm phụ phí vi phạm</button>
+                        </form>
+
+                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                            @csrf
+                            @include('partials.surcharge-item-select', ['items' => $cleaningItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm khoản vệ sinh...', 'notePrefix' => 'Vệ sinh đặc biệt: '])
+                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
+                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
+                            <button type="submit" class="btn btn-outline btn-sm">🟡 Thêm phụ phí vệ sinh đặc biệt</button>
+                        </form>
+
                         <form method="POST" action="{{ route('staff.bookings.extend-stay.store', $booking->id) }}" id="extend-stay-form" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
                             <span style="font-size: 12px; color: #64748b;">Từ {{ $booking->check_out->format('d/m/Y') }} đến:</span>

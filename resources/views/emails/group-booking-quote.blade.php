@@ -71,6 +71,23 @@
 
                             @if ($quote['nights'])
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+                                    @if (($quote['discount_amount'] ?? 0) > 0)
+                                        <tr>
+                                            <td style="padding:4px 16px; font-size:13px; color:#64748b;">
+                                                Tạm tính
+                                                <span style="float:right;">{{ number_format($quote['subtotal'], 0, ',', '.') }}đ</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 16px 8px; font-size:13px; color:#16a34a;">
+                                                Giảm giá
+                                                @if (! empty($quote['applied_promotions']))
+                                                    ({{ collect($quote['applied_promotions'])->pluck('code')->implode(', ') }})
+                                                @endif
+                                                <span style="float:right;">-{{ number_format($quote['discount_amount'], 0, ',', '.') }}đ</span>
+                                            </td>
+                                        </tr>
+                                    @endif
                                     <tr>
                                         <td style="background:#dbeafe; border-radius:8px; padding:12px 16px;">
                                             <span style="font-size:14px; font-weight:bold; color:#1e293b;">Tổng dự kiến</span>

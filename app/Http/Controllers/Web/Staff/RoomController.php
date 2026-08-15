@@ -27,7 +27,7 @@ class RoomController extends Controller
     public function calendar(Request $request): View
     {
         $month = $request->filled('month')
-            ? \Carbon\Carbon::createFromFormat('Y-m', $request->string('month'))
+            ? \Carbon\Carbon::createFromFormat('Y-m', $request->string('month'), 'Asia/Ho_Chi_Minh')
             : now('Asia/Ho_Chi_Minh');
 
         $roomTypeId = $request->integer('room_type_id') ?: null;

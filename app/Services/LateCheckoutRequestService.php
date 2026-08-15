@@ -12,6 +12,7 @@ use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewLateCheckoutRequest;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -160,6 +161,29 @@ class LateCheckoutRequestService
         }
 
         return $query->paginate(15)->withQueryString();
+    }
+
+    /**
+     * Danh sách phòng đang trả phòng muộn trong 1 ngày cụ thể — chỉ tính các
+     * yêu cầu ĐÃ DUYỆT có booking.check_out đúng ngày đó, loại đơn đã hủy.
+     * Trả về 1 dòng cho mỗi booking_item của đơn — xem
+     * EarlyCheckinRequestService::usageOnDate() (cùng quy ước).
+     */
+    public function usageOnDate(string $date): Collection
+    {
+        return LateCheckoutRequest::with(['booking.bookingItems.roomType', 'booking.bookingItems.rooms'])
+            ->where('status', 'approved')
+            ->whereHas('booking', fn ($q) => $q
+                ->whereDate('check_out', $date)
+                ->where('status', '!=', BookingStatus::CANCELLED->value)
+            )
+            ->get()
+            ->flatMap(fn (LateCheckoutRequest $request) => $request->booking->bookingItems->map(fn ($item) => [
+                'request'     => $request,
+                'booking'     => $request->booking,
+                'bookingItem' => $item,
+            ]))
+            ->values();
     }
 
     /**

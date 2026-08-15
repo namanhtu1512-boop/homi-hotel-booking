@@ -41,14 +41,25 @@ class GroupBookingController extends Controller
     {
         $groupRequest = GroupBookingRequest::findOrFail($id);
         $allRoomTypes = RoomType::where('status', 'active')->orderBy('name')->get();
+        $prefillItems = $this->groupBookingRequestService->defaultPrefillItems($groupRequest);
+
+        // Ước tính tổng tiền từ dòng gợi ý mặc định để xếp mã giảm giá "giảm
+        // nhiều nhất" lên đầu — admin vẫn thấy đủ các mã khác và có thể đổi
+        // trước khi gửi, đây chỉ là gợi ý dựa trên số liệu hiện có.
+        $estimatedTotal   = $this->groupBookingRequestService->estimateQuoteTotal($groupRequest, $prefillItems, $allRoomTypes);
+        $groupPromotions  = $this->promotionService->activeGroupPromotions();
+        if ($estimatedTotal > 0) {
+            $groupPromotions = $this->promotionService->rankForAmount($groupPromotions, $estimatedTotal);
+        }
 
         return view('admin.group-bookings.show', [
             'groupRequest' => $groupRequest,
             'roomTypes'    => $allRoomTypes,
             'allRoomTypes' => $allRoomTypes,
-            'prefillItems' => $this->groupBookingRequestService->defaultPrefillItems($groupRequest),
+            'prefillItems' => $prefillItems,
             'extraBedSurchargePerNight' => $this->hotelInfoService->current()->extra_bed_surcharge_per_night,
-            'groupPromotions' => $this->promotionService->activeGroupPromotions(),
+            'groupPromotions'    => $groupPromotions,
+            'bestGroupPromoCode' => $estimatedTotal > 0 ? $groupPromotions->first()?->code : null,
         ]);
     }
 
@@ -123,7 +134,16 @@ class GroupBookingController extends Controller
             'quote_items.*.price_per_night' => ['required', 'numeric', 'min:0'],
             'extra_beds'                    => ['nullable', 'integer', 'min:0'],
             'extra_bed_price_per_night'     => ['nullable', 'numeric', 'min:0'],
+            'promo_codes_text'              => ['nullable', 'string', 'max:250'],
         ]);
+
+        // 1 ô nhập, nhiều mã ngăn cách bằng dấu phẩy — cùng cách form "Tạo đơn"
+        // (createBooking) đang làm cho luồng tạo đơn thật.
+        $data['promo_codes'] = collect(explode(',', $data['promo_codes_text'] ?? ''))
+            ->map(fn ($code) => trim($code))
+            ->filter()
+            ->values()
+            ->all();
 
         $quote = $this->groupBookingRequestService->buildQuote($groupRequest, $data);
 

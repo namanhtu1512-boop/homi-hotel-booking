@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\AuditLogService;
+use App\Services\PromotionRequestService;
 use App\Services\PromotionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,12 +14,16 @@ class PromotionController extends Controller
 {
     public function __construct(
         private readonly PromotionService $promotionService,
+        private readonly PromotionRequestService $promotionRequestService,
         private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(): View
     {
-        return view('admin.promotions.index', ['promotions' => $this->promotionService->list()]);
+        return view('admin.promotions.index', [
+            'promotions'        => $this->promotionService->list(),
+            'promotionRequests' => $this->promotionRequestService->adminList([], 'promo_req_page'),
+        ]);
     }
 
     public function create(): View
