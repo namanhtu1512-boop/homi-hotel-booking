@@ -7,7 +7,7 @@
 @section('title', $hotel->name . ' · Homi')
 
 @section('hero_extra')
-    <form method="GET" action="{{ route('home') }}" class="grid gap-3 rounded-2xl bg-white p-4 shadow-xl sm:grid-cols-2 lg:grid-cols-6 dark:bg-slate-900">
+    <form method="GET" action="{{ route('home') }}#rooms-section" class="grid gap-3 rounded-2xl bg-white p-4 shadow-xl sm:grid-cols-2 lg:grid-cols-6 dark:bg-slate-900">
         <div class="lg:col-span-2">
             <label class="form-label !text-slate-500">Địa điểm</label>
             <div class="input flex items-center bg-slate-100 text-slate-500 dark:bg-slate-800">{{ $hotel->address }}</div>
@@ -186,7 +186,7 @@
         </section>
     @endif
 
-    <section>
+    <section id="rooms-section" class="scroll-mt-24">
         <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
                 <span class="section-kicker">Loại phòng</span>
