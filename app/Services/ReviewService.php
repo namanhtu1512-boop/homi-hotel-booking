@@ -87,13 +87,16 @@ class ReviewService
         // thay vì để nó vỡ thành 500.
         try {
             return Review::create([
-                'booking_id'   => $booking->id,
-                'room_type_id' => $data['room_type_id'],
-                'user_id'      => $user->id,
-                'rating'       => $data['rating'],
-                'comment'      => $data['comment'] ?? null,
-                'images'       => $data['images'] ?? null,
-                'status'       => 'visible',
+                'booking_id'         => $booking->id,
+                'room_type_id'       => $data['room_type_id'],
+                'user_id'            => $user->id,
+                'rating'             => $data['rating'],
+                'cleanliness_rating' => $data['cleanliness_rating'],
+                'service_rating'     => $data['service_rating'],
+                'value_rating'       => $data['value_rating'],
+                'comment'            => $data['comment'] ?? null,
+                'images'             => $data['images'] ?? null,
+                'status'             => 'visible',
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
             if ((int) $e->getCode() === 23000) {

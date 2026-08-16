@@ -35,7 +35,12 @@
                         <tr>
                             <td>{{ $review->user->name ?? '—' }}</td>
                             <td>{{ $review->roomType->name ?? '—' }}</td>
-                            <td>{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</td>
+                            <td>
+                                {{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}
+                                @if ($review->cleanliness_rating && $review->service_rating && $review->value_rating)
+                                    <div class="text-xs text-slate-400">VS {{ $review->cleanliness_rating }} · PV {{ $review->service_rating }} · Giá {{ $review->value_rating }}</div>
+                                @endif
+                            </td>
                             <td style="max-width: 320px;">{{ $review->comment ?: '—' }}</td>
                             <td>
                                 @if (! empty($review->images))

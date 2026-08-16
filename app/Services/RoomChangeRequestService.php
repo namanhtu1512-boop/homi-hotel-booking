@@ -5,20 +5,29 @@ namespace App\Services;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
+use App\Models\BookingItem;
 use App\Models\PaymentStatusLog;
 use App\Models\RoomChangeRequest;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Notifications\BookingStatusChanged;
+use App\Notifications\NewRoomChangeRequest;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Khách gửi yêu cầu đổi loại phòng/ngày ở cho 1 đơn đã đặt, staff/admin duyệt
- * hoặc từ chối. Chỉ áp dụng cho đơn 1 loại phòng duy nhất, chưa check-in
- * (PENDING/CONFIRMED) — tránh phải xử lý reassign phòng vật lý đã gán
- * (BookingItemRoom) hoặc chia nhỏ nhiều loại phòng trong 1 đơn.
+ * hoặc từ chối. Chỉ áp dụng khi đơn chưa check-in (PENDING/CONFIRMED) — tránh
+ * phải xử lý reassign phòng vật lý đã gán (BookingItemRoom). Đơn đặt đoàn
+ * (nhiều loại phòng) chỉ đổi được LOẠI PHÒNG cho 1 dòng cụ thể, không đổi
+ * ngày ở (ngày ở áp dụng chung cho cả đơn).
+ *
+ * Dòng đơn có quantity > 1 (nhiều phòng cùng loại, VD đặt 3 phòng Deluxe
+ * chung 1 dòng): khách có thể chỉ đổi loại phòng cho MỘT PHẦN số phòng đó
+ * (xem field `quantity` trên RoomChangeRequest) — approve() tách dòng cũ
+ * thành 2 BookingItem (phần giữ nguyên loại cũ + phần đã đổi loại mới),
+ * khách/trẻ em của phần đổi được chia tỉ lệ theo số phòng.
  *
  * Khi duyệt, hệ thống tự tính lại giá + re-check availability cho tổ hợp
  * loại phòng/ngày mới rồi cập nhật thẳng vào booking; nhưng việc thu thêm
@@ -46,19 +55,36 @@ class RoomChangeRequestService
             ]);
         }
 
-        if ($booking->bookingItems->count() !== 1) {
-            throw ValidationException::withMessages([
-                'status' => ['Đơn có nhiều loại phòng, vui lòng liên hệ khách sạn để được hỗ trợ đổi phòng.'],
-            ]);
-        }
-
         if ($booking->roomChangeRequests()->where('status', 'pending')->exists()) {
             throw ValidationException::withMessages([
                 'status' => ['Đơn này đang có 1 yêu cầu đổi phòng chờ duyệt, vui lòng chờ xử lý xong trước khi gửi yêu cầu mới.'],
             ]);
         }
 
-        $item = $booking->bookingItems->first();
+        $isGroupBooking = $booking->bookingItems->count() > 1;
+
+        if ($isGroupBooking) {
+            // Đơn đặt đoàn (nhiều loại phòng): khách chỉ được đổi LOẠI PHÒNG
+            // cho 1 dòng cụ thể trong đơn, không tự đổi được ngày ở (vì ngày
+            // ở áp dụng chung cho toàn bộ đơn, đổi ngày sẽ ảnh hưởng mọi loại
+            // phòng khác trong cùng đơn — cần lễ tân xử lý thủ công).
+            $bookingItemId = ! empty($data['booking_item_id']) ? (int) $data['booking_item_id'] : null;
+            $item          = $bookingItemId ? $booking->bookingItems->firstWhere('id', $bookingItemId) : null;
+
+            if (! $item) {
+                throw ValidationException::withMessages([
+                    'booking_item_id' => ['Đơn đặt đoàn có nhiều loại phòng, vui lòng chọn loại phòng cụ thể muốn đổi.'],
+                ]);
+            }
+
+            if (! empty($data['requested_check_in']) || ! empty($data['requested_check_out'])) {
+                throw ValidationException::withMessages([
+                    'status' => ['Đơn đặt đoàn có nhiều loại phòng, vui lòng liên hệ khách sạn để được hỗ trợ đổi ngày ở.'],
+                ]);
+            }
+        } else {
+            $item = $booking->bookingItems->first();
+        }
 
         $requestedRoomTypeId = ! empty($data['requested_room_type_id']) ? (int) $data['requested_room_type_id'] : null;
         $requestedCheckIn    = $data['requested_check_in'] ?? null;
@@ -74,8 +100,36 @@ class RoomChangeRequestService
             ]);
         }
 
-        return RoomChangeRequest::create([
+        // Dòng đơn có nhiều hơn 1 phòng cùng loại (VD đặt 3 phòng Deluxe
+        // chung 1 dòng) — khách có thể chỉ muốn đổi loại phòng cho MỘT PHẦN
+        // trong số đó, không đổi cả cụm. Mặc định (không truyền quantity)
+        // vẫn là đổi toàn bộ — giữ tương thích hành vi cũ.
+        $requestedQuantity = ! empty($data['quantity']) ? (int) $data['quantity'] : $item->quantity;
+
+        if ($requestedQuantity < 1 || $requestedQuantity > $item->quantity) {
+            throw ValidationException::withMessages([
+                'quantity' => ["Số phòng muốn đổi phải từ 1 đến {$item->quantity}."],
+            ]);
+        }
+
+        if ($requestedQuantity < $item->quantity) {
+            if (! $roomTypeChanged) {
+                throw ValidationException::withMessages([
+                    'quantity' => ['Chỉ áp dụng đổi 1 phần số phòng khi đổi LOẠI PHÒNG — vui lòng chọn loại phòng mới.'],
+                ]);
+            }
+
+            if ($datesChanged) {
+                throw ValidationException::withMessages([
+                    'quantity' => ['Đổi ngày ở chỉ áp dụng khi đổi toàn bộ số phòng của dòng đơn này — vui lòng liên hệ khách sạn nếu cần đổi ngày cho 1 phần.'],
+                ]);
+            }
+        }
+
+        $request = RoomChangeRequest::create([
             'booking_id'              => $booking->id,
+            'booking_item_id'         => $isGroupBooking ? $item->id : null,
+            'quantity'                => $requestedQuantity,
             'user_id'                 => $customer->id,
             'current_room_type_id'    => $item->room_type_id,
             'requested_room_type_id'  => $roomTypeChanged ? $requestedRoomTypeId : null,
@@ -86,6 +140,12 @@ class RoomChangeRequestService
             'reason'                  => $data['reason'] ?? null,
             'status'                  => 'pending',
         ]);
+
+        User::whereIn('role', ['admin', 'staff'])->each(
+            fn (User $u) => $u->notify(new NewRoomChangeRequest($request))
+        );
+
+        return $request;
     }
 
     public function adminList(array $filters = []): LengthAwarePaginator
@@ -112,13 +172,15 @@ class RoomChangeRequestService
 
         $booking = $roomChangeRequest->booking()->with(['bookingItems', 'payment'])->firstOrFail();
 
-        if ($booking->bookingItems->count() !== 1) {
+        $item = $roomChangeRequest->booking_item_id
+            ? $booking->bookingItems->firstWhere('id', $roomChangeRequest->booking_item_id)
+            : $booking->bookingItems->first();
+
+        if (! $item) {
             throw ValidationException::withMessages([
-                'status' => ['Đơn có nhiều loại phòng, không thể tự động đổi — vui lòng xử lý thủ công.'],
+                'status' => ['Loại phòng được yêu cầu đổi không còn tồn tại trong đơn này — vui lòng xử lý thủ công.'],
             ]);
         }
-
-        $item = $booking->bookingItems->first();
 
         $targetRoomTypeId = $roomChangeRequest->requested_room_type_id ?? $item->room_type_id;
         $targetCheckIn     = ($roomChangeRequest->requested_check_in ?? $booking->check_in)->toDateString();
@@ -126,15 +188,26 @@ class RoomChangeRequestService
 
         $roomType = RoomType::where('status', 'active')->findOrFail($targetRoomTypeId);
 
-        $capacity = $roomType->capacity * $item->quantity;
-        if ($item->adults + $item->children > $capacity) {
+        // Số phòng thực sự đổi loại — có thể nhỏ hơn item->quantity nếu
+        // khách chỉ muốn đổi 1 PHẦN trong số nhiều phòng cùng loại của dòng
+        // đơn (xem create()). Khách/trẻ em của phần đổi được chia tỉ lệ
+        // theo số phòng, phần còn lại giữ nguyên loại phòng cũ.
+        $changeQuantity = $roomChangeRequest->quantity ?? $item->quantity;
+        $isPartial      = $changeQuantity < $item->quantity;
+
+        $splitAdults   = $isPartial ? (int) round($item->adults * $changeQuantity / $item->quantity) : $item->adults;
+        $splitChildren = $isPartial ? (int) round($item->children * $changeQuantity / $item->quantity) : $item->children;
+        $splitInfants  = $isPartial ? (int) round($item->infants * $changeQuantity / $item->quantity) : $item->infants;
+
+        $capacity = $roomType->capacity * $changeQuantity;
+        if ($splitAdults + $splitChildren > $capacity) {
             throw ValidationException::withMessages([
-                'status' => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách, không đủ chỗ cho {$item->adults} người lớn + {$item->children} trẻ em của đơn này."],
+                'status' => ["Phòng \"{$roomType->name}\" tối đa {$capacity} khách cho {$changeQuantity} phòng, không đủ chỗ cho {$splitAdults} người lớn + {$splitChildren} trẻ em."],
             ]);
         }
 
         $availability = $this->availabilityService->check(
-            $targetRoomTypeId, $targetCheckIn, $targetCheckOut, $item->quantity, null, $booking->id
+            $targetRoomTypeId, $targetCheckIn, $targetCheckOut, $changeQuantity, null, $booking->id
         );
 
         if (! $availability['can_book']) {
@@ -143,20 +216,74 @@ class RoomChangeRequestService
             ]);
         }
 
-        $pricing = $this->pricingService->calculate($roomType, $targetCheckIn, $targetCheckOut, $item->quantity, $item->children);
+        $pricing = $this->pricingService->calculate($roomType, $targetCheckIn, $targetCheckOut, $changeQuantity, $splitChildren);
 
-        return DB::transaction(function () use ($roomChangeRequest, $booking, $item, $roomType, $targetCheckIn, $targetCheckOut, $pricing, $staff) {
+        $remainingPricing = null;
+        if ($isPartial) {
+            $remainingQuantity = $item->quantity - $changeQuantity;
+            $remainingChildren = $item->children - $splitChildren;
+            $remainingPricing  = $this->pricingService->calculate($item->roomType, $targetCheckIn, $targetCheckOut, $remainingQuantity, $remainingChildren);
+        }
+
+        return DB::transaction(function () use (
+            $roomChangeRequest, $booking, $item, $roomType, $targetCheckIn, $targetCheckOut, $pricing, $staff,
+            $isPartial, $changeQuantity, $splitAdults, $splitChildren, $splitInfants, $remainingPricing
+        ) {
             $oldTotal = (float) $booking->total_amount;
-            $newTotal = max(0, round($pricing['total_price'] - (float) $booking->discount_amount, 2));
 
-            $item->update([
-                'room_type_id'    => $roomType->id,
-                'price_per_night' => $pricing['unit_price'],
-                'nights'          => $pricing['nights'],
-                'subtotal'        => $pricing['room_subtotal'],
-                'child_surcharge' => $pricing['child_surcharge'],
-                'price_breakdown' => $pricing['nightly_breakdown'],
-            ]);
+            if ($isPartial) {
+                $remainingQuantity = $item->quantity - $changeQuantity;
+
+                // Chỉ cộng/trừ đúng phần CHÊNH LỆCH của dòng phòng đang đổi
+                // (cả 2 nửa sau khi tách) vào tổng tiền đơn, không ghi đè
+                // thẳng total_amount — đơn có thể còn dòng phòng khác.
+                $itemDelta = round(
+                    ($pricing['total_price'] + $remainingPricing['total_price']) - ((float) $item->subtotal + (float) $item->child_surcharge),
+                    2
+                );
+                $newTotal = max(0, round($oldTotal + $itemDelta, 2));
+
+                // Dòng cũ giữ loại phòng cũ, chỉ giảm số lượng + khách theo
+                // phần KHÔNG đổi.
+                $item->update([
+                    'quantity'        => $remainingQuantity,
+                    'adults'          => $item->adults - $splitAdults,
+                    'children'        => $item->children - $splitChildren,
+                    'infants'         => $item->infants - $splitInfants,
+                    'price_per_night' => $remainingPricing['unit_price'],
+                    'nights'          => $remainingPricing['nights'],
+                    'subtotal'        => $remainingPricing['room_subtotal'],
+                    'child_surcharge' => $remainingPricing['child_surcharge'],
+                    'price_breakdown' => $remainingPricing['nightly_breakdown'],
+                ]);
+
+                // Dòng mới cho phần đã đổi sang loại phòng khác.
+                BookingItem::create([
+                    'booking_id'      => $booking->id,
+                    'room_type_id'    => $roomType->id,
+                    'quantity'        => $changeQuantity,
+                    'adults'          => $splitAdults,
+                    'children'        => $splitChildren,
+                    'infants'         => $splitInfants,
+                    'price_per_night' => $pricing['unit_price'],
+                    'nights'          => $pricing['nights'],
+                    'subtotal'        => $pricing['room_subtotal'],
+                    'child_surcharge' => $pricing['child_surcharge'],
+                    'price_breakdown' => $pricing['nightly_breakdown'],
+                ]);
+            } else {
+                $itemDelta = round($pricing['total_price'] - ((float) $item->subtotal + (float) $item->child_surcharge), 2);
+                $newTotal  = max(0, round($oldTotal + $itemDelta, 2));
+
+                $item->update([
+                    'room_type_id'    => $roomType->id,
+                    'price_per_night' => $pricing['unit_price'],
+                    'nights'          => $pricing['nights'],
+                    'subtotal'        => $pricing['room_subtotal'],
+                    'child_surcharge' => $pricing['child_surcharge'],
+                    'price_breakdown' => $pricing['nightly_breakdown'],
+                ]);
+            }
 
             $booking->update([
                 'check_in'     => $targetCheckIn,

@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="@yield('title', 'Homi · Đặt phòng khách sạn')">
     <meta property="og:description" content="@yield('meta_description', 'Homi Hotel — đặt phòng trực tiếp, xem phòng trống theo ngày, giá minh bạch, xác nhận nhanh.')">
-    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
     @include('partials._theme-script')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -20,7 +20,7 @@
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <div class="mx-auto flex w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-2">
-                <img src="{{ asset('images/logo.png') }}" alt="Homi" class="h-9 w-9 rounded-[10px] object-cover">
+                <img src="{{ asset('images/logo-icon.png') }}" alt="Homi" class="h-9 w-9 object-contain">
                 <span class="flex flex-col justify-center gap-0.5">
                     <img src="{{ asset('images/logo-wordmark.png') }}" alt="Homi" class="h-5 w-auto object-contain dark:hidden">
                     <img src="{{ asset('images/logo-wordmark-white.png') }}" alt="Homi" class="hidden h-5 w-auto object-contain dark:block">

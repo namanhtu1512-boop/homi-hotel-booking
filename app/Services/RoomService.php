@@ -322,11 +322,6 @@ class RoomService
         return $room->fresh();
     }
 
-    public function delete(Room $room): void
-    {
-        $room->delete();
-    }
-
     public function updateHousekeepingStatus(Room $room, string $status): Room
     {
         $room->update(['housekeeping_status' => $status]);

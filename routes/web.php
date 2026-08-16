@@ -178,6 +178,7 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         Route::post('/{id}/pay/online',        [CustomerBookingController::class, 'payOnline'])->name('pay-online');
         Route::post('/{id}/pay/bank-transfer', [CustomerBookingController::class, 'payBankTransfer'])->name('pay-bank-transfer');
         Route::post('/{id}/pay/deposit',       [CustomerBookingController::class, 'payDeposit'])->name('pay-deposit');
+        Route::post('/{id}/pay/cancel-vnpay',  [CustomerBookingController::class, 'cancelVnpay'])->name('pay-cancel-vnpay');
 
         Route::get('/{id}/room-change',  [CustomerRoomChangeRequestController::class, 'create'])->name('room-change.create');
         Route::post('/{id}/room-change', [CustomerRoomChangeRequestController::class, 'store'])->name('room-change.store');
@@ -244,8 +245,8 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::get('/create',                 [AdminRoomController::class, 'create'])->name('create');
         Route::post('/',                      [AdminRoomController::class, 'store'])->name('store');
         Route::get('/{id}/edit',              [AdminRoomController::class, 'edit'])->name('edit');
+        Route::get('/{id}',                   [AdminRoomController::class, 'show'])->name('show');
         Route::put('/{id}',                   [AdminRoomController::class, 'update'])->name('update');
-        Route::delete('/{id}',                [AdminRoomController::class, 'destroy'])->name('destroy');
         Route::patch('/{id}/housekeeping',    [AdminRoomController::class, 'updateHousekeeping'])->name('update-housekeeping');
     });
 
@@ -457,6 +458,7 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
     Route::prefix('rooms')->name('rooms.')->group(function () {
         Route::get('/',                    [StaffRoomController::class, 'index'])->name('index');
         Route::get('/calendar',            [StaffRoomController::class, 'calendar'])->name('calendar');
+        Route::get('/{id}',                [StaffRoomController::class, 'show'])->name('show');
         Route::patch('/{id}/housekeeping', [StaffRoomController::class, 'updateHousekeeping'])->name('update-housekeeping');
     });
 
