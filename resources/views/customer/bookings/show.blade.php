@@ -617,7 +617,7 @@
                     Ví điện tử / Thẻ ngân hàng (VNPay)
                 </div>
                 <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển sang cổng thanh toán VNPay (môi trường sandbox) để thanh toán bằng thẻ ATM/thẻ quốc tế/QR — xác nhận tự động ngay khi giao dịch thành công.</p>
-                <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}">
+                <form id="vnpay-pay-form" method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}">
                     @csrf
                     <button type="submit" class="btn-primary w-full">Thanh toán qua VNPay</button>
                 </form>
@@ -835,4 +835,22 @@
         }
     </script>
 @endif
+
+<script>
+    // Chặn double-submit (bấm nhanh 2 lần, mạng chậm) khi thanh toán — nếu
+    // không, request thứ 2 gửi sau khi request đầu đã đổi trạng thái
+    // booking/payment sẽ bị canPayDeposit()/canMarkPaymentAsPaid() chặn
+    // (không còn true nữa) và đá về đúng trang này kèm lỗi, dù request đầu
+    // đã thành công — gây hiểu nhầm "đặt cọc/chuyển khoản xong lại báo lỗi".
+    ['deposit-form', 'bank-transfer-form', 'vnpay-pay-form'].forEach(function (formId) {
+        var form = document.getElementById(formId);
+        if (! form) return;
+
+        form.addEventListener('submit', function () {
+            document.querySelectorAll('#' + formId + ' button[type="submit"], [form="' + formId + '"]').forEach(function (btn) {
+                btn.disabled = true;
+            });
+        });
+    });
+</script>
 @endsection

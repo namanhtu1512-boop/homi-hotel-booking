@@ -1,0 +1,93 @@
+<mxfile host="65bd71144e">
+    <diagram id="b2" name="Sơ đồ hoạt động: Đặt phòng tại quầy (staff, walk-in)">
+        <mxGraphModel dx="1144" dy="894" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="780" pageHeight="1264" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="b2_title" value="Sơ đồ hoạt động: Đặt phòng tại quầy (staff, walk-in)" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry width="780" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_lane_0" value="Khách" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="40" width="430" height="1164" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_10" value="Bấm Xác nhận booking&#xa;(POST .../confirm)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="b2_lane_0" vertex="1">
+                    <mxGeometry x="50" y="822" width="380" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_lane_1" value="Nhân viên" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" parent="1" vertex="1">
+                    <mxGeometry x="360" y="40" width="420" height="1164" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="185" y="90" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_2" value="Khách đến quầy lễ tân, cung cấp yêu cầu&#xa;(loại phòng, ngày, số khách)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="155" width="280" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_3" value="Nhân viên tìm phòng trống theo loại/ngày&#xa;(AvailabilityService — tái sử dụng như&#xa;luồng đặt online)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="272" width="380" height="104" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_4" value="Nhập thông tin khách: họ tên, sđt (bắt buộc);&#xa;email, CCCD (không bắt buộc) — không cần&#xa;tài khoản (user_id = null)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="411" width="380" height="104" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_5" value="Tạo booking (BookingService::createByAdmin)&#xa;— KHÔNG có lựa chọn phương thức thanh toán,&#xa;hệ thống tự đặt method=pay_at_hotel,&#xa;status=unpaid; giữ chỗ 30 phút (pending_deposit)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="550" width="380" height="126" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_6" value="Nhân viên xác nhận&#xa;trong 30 phút?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="365" y="711" width="410" height="116" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_7" value="Hết hạn giữ chỗ — booking tự động&#xa;huỷ, giải phóng phòng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="862" width="240" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_8" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="974" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_9" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="561" y="980" width="18" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_11" value="Booking chuyển sang status = confirmed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="1039" width="380" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_12" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="1134" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_v_13" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="561" y="1140" width="18" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_1" target="b2_v_2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="b2_v_2" target="b2_v_3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_3" target="b2_v_4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_4" target="b2_v_5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_5" target="b2_v_6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_19" value="Không kịp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_6" target="b2_v_7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_20" value="Đã xác nhận" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="b2_v_6" target="b2_v_10" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="750" y="769"/>
+                            <mxPoint x="750" y="903"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="b2_e_21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_10" target="b2_v_11" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_e_22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="b2_v_11" target="b2_v_12" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2_cap" value="Hình 3.7.4 – Sơ đồ hoạt động chức năng đặt phòng tại quầy (staff, walk-in)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry y="1219" width="780" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

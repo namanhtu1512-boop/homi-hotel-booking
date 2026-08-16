@@ -28,17 +28,21 @@ class LateCheckoutRequestController extends Controller
         $booking = $this->bookingService->findForCustomer($bookingId, $request->user());
 
         $data = $request->validate([
-            'requested_checkout_time' => ['required', 'date_format:H:i'],
-            'reason'                  => ['nullable', 'string', 'max:1000'],
+            'hours_late' => ['required', 'integer', 'min:1', 'max:6'],
+            'reason'     => ['nullable', 'string', 'max:1000'],
         ], [], [
-            'requested_checkout_time' => 'giờ muốn trả phòng',
-            'reason'                  => 'lý do',
+            'hours_late' => 'số giờ muốn trả phòng trễ',
+            'reason'     => 'lý do',
         ]);
 
-        $this->lateCheckoutRequestService->create($booking, $request->user(), $data);
+        $lateCheckoutRequest = $this->lateCheckoutRequestService->create($booking, $request->user(), $data);
+
+        $message = $lateCheckoutRequest->status === 'approved'
+            ? 'Yêu cầu trả phòng muộn đã được TỰ ĐỘNG duyệt (trễ không quá 1 giờ). Phụ phí đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.'
+            : 'Đã gửi yêu cầu trả phòng muộn, khách sạn sẽ xem xét và phản hồi sớm.';
 
         return redirect()
             ->route('customer.bookings.show', $bookingId)
-            ->with('success', 'Đã gửi yêu cầu trả phòng muộn, khách sạn sẽ xem xét và phản hồi sớm.');
+            ->with('success', $message);
     }
 }

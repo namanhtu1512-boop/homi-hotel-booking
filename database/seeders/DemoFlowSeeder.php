@@ -496,11 +496,11 @@ class DemoFlowSeeder extends Seeder
         });
 
         $this->lateCheckout->create(Booking::find($booking->id), $this->customer, [
-            'requested_checkout_time' => '15:00',
+            'hours_late' => 3,
             'reason' => 'Chuyến bay tối muộn, muốn thư giãn thêm buổi chiều.',
         ]);
 
-        $this->summary[] = ['scenario' => 'I — Yêu cầu trả phòng muộn chờ duyệt (demo duyệt + trả phòng)', 'code' => $booking->booking_code, 'note' => 'Vào "Yêu cầu trả phòng muộn" để duyệt (phí 300.000đ), rồi trả phòng đơn này để thấy phụ phí ghi vào hóa đơn phát sinh.'];
+        $this->summary[] = ['scenario' => 'I — Yêu cầu trả phòng muộn chờ duyệt (demo duyệt + trả phòng)', 'code' => $booking->booking_code, 'note' => 'Vào "Yêu cầu trả phòng muộn" để duyệt (phí 750.000đ, 50% giá phòng), rồi trả phòng đơn này để thấy phụ phí ghi vào hóa đơn phát sinh.'];
     }
 
     // ------------------------------------------------------------

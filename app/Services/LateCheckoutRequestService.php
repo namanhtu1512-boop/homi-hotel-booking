@@ -18,13 +18,17 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Khách ĐANG LƯU TRÚ (đã check-in) gửi yêu cầu trả phòng muộn hơn giờ chuẩn
- * của khách sạn, staff/admin kiểm tra tình trạng phòng rồi duyệt hoặc từ
- * chối. Đây là luồng THAY THẾ hoàn toàn phụ phí trả phòng muộn tự động
- * trước đây (xem BookingService::checkOut()) — khách không xin phép trước
- * thì không tự động bị tính phí nữa; staff vẫn có thể cộng phụ phí thủ công
- * qua "Thêm phụ phí phát sinh" như trước nếu cần xử lý ngoại lệ.
+ * của khách sạn. Trễ tối đa self::AUTO_APPROVE_MAX_HOURS (1 giờ): tự động
+ * DUYỆT ngay lúc gửi, không cần chờ staff. Trễ hơn thế: vẫn phải chờ
+ * staff/admin duyệt dựa trên tình trạng phòng trống thực tế (có khách mới
+ * sắp nhận phòng này không) — đối xứng với EarlyCheckinRequestService.
  *
- * Phí tính theo bậc cố định (không theo % như nhận phòng sớm) — xem
+ * Đây là luồng THAY THẾ hoàn toàn phụ phí trả phòng muộn tự động trước đây
+ * (xem BookingService::checkOut()) — khách không xin phép trước thì không
+ * tự động bị tính phí nữa; staff vẫn có thể cộng phụ phí thủ công qua "Thêm
+ * phụ phí phát sinh" như trước nếu cần xử lý ngoại lệ.
+ *
+ * Phí tính theo % giá phòng đêm cuối, tăng dần theo bậc giờ trễ — xem
  * calculateFee().
  */
 class LateCheckoutRequestService
@@ -32,9 +36,19 @@ class LateCheckoutRequestService
     /**
      * Phải gửi yêu cầu trước giờ trả phòng CHUẨN của khách sạn ít nhất N giờ
      * — để admin/staff kịp kiểm tra tình trạng phòng (có khách mới sắp nhận
-     * phòng này không) trước khi duyệt, tránh khách báo sát giờ mới hỏi.
+     * phòng này không) trước khi duyệt, tránh khách báo sát giờ mới hỏi. Áp
+     * dụng cho cả 2 nhánh (tự động duyệt lẫn chờ staff) — nhánh tự động vẫn
+     * cần khách báo trước 1 khoảng hợp lý, không phải báo ngay lúc đã trễ.
      */
     public const MIN_HOURS_BEFORE_STANDARD_CHECKOUT = 3;
+
+    /**
+     * Trễ tối đa bằng số giờ này được tự động duyệt ngay khi gửi yêu cầu,
+     * không cần staff can thiệp — trễ hơn phải chờ staff duyệt dựa trên tình
+     * trạng phòng trống thực tế. Không áp dụng nếu giờ yêu cầu từ 18:00 trở
+     * đi (xem calculateFee()) dù số giờ trễ tính ra vẫn ≤ ngưỡng này.
+     */
+    public const AUTO_APPROVE_MAX_HOURS = 1;
 
     public function __construct(
         private readonly IncidentalInvoiceService $incidentalInvoiceService,
@@ -60,16 +74,16 @@ class LateCheckoutRequestService
 
         $hotel = HotelInfo::instance();
         $standardTime = substr($hotel->check_out_time ?? '12:00:00', 0, 5);
-        $requestedTime = $data['requested_checkout_time'];
+
+        // Khách chọn SỐ GIỜ muốn trễ (1-6, ràng buộc ở validate() controller)
+        // thay vì tự gõ giờ — tránh nhập giờ lệch khỏi đúng bậc phí, đồng thời
+        // khớp thẳng với các mốc trong bảng phí calculateFee(). Trên 6 giờ
+        // không cho chọn qua form — hướng khách gia hạn hẳn 1 ngày hoặc xuống
+        // quầy trao đổi trực tiếp (xem customer.bookings.late-checkout).
+        $hoursLate = (int) $data['hours_late'];
 
         $standard = Carbon::createFromFormat('H:i', $standardTime);
-        $requested = Carbon::createFromFormat('H:i', $requestedTime);
-
-        if (! $requested->gt($standard)) {
-            throw ValidationException::withMessages([
-                'requested_checkout_time' => ["Giờ yêu cầu phải muộn hơn giờ trả phòng chuẩn ({$standardTime})."],
-            ]);
-        }
+        $requestedTime = (clone $standard)->addHours($hoursLate)->format('H:i');
 
         // Deadline = giờ chuẩn của ĐÚNG NGÀY trả phòng đã đặt (booking.check_out)
         // — dùng để chặn khách gửi yêu cầu quá sát giờ chuẩn, không đủ thời
@@ -85,71 +99,108 @@ class LateCheckoutRequestService
             ]);
         }
 
-        // absolute=true tường minh — diffInMinutes() mặc định trả giá trị CÓ
-        // DẤU từ Carbon 3 trở đi (xem EarlyCheckinRequestService::create()).
-        $minutesLate = $requested->diffInMinutes($standard, true);
-        $hoursLate = round($minutesLate / 60, 2);
         $isAfterEighteen = $requestedTime >= '18:00';
+        $fee = self::calculateFee($hoursLate, $isAfterEighteen, self::lastNightTotal($booking));
 
-        // Dùng nightly_total của ĐÊM CUỐI CÙNG trong price_breakdown — cùng
-        // quy ước đã dùng cho phụ phí trả phòng muộn tự động trước đây.
-        $lastNightTotal = $booking->bookingItems->sum(function (BookingItem $item) {
-            $breakdown = $item->price_breakdown ?? [];
-            $lastNight = $breakdown !== [] ? ($breakdown[count($breakdown) - 1]['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
+        $autoApprove = $hoursLate <= self::AUTO_APPROVE_MAX_HOURS && ! $isAfterEighteen;
 
-            return (float) $lastNight * $item->quantity;
-        });
-
-        $fee = self::calculateFee($hoursLate, $isAfterEighteen, $lastNightTotal);
-
-        $request = LateCheckoutRequest::create([
+        $attributes = [
             'booking_id'               => $booking->id,
             'user_id'                  => $customer->id,
             'requested_checkout_time'  => $requestedTime,
             'hours_late'               => $hoursLate,
             'fee_amount'               => $fee,
             'reason'                   => $data['reason'] ?? null,
-            'status'                   => 'pending',
-        ]);
+            'status'                   => $autoApprove ? 'approved' : 'pending',
+            'handled_at'               => $autoApprove ? now() : null,
+        ];
 
-        User::whereIn('role', ['admin', 'staff'])->each(
-            fn (User $u) => $u->notify(new NewLateCheckoutRequest($request))
-        );
+        if (! $autoApprove) {
+            $request = LateCheckoutRequest::create($attributes);
 
-        return $request;
+            User::whereIn('role', ['admin', 'staff'])->each(
+                fn (User $u) => $u->notify(new NewLateCheckoutRequest($request))
+            );
+
+            return $request;
+        }
+
+        return DB::transaction(function () use ($attributes, $booking) {
+            $request = LateCheckoutRequest::create($attributes);
+
+            $this->grantLateCheckout($request, $booking, ' Yêu cầu trả phòng muộn trong vòng ' . self::AUTO_APPROVE_MAX_HOURS . ' giờ được tự động duyệt.');
+
+            return $request;
+        });
     }
 
     /**
-     * Bảng phí cố định theo bậc giờ trễ:
-     *   - Đến 1 giờ: 100.000đ
-     *   - Trên 1 đến 2 giờ: 200.000đ
-     *   - Trên 2 đến 3 giờ: 300.000đ
-     *   - Trên 3 đến 6 giờ: 50% giá phòng đêm cuối
-     *   - Trên 6 giờ hoặc từ 18:00 trở đi: 100% giá phòng đêm cuối (tính như
-     *     thêm 1 đêm)
+     * Cộng phụ phí trả phòng muộn vào hóa đơn phát sinh + báo khách — dùng
+     * chung cho cả nhánh tự động duyệt (create(), trễ ≤ AUTO_APPROVE_MAX_HOURS)
+     * và nhánh staff duyệt tay (approve()).
+     */
+    private function grantLateCheckout(LateCheckoutRequest $request, Booking $booking, string $extraNote = ''): void
+    {
+        $fee = (float) $request->fee_amount;
+        $newTime = substr($request->requested_checkout_time, 0, 5);
+        // Luôn là số nguyên (1-6) vì form chỉ cho chọn theo giờ tròn — xem
+        // create(). Ghi rõ số giờ trễ trong mô tả để khách/staff/admin nhìn
+        // hóa đơn phát sinh là hiểu ngay, không phải tự trừ giờ chuẩn.
+        $hoursLate = (int) $request->hours_late;
+
+        $this->incidentalInvoiceService->addItem(
+            $booking, 'surcharge', "Phụ phí trả phòng muộn {$hoursLate} giờ (tới {$newTime}, đã duyệt)", $fee
+        );
+
+        $feeText = number_format($fee, 0, ',', '.') . 'đ';
+        $booking->user?->notify(new BookingStatusChanged(
+            $booking,
+            "Yêu cầu trả phòng muộn {$hoursLate} giờ (tới {$newTime}) cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.{$extraNote}"
+        ));
+    }
+
+    /**
+     * Phí = % giá phòng đêm cuối, tăng dần theo bậc giờ trễ:
+     *   - Đến 2 giờ: 30% giá phòng
+     *   - Trên 2 đến 5 giờ: 50% giá phòng
+     *   - Trên 5 giờ (kể cả đúng 6 giờ) hoặc từ 18:00 trở đi: 100% giá phòng
+     *     (tính như thêm 1 đêm). Form chọn tới 6 giờ vẫn gửi được bình
+     *     thường (chờ staff duyệt) — trên 6 giờ mới bắt xuống quầy trao đổi
+     *     trực tiếp, khuyến nghị gia hạn hẳn 1 ngày thay vì trả phòng muộn
+     *     (xem trang yêu cầu trả phòng muộn).
      * So trực tiếp với mốc giờ thực tế (KHÔNG ceil theo giờ như phí nhận
-     * phòng sớm) — VD trễ 1.5 giờ rơi vào bậc "trên 1 đến 2 giờ", không làm
-     * tròn lên 2 giờ.
+     * phòng sớm) — VD trễ 1.5 giờ rơi vào bậc "đến 2 giờ", không làm tròn
+     * lên 2 giờ.
      */
     public static function calculateFee(float $hoursLate, bool $isAfterEighteen, float $lastNightTotal): float
     {
-        if ($isAfterEighteen || $hoursLate > 6) {
+        if ($isAfterEighteen || $hoursLate > 5) {
             return round($lastNightTotal);
         }
 
-        if ($hoursLate > 3) {
+        if ($hoursLate > 2) {
             return round($lastNightTotal * 0.5);
         }
 
-        if ($hoursLate > 2) {
-            return 300000;
-        }
+        return round($lastNightTotal * 0.3);
+    }
 
-        if ($hoursLate > 1) {
-            return 200000;
-        }
+    /**
+     * Giá đêm cuối cùng trong price_breakdown của đơn — dùng làm cơ sở tính
+     * % phụ phí trả phòng muộn ở cả create() (khách xin phép trước), trang
+     * xem trước phí (customer.bookings.late-checkout) và
+     * BookingService::applyLateCheckoutSurchargeIfNeeded() (phí tự động dự
+     * phòng khi khách không xin phép trước) — dùng chung 1 chỗ để 3 nơi luôn
+     * ra cùng 1 kết quả.
+     */
+    public static function lastNightTotal(Booking $booking): float
+    {
+        return $booking->bookingItems->sum(function (BookingItem $item) {
+            $breakdown = $item->price_breakdown ?? [];
+            $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
 
-        return 100000;
+            return (float) $lastNight * $item->quantity;
+        });
     }
 
     public function adminList(array $filters = []): LengthAwarePaginator
@@ -206,24 +257,13 @@ class LateCheckoutRequestService
         }
 
         return DB::transaction(function () use ($lateCheckoutRequest, $booking, $staff) {
-            $fee = (float) $lateCheckoutRequest->fee_amount;
-            $newTime = substr($lateCheckoutRequest->requested_checkout_time, 0, 5);
-
-            $this->incidentalInvoiceService->addItem(
-                $booking, 'surcharge', "Phụ phí trả phòng muộn tới {$newTime} (đã duyệt)", $fee
-            );
-
             $lateCheckoutRequest->update([
                 'status'     => 'approved',
                 'handled_by' => $staff->id,
                 'handled_at' => now(),
             ]);
 
-            $feeText = number_format($fee, 0, ',', '.') . 'đ';
-            $booking->user?->notify(new BookingStatusChanged(
-                $booking,
-                "Yêu cầu trả phòng muộn tới {$newTime} cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng."
-            ));
+            $this->grantLateCheckout($lateCheckoutRequest, $booking);
 
             return [
                 'request' => $lateCheckoutRequest->fresh(),
