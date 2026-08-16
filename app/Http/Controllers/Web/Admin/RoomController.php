@@ -77,6 +77,16 @@ class RoomController extends Controller
         ]);
     }
 
+    public function show(int $id): View
+    {
+        $room = $this->roomService->find($id);
+
+        return view('admin.rooms.show', [
+            'room'    => $room,
+            'history' => $this->auditLog->forSubject($room),
+        ]);
+    }
+
     public function update(Request $request, int $id): RedirectResponse
     {
         $room = $this->roomService->find($id);
@@ -89,20 +99,6 @@ class RoomController extends Controller
         return redirect()
             ->route('admin.rooms.index')
             ->with('success', "Đã cập nhật phòng \"{$room->room_number}\".");
-    }
-
-    public function destroy(int $id): RedirectResponse
-    {
-        $room = $this->roomService->find($id);
-        $number = $room->room_number;
-
-        $this->roomService->delete($room);
-
-        $this->auditLog->log('room.deleted', null, "Xóa phòng \"{$number}\".");
-
-        return redirect()
-            ->route('admin.rooms.index')
-            ->with('success', "Đã xóa phòng \"{$number}\".");
     }
 
     public function updateHousekeeping(Request $request, int $id): RedirectResponse

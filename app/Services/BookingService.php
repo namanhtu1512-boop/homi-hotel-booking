@@ -750,6 +750,40 @@ class BookingService
     }
 
     /**
+     * Khách đã bấm "Thanh toán qua VNPay" (payment chuyển sang PENDING +
+     * method ONLINE_VNPAY ở initiateVnpayPayment()) nhưng đổi ý muốn quay lại
+     * chọn hình thức khác (đặt cọc 30%, chuyển khoản QR) thay vì tiếp tục
+     * VNPay — hạ payment về UNPAID để canPayDeposit()/canMarkPaymentAsPaid()
+     * cho phép chọn lại đầy đủ các hình thức.
+     *
+     * KHÔNG xóa transaction_code/pending_gateway_amount: phiên VNPay cũ vẫn
+     * có thể được khách hoàn tất song song (tab khác) hoặc IPN đến trễ —
+     * confirmVnpayReturn() cố tình không dựa vào payment->status === PENDING
+     * để xác nhận (xem comment ở đầu hàm đó), nên nếu giao dịch cũ thật sự
+     * thành công sau khi đã "hủy" ở đây, hệ thống vẫn ghi nhận đúng thay vì
+     * mất tiền khách.
+     */
+    public function cancelVnpayAttempt(int $bookingId, User $customer): Booking
+    {
+        $booking = $this->findForCustomer($bookingId, $customer);
+
+        DB::transaction(function () use ($booking, $customer) {
+            $payment = Payment::whereKey($booking->payment->id)->lockForUpdate()->first();
+
+            if ($payment->status !== PaymentStatus::PENDING || $payment->method !== PaymentMethod::ONLINE_VNPAY) {
+                throw ValidationException::withMessages([
+                    'status' => ['Không có giao dịch VNPay đang chờ để hủy.'],
+                ]);
+            }
+
+            $payment->update(['status' => PaymentStatus::UNPAID]);
+            $this->logPaymentStatus($payment, PaymentStatus::PENDING, PaymentStatus::UNPAID, $customer->id, 'Khách hủy phiên VNPay để chọn hình thức thanh toán khác.');
+        });
+
+        return $booking->fresh('payment');
+    }
+
+    /**
      * Xử lý phản hồi từ VNPay (dùng chung cho cả return URL và IPN — hai nơi
      * gọi cùng logic idempotent này, chỉ khác định dạng response trả về cho
      * người gọi). Xác thực chữ ký trước khi tin bất kỳ trường nào trong
@@ -1957,12 +1991,19 @@ class BookingService
      * complete()/canComplete() vẫn giữ lại (không xóa) để xử lý các đơn cũ
      * còn kẹt ở CHECKED_OUT từ trước khi có thay đổi này.
      *
-     * Phụ phí trả phòng muộn (nếu có) đã được ghi nhận từ trước, lúc
-     * LateCheckoutRequestService::approve() duyệt yêu cầu của khách — không
-     * còn tự động tính lại ở đây nữa (khách không xin phép trước thì không
-     * tự bị tính phí; staff vẫn có thể cộng phụ phí thủ công nếu cần).
+     * Phụ phí trả phòng muộn: nếu khách ĐÃ xin phép trước (LateCheckoutRequest
+     * được duyệt), phí cố định theo bậc đã ghi vào hóa đơn phát sinh ngay lúc
+     * duyệt (LateCheckoutRequestService::approve()) — không tính lại ở đây.
+     * Nhưng nếu khách trả phòng muộn mà KHÔNG xin phép trước, trước đây hệ
+     * thống không tự tính phí gì cả (dựa hoàn toàn vào việc lễ tân nhớ cộng
+     * phụ phí thủ công) — đây là lỗ hổng thất thu thực tế. Thêm lại 1 lớp
+     * tính phí tự động DỰ PHÒNG applyLateCheckoutSurchargeIfNeeded(), đối
+     * xứng với applyEarlyCheckinSurchargeIfNeeded(): chỉ chạy khi chưa có
+     * yêu cầu được duyệt (tránh thu 2 lần), dùng chung bảng phí bậc của
+     * LateCheckoutRequestService::calculateFee() để nhất quán với phí duyệt
+     * thủ công.
      *
-     * @return array{booking: Booking}
+     * @return array{booking: Booking, late_checkout_fee: ?float}
      *
      * @throws ValidationException
      */
@@ -1981,6 +2022,12 @@ class BookingService
         $isEarly = $booking->isEarlyCheckoutToday();
 
         return DB::transaction(function () use ($booking, $isEarly) {
+            // Phải tính phí trả phòng muộn TRƯỚC khi markPaid() chốt hóa đơn
+            // phát sinh — nếu không, khoản phí vừa cộng sẽ bị bỏ sót, không
+            // được đánh dấu đã thu cùng đợt. Không áp dụng cho trả phòng sớm
+            // (isEarly true nghĩa là sai ngày, không phải trễ giờ).
+            $lateFee = $isEarly ? null : $this->applyLateCheckoutSurchargeIfNeeded($booking);
+
             // Lễ tân bấm "Trả phòng" ở trang xác nhận (đã hiện toàn bộ hóa
             // đơn phát sinh cho khách xem + thu tiền mặt tại quầy) — hành
             // động này VỪA xác nhận đã thu VỪA hoàn tất trả phòng trong 1
@@ -2005,8 +2052,81 @@ class BookingService
 
             $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
 
-            return ['booking' => $booking->fresh(['payment'])];
+            return ['booking' => $booking->fresh(['payment']), 'late_checkout_fee' => $lateFee];
         });
+    }
+
+    /**
+     * Xem checkOut() — tính phí trả phòng muộn TỰ ĐỘNG khi khách trả phòng
+     * sau giờ chuẩn của khách sạn mà KHÔNG có LateCheckoutRequest được duyệt
+     * trước — đối xứng với applyEarlyCheckinSurchargeIfNeeded(). Không thu
+     * phí nếu khách sạn chưa cấu hình giờ trả phòng chuẩn.
+     *
+     * @return ?float  Số tiền phụ phí vừa cộng, null nếu không áp dụng.
+     */
+    private function applyLateCheckoutSurchargeIfNeeded(Booking $booking): ?float
+    {
+        $hotel = HotelInfo::instance();
+
+        if (! $hotel->check_out_time) {
+            return null;
+        }
+
+        // Chỉ tính là "trả phòng muộn" khi hôm nay ĐÚNG là ngày check_out đã
+        // đặt — trả phòng sớm hơn ngày đặt không đi vào nhánh này (đã bị
+        // chặn ở lời gọi $isEarly bên checkOut()), và trả phòng sau cả ngày
+        // check_out (ở lại thêm ngày, đã gia hạn qua extendStay()) là tình
+        // huống khác, ngoài phạm vi phụ phí trả phòng muộn trong ngày.
+        if (! $booking->isCheckOutDateToday()) {
+            return null;
+        }
+
+        $nowVn = now('Asia/Ho_Chi_Minh')->format('H:i:s');
+        $standardTime = substr($hotel->check_out_time, 0, 5);
+
+        if ($nowVn <= $hotel->check_out_time) {
+            return null;
+        }
+
+        // Khách vào được tới đây nghĩa là KHÔNG có LateCheckoutRequest đã
+        // duyệt (nếu có, phí bậc cố định đã thu ngay lúc duyệt — xem
+        // LateCheckoutRequestService::approve()) — không tính thêm phí tự
+        // động ở đây nữa để tránh thu 2 lần cho cùng 1 lần trả muộn.
+        if ($booking->lateCheckoutRequests()->where('status', 'approved')->exists()) {
+            return null;
+        }
+
+        $standard = \Carbon\Carbon::createFromFormat('H:i', $standardTime);
+        $now = \Carbon\Carbon::createFromFormat('H:i', substr($nowVn, 0, 5));
+        // absolute=true tường minh — diffInMinutes() mặc định trả giá trị CÓ
+        // DẤU từ Carbon 3 trở đi (xem LateCheckoutRequestService::create()).
+        $hoursLate = round($now->diffInMinutes($standard, true) / 60, 2);
+        $isAfterEighteen = substr($nowVn, 0, 5) >= '18:00';
+
+        // Dùng nightly_total của ĐÊM CUỐI CÙNG trong price_breakdown — cùng
+        // quy ước LateCheckoutRequestService::create() dùng để tính phí lúc
+        // khách xin phép trước, đảm bảo phí tự động và phí duyệt thủ công ra
+        // cùng 1 kết quả cho cùng 1 mức độ trễ.
+        $lastNightTotal = $booking->bookingItems->sum(function (BookingItem $item) {
+            $breakdown = $item->price_breakdown ?? [];
+            $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
+
+            return (float) $lastNight * $item->quantity;
+        });
+
+        $fee = LateCheckoutRequestService::calculateFee($hoursLate, $isAfterEighteen, $lastNightTotal);
+
+        if ($fee > 0) {
+            $this->addSurcharge(
+                $booking,
+                $fee,
+                "Trả phòng muộn (tự động) sau giờ tiêu chuẩn {$standardTime} (lúc " . substr($nowVn, 0, 5) . '), không có yêu cầu xin phép trước.'
+            );
+
+            return $fee;
+        }
+
+        return null;
     }
 
     public function complete(Booking $booking): Booking

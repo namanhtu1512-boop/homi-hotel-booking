@@ -35,9 +35,13 @@ return [
         ],
     ],
 
-    'anthropic' => [
-        'key'   => env('ANTHROPIC_API_KEY'),
-        'model' => env('ANTHROPIC_MODEL', 'claude-opus-4-8'),
+    'gemini' => [
+        'key'   => env('GEMINI_API_KEY'),
+        // Bản "lite" — không có bước "suy nghĩ" (thinking) trước khi trả lời
+        // như bản flash thường, nhanh hơn ~3-4 lần cho mỗi lượt gọi API mà
+        // vẫn đủ chính xác cho phạm vi hẹp (tra cứu phòng/giá qua tool) của
+        // trợ lý này.
+        'model' => env('GEMINI_MODEL', 'gemini-flash-lite-latest'),
     ],
 
     'vnpay' => [

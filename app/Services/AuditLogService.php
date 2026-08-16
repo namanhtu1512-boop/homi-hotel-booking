@@ -30,6 +30,18 @@ class AuditLogService
     }
 
     /**
+     * Lịch sử thay đổi của một đối tượng cụ thể (vd: trang chi tiết phòng).
+     */
+    public function forSubject(Model $subject)
+    {
+        return AuditLog::with('user')
+            ->where('auditable_type', $subject->getMorphClass())
+            ->where('auditable_id', $subject->getKey())
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    /**
      * Trang "Nhật ký hệ thống" (chỉ admin) — liệt kê toàn bộ AuditLog,
      * không riêng booking, lọc theo nhân viên/loại hành động/khoảng ngày.
      */
