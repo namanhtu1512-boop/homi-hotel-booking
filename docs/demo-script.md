@@ -127,7 +127,7 @@ duyệt** (khách xin đến sớm 2h30, trước giờ chuẩn 14:00).
 Đơn I đang lưu trú, có sẵn 1 **yêu cầu trả phòng muộn đang chờ duyệt** (khách
 xin trả tới 15:00, giờ chuẩn 12:00).
 
-1. "Yêu cầu trả phòng muộn" → mở yêu cầu của đơn I → Duyệt (phí 300.000đ).
+1. "Yêu cầu trả phòng muộn" → mở yêu cầu của đơn I → Duyệt (phí 750.000đ, 50% giá phòng Deluxe).
 2. Trả phòng đơn I — phí vừa duyệt đã nằm sẵn trong hóa đơn phát sinh, thu 1
    lần cùng lúc trả phòng.
 

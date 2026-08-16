@@ -173,9 +173,15 @@
         panel.classList.contains('hidden') ? openPanel() : closePanel();
     });
 
+    // Bắt ở pha capture (chạy TRƯỚC khi event tới target) — vì sendMessage()
+    // có thể gỡ chip gợi ý (phần tử vừa được bấm) khỏi DOM ngay trong lúc
+    // click đang nổi bọt lên document; nếu bắt ở pha bubble như trước, lúc
+    // listener này chạy thì e.target đã bị gỡ khỏi cây DOM nên
+    // widget.contains(e.target) sai thành false, khiến panel tự đóng ngay
+    // sau khi gửi câu hỏi gợi ý.
     document.addEventListener('click', function (e) {
         if (!widget.contains(e.target)) closePanel();
-    });
+    }, true);
 
     clearBtn.addEventListener('click', function () {
         history = [];

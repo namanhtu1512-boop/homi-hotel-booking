@@ -46,7 +46,7 @@
         @if ($lateCheckoutRequest->status !== 'pending')
             <div class="info-item">
                 <span class="label">Xử lý bởi</span>
-                <span class="value">{{ $lateCheckoutRequest->handledByUser->name ?? '—' }} lúc {{ $lateCheckoutRequest->handled_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
+                <span class="value">{{ $lateCheckoutRequest->handledByUser?->name ?? 'Hệ thống (tự động duyệt)' }} lúc {{ $lateCheckoutRequest->handled_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}</span>
             </div>
             @if ($lateCheckoutRequest->staff_note)
                 <div class="info-item">

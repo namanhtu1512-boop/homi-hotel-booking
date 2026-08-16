@@ -1992,14 +1992,16 @@ class BookingService
      * còn kẹt ở CHECKED_OUT từ trước khi có thay đổi này.
      *
      * Phụ phí trả phòng muộn: nếu khách ĐÃ xin phép trước (LateCheckoutRequest
-     * được duyệt), phí cố định theo bậc đã ghi vào hóa đơn phát sinh ngay lúc
-     * duyệt (LateCheckoutRequestService::approve()) — không tính lại ở đây.
-     * Nhưng nếu khách trả phòng muộn mà KHÔNG xin phép trước, trước đây hệ
-     * thống không tự tính phí gì cả (dựa hoàn toàn vào việc lễ tân nhớ cộng
-     * phụ phí thủ công) — đây là lỗ hổng thất thu thực tế. Thêm lại 1 lớp
-     * tính phí tự động DỰ PHÒNG applyLateCheckoutSurchargeIfNeeded(), đối
-     * xứng với applyEarlyCheckinSurchargeIfNeeded(): chỉ chạy khi chưa có
-     * yêu cầu được duyệt (tránh thu 2 lần), dùng chung bảng phí bậc của
+     * đã duyệt — tự động hoặc staff duyệt tay), phí % giá phòng theo bậc đã
+     * ghi vào hóa đơn phát sinh ngay lúc duyệt (LateCheckoutRequestService::
+     * grantLateCheckout(), gọi từ create() nhánh tự động hoặc approve()) —
+     * không tính lại ở đây. Nhưng nếu khách trả phòng muộn mà KHÔNG xin phép
+     * trước, trước đây hệ thống không tự tính phí gì cả (dựa hoàn toàn vào
+     * việc lễ tân nhớ cộng phụ phí thủ công) — đây là lỗ hổng thất thu thực
+     * tế. Thêm lại 1 lớp tính phí tự động DỰ PHÒNG
+     * applyLateCheckoutSurchargeIfNeeded(), đối xứng với
+     * applyEarlyCheckinSurchargeIfNeeded(): chỉ chạy khi chưa có yêu cầu
+     * được duyệt (tránh thu 2 lần), dùng chung bảng phí bậc của
      * LateCheckoutRequestService::calculateFee() để nhất quán với phí duyệt
      * thủ công.
      *
@@ -2103,18 +2105,7 @@ class BookingService
         $hoursLate = round($now->diffInMinutes($standard, true) / 60, 2);
         $isAfterEighteen = substr($nowVn, 0, 5) >= '18:00';
 
-        // Dùng nightly_total của ĐÊM CUỐI CÙNG trong price_breakdown — cùng
-        // quy ước LateCheckoutRequestService::create() dùng để tính phí lúc
-        // khách xin phép trước, đảm bảo phí tự động và phí duyệt thủ công ra
-        // cùng 1 kết quả cho cùng 1 mức độ trễ.
-        $lastNightTotal = $booking->bookingItems->sum(function (BookingItem $item) {
-            $breakdown = $item->price_breakdown ?? [];
-            $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
-
-            return (float) $lastNight * $item->quantity;
-        });
-
-        $fee = LateCheckoutRequestService::calculateFee($hoursLate, $isAfterEighteen, $lastNightTotal);
+        $fee = LateCheckoutRequestService::calculateFee($hoursLate, $isAfterEighteen, LateCheckoutRequestService::lastNightTotal($booking));
 
         if ($fee > 0) {
             $this->addSurcharge(
