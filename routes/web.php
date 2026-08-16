@@ -203,8 +203,8 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
     });
 
     Route::prefix('reviews')->name('reviews.')->group(function () {
-        Route::get('/create', [CustomerReviewController::class, 'create'])->name('create');
-        Route::post('/',      [CustomerReviewController::class, 'store'])->name('store');
+        Route::get('/create/{booking}', [CustomerReviewController::class, 'create'])->name('create');
+        Route::post('/',                [CustomerReviewController::class, 'store'])->name('store');
     });
 
     Route::prefix('chat')->name('chat.')->group(function () {

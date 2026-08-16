@@ -563,6 +563,7 @@ class BookingService
     {
         $query = Booking::where('user_id', $customer->id)
             ->with(['bookingItems.roomType.images', 'payment'])
+            ->withCount('reviews')
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['status'])) {
@@ -1984,7 +1985,7 @@ class BookingService
      * CHECKED_OUT + đã thanh toán đủ (điều kiện này canCheckOut() đã đảm bảo
      * TRƯỚC khi cho trả phòng), nên bước thủ công này không có tác dụng
      * nghiệp vụ nào thêm — chỉ tạo ra 1 bước dễ bị nhân viên quên bấm. Hậu
-     * quả thực tế: ReviewService::reviewableItems()/create() chỉ cho đánh
+     * quả thực tế: ReviewService::canReview()/create() chỉ cho đánh
      * giá khi status===COMPLETED, nên khách trả phòng xong không bao giờ
      * thấy nút "Viết đánh giá" cho tới khi có người nhớ vào bấm hoàn thành.
      * Gộp thẳng vào đây để khách trả phòng xong là đánh giá được ngay.

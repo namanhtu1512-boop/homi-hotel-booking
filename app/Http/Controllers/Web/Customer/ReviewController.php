@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Services\ReviewService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,34 +13,32 @@ class ReviewController extends Controller
 {
     public function __construct(private readonly ReviewService $reviewService) {}
 
-    public function create(): View
+    public function create(Booking $booking): View|RedirectResponse
     {
+        if (! $this->reviewService->canReview($booking, auth()->user())) {
+            return redirect()
+                ->route('customer.bookings.index')
+                ->with('error', 'Đơn này chưa thể đánh giá hoặc đã được đánh giá rồi.');
+        }
+
         return view('customer.reviews.create', [
-            'items' => $this->reviewService->reviewableItems(auth()->user()),
+            'booking' => $booking->load('bookingItems.roomType'),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'booking_id'         => ['required', 'integer'],
-            'room_type_id'       => ['required', 'integer'],
-            'rating'             => ['required', 'integer', 'between:1,5'],
-            'cleanliness_rating' => ['required', 'integer', 'between:1,5'],
-            'service_rating'     => ['required', 'integer', 'between:1,5'],
-            'value_rating'       => ['required', 'integer', 'between:1,5'],
-            'comment'            => ['nullable', 'string', 'max:2000'],
-            'images'             => ['nullable', 'array', 'max:5'],
-            'images.*'           => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'booking_id' => ['required', 'integer'],
+            'rating'     => ['required', 'integer', 'between:1,5'],
+            'comment'    => ['nullable', 'string', 'max:2000'],
+            'images'     => ['nullable', 'array', 'max:5'],
+            'images.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
-            'booking_id'         => 'đơn đặt phòng',
-            'room_type_id'       => 'loại phòng',
-            'rating'             => 'số sao tổng thể',
-            'cleanliness_rating' => 'số sao vệ sinh phòng',
-            'service_rating'     => 'số sao thái độ phục vụ',
-            'value_rating'       => 'số sao giá cả hợp lý',
-            'comment'            => 'bình luận',
-            'images.*'           => 'ảnh',
+            'booking_id' => 'đơn đặt phòng',
+            'rating'     => 'số sao đánh giá',
+            'comment'    => 'bình luận',
+            'images.*'   => 'ảnh',
         ]);
 
         $paths = [];

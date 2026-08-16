@@ -14,20 +14,14 @@ class Review extends Model
         'room_type_id',
         'user_id',
         'rating',
-        'cleanliness_rating',
-        'service_rating',
-        'value_rating',
         'comment',
         'images',
         'status',
     ];
 
     protected $casts = [
-        'rating'             => 'integer',
-        'cleanliness_rating' => 'integer',
-        'service_rating'     => 'integer',
-        'value_rating'       => 'integer',
-        'images'             => 'array',
+        'rating' => 'integer',
+        'images' => 'array',
     ];
 
     public function booking()

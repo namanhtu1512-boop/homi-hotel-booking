@@ -333,13 +333,9 @@ class DemoFlowSeeder extends Seeder
         });
 
         $this->reviews->create($this->customer, [
-            'booking_id'         => $booking->id,
-            'room_type_id'       => $suite,
-            'rating'             => 5,
-            'cleanliness_rating' => 5,
-            'service_rating'     => 5,
-            'value_rating'       => 4,
-            'comment'            => 'Phòng Suite view đẹp, nhân viên hỗ trợ nhiệt tình, sẽ quay lại!',
+            'booking_id' => $booking->id,
+            'rating'     => 5,
+            'comment'    => 'Phòng Suite view đẹp, nhân viên hỗ trợ nhiệt tình, sẽ quay lại!',
         ]);
 
         $this->summary[] = ['scenario' => 'E — Đã hoàn tất + có đánh giá (demo review)', 'code' => $booking->booking_code, 'note' => 'Chỉ để xem, không cần thao tác gì thêm.'];

@@ -132,7 +132,7 @@
                 </div>
                 @auth
                     @if (auth()->user()->role === 'customer')
-                        <a href="{{ route('customer.reviews.create') }}" class="btn-outline btn-sm">Viết đánh giá</a>
+                        <a href="{{ route('customer.bookings.index') }}" class="btn-outline btn-sm">Viết đánh giá</a>
                     @endif
                 @endauth
             </div>
@@ -144,13 +144,6 @@
                     @foreach ($reviews as $review)
                         <div class="border-t border-slate-200 pt-4 first:border-0 first:pt-0 dark:border-slate-800">
                             <div class="text-accent">{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</div>
-                            @if ($review->cleanliness_rating && $review->service_rating && $review->value_rating)
-                                <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                                    <span>Vệ sinh: {{ $review->cleanliness_rating }}/5</span>
-                                    <span>Phục vụ: {{ $review->service_rating }}/5</span>
-                                    <span>Giá cả: {{ $review->value_rating }}/5</span>
-                                </div>
-                            @endif
                             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ $review->comment }}</p>
                             <div class="mt-1 text-xs font-semibold text-slate-400">{{ $review->user->name ?? 'Khách Homi' }} · {{ $review->created_at->format('d/m/Y') }}</div>
                             @if (! empty($review->images))
