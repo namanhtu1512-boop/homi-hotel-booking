@@ -1,0 +1,128 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="g22" name="Sơ đồ hoạt động: Gia hạn lưu trú / đổi phòng khi gia hạn">
+    <mxGraphModel dx="1000" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="800" pageHeight="1924" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="g22_title" value="Sơ đồ hoạt động: Gia hạn lưu trú / đổi phòng khi gia hạn" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="800" height="30" as="geometry" />
+</mxCell>
+<mxCell id="g22_lane_0" value="Nhân viên / Admin" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="40" y="40" width="340" height="1824" as="geometry" />
+</mxCell>
+<mxCell id="g22_lane_1" value="Hệ thống" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="380" y="40" width="420" height="1824" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="195.0" y="90" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_2" value="Mở đơn đang lưu trú (status=checked_in),&#10;chọn &quot;Gia hạn lưu trú&quot;, nhập ngày&#10;check-out mới" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="155" width="300" height="104" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_3" value="computeExtension(): validate ngày mới &gt;&#10;ngày check-out hiện tại" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="400.0" y="294" width="380" height="82" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_4" value="Chủ động muốn đổi loại phòng&#10;ngay cả khi phòng hiện tại&#10;còn chỗ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="45.0" y="411" width="330" height="142" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_5" value="Không: hệ thống tự kiểm tra phòng hiện&#10;tại còn trống trong khoảng ngày mới&#10;không (needs_switch)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="400.0" y="588" width="380" height="104" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_6" value="Cần đổi phòng?&#10;(hết chỗ, hoặc nhân viên chủ&#10;động chọn đổi)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="385.0" y="727" width="410" height="142" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_7" value="Lọc phương án đổi phòng: sức chứa ≥&#10;người lớn (cứng) + extraBedsNeeded()&#10;≤ 1 giường &amp; còn giường phụ trong kho&#10;(đã sửa — trước đây chỉ đề xuất được&#10;Family)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="400.0" y="904" width="380" height="148" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_8" value="Xem preview: số phòng cụ thể, giá mới&#10;cho từng phương án" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="1087" width="300" height="82" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_9" value="Quyết định cuối: giữ nguyên&#10;phòng hay đổi phòng?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="385.0" y="1204" width="410" height="116" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_10" value="Giữ phòng: cộng thêm đêm/subtotal/&#10;phụ thu giường phụ vào booking_item&#10;hiện có" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="400.0" y="1355" width="380" height="104" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_11" value="Đổi phòng: tạo booking_item mới +&#10;booking_item_room mới; phòng cũ:&#10;check-out sớm, housekeeping_status=dirty" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="400.0" y="1494" width="380" height="104" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_12" value="Toàn bộ phụ phí gia hạn ghi vào hoá đơn&#10;phát sinh (incidental_invoice), thu khi&#10;check-out — KHÔNG cộng vào&#10;booking.total_amount/payment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="400.0" y="1633" width="380" height="126" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_13" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="575.0" y="1794" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="g22_v_14" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="581.0" y="1800" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="g22_e_15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_1" target="g22_v_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_2" target="g22_v_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_3" target="g22_v_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_18" value="Không" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_4" target="g22_v_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_19" value="Có (chủ động)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_4" target="g22_v_6">
+<mxGeometry relative="1" as="geometry">
+<Array as="points">
+<mxPoint x="70" y="482.0" />
+<mxPoint x="70" y="798.0" />
+</Array>
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_5" target="g22_v_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_21" value="Không cần đổi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_6" target="g22_v_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_22" value="Cần đổi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_6" target="g22_v_7">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_7" target="g22_v_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_8" target="g22_v_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_25" value="Giữ phòng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_9" target="g22_v_10">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_26" value="Đổi phòng" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_9" target="g22_v_11">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_10" target="g22_v_12">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_28" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_11" target="g22_v_12">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_e_29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g22_v_12" target="g22_v_13">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g22_cap" value="Hình 3.7.22 – Sơ đồ hoạt động chức năng gia hạn lưu trú / đổi phòng khi gia hạn" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1879" width="800" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

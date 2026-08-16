@@ -99,7 +99,7 @@
 <mxGeometry relative="1" as="geometry">
 </mxGeometry>
 </mxCell>
-<mxCell id="d2_cap" value="Hình 3.4.7 – Sơ đồ hoạt động chức năng tính toán hoá đơn (PricingService &amp; BookingService)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxCell id="d2_cap" value="Hình 3.7.7 – Sơ đồ hoạt động chức năng tính toán hoá đơn (PricingService &amp; BookingService)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
 <mxGeometry x="0" y="1325" width="420" height="30" as="geometry" />
 </mxCell>
       </root>

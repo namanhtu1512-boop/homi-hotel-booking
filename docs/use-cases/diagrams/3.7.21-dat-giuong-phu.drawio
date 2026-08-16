@@ -1,0 +1,91 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device">
+  <diagram id="g21" name="Sơ đồ hoạt động: Đặt giường phụ">
+    <mxGraphModel dx="1000" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1040" pageHeight="1349" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="g21_title" value="Sơ đồ hoạt động: Đặt giường phụ" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+<mxGeometry x="0" y="0" width="1040" height="30" as="geometry" />
+</mxCell>
+<mxCell id="g21_lane_0" value="Khách hàng" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="40" y="40" width="300" height="1249" as="geometry" />
+</mxCell>
+<mxCell id="g21_lane_1" value="Hệ thống" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="340" y="40" width="400" height="1249" as="geometry" />
+</mxCell>
+<mxCell id="g21_lane_2" value="Nhân viên / Admin" style="swimlane;whiteSpace=wrap;html=1;startSize=34;horizontal=1;fontStyle=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#666666;container=0;" vertex="1" parent="1">
+<mxGeometry x="740" y="40" width="300" height="1249" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+<mxGeometry x="175.0" y="90" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_2" value="Khách chọn cần giường phụ khi đặt phòng&#10;(online hoặc tại quầy) — số lượng do hệ&#10;thống tự suy ra, không phải khách tự nhập" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="60.0" y="155" width="260" height="104" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_3" value="BookingService::extraBedsNeeded() tính số&#10;giường phụ cần:&#10;• family: bù trẻ em vượt quá 2 trẻ/phòng&#10;• loại khác: bù (người lớn+trẻ em) − sức&#10;chứa cơ bản × số phòng&#10;(người lớn LUÔN bị chặn cứng bởi sức chứa,&#10;trẻ sơ sinh giới hạn cứng 2/phòng — giường&#10;phụ KHÔNG nới được 2 giới hạn này)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="360.0" y="294" width="360" height="214" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_4" value="Còn đủ giường phụ trong kho&#10;chung? (hotel_info.extra_beds_total,&#10;ExtraBedInventoryService)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="345.0" y="543" width="390" height="142" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_5" value="Tính phụ thu (PricingService,&#10;hotel_info.extra_bed_surcharge_per_night&#10;= 200.000đ/đêm), ghi extra_beds +&#10;extra_bed_surcharge vào booking_item" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="360.0" y="720" width="360" height="126" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_6" value="Không đủ: booking.status =&#10;pending_consultation, tạo&#10;ExtraBedRequest chờ xử lý" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="760.0" y="720" width="260" height="104" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_7" value="Nhân viên/Admin chọn phương án&#10;xử lý ExtraBedRequest&#10;(ExtraBedRequestService::resolve)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+<mxGeometry x="745.0" y="881" width="290" height="142" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_8" value="upgrade_room: nâng loại phòng ·&#10;add_room: thêm phòng · drop_extra_bed:&#10;bỏ giường phụ · waitlist: xếp hàng chờ ·&#10;staff_cancel: huỷ đơn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=20;" vertex="1" parent="1">
+<mxGeometry x="760" y="1058" width="260" height="126" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_9" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+<mxGeometry x="525.0" y="1219" width="30" height="30" as="geometry" />
+</mxCell>
+<mxCell id="g21_v_10" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+<mxGeometry x="531.0" y="1225" width="18" height="18" as="geometry" />
+</mxCell>
+<mxCell id="g21_e_11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_1" target="g21_v_2">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_2" target="g21_v_3">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_3" target="g21_v_4">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_14" value="Đủ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_4" target="g21_v_5">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_15" value="Không đủ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_4" target="g21_v_6">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_6" target="g21_v_7">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_7" target="g21_v_8">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_8" target="g21_v_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_e_19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="g21_v_5" target="g21_v_9">
+<mxGeometry relative="1" as="geometry">
+</mxGeometry>
+</mxCell>
+<mxCell id="g21_cap" value="Hình 3.7.21 – Sơ đồ hoạt động chức năng đặt giường phụ" style="text;html=1;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+<mxGeometry x="0" y="1304" width="1040" height="30" as="geometry" />
+</mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
