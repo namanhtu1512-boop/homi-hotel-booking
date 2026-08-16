@@ -96,7 +96,7 @@
                 </div>
             </div>
 
-            <button type="submit" formmethod="GET" formaction="{{ route('customer.bookings.create') }}" class="btn-outline w-full">🔍 Kiểm tra phòng trống</button>
+            <button type="submit" formmethod="GET" formaction="{{ route('customer.bookings.create') }}" formnovalidate class="btn-outline w-full">🔍 Kiểm tra phòng trống</button>
 
             @if (! empty($availabilities))
                 @php
