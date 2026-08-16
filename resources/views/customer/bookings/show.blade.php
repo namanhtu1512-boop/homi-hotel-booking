@@ -409,6 +409,8 @@
 
         @if ($booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
             <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu nhận phòng sớm chờ khách sạn duyệt.</p>
+        @elseif ($booking->earlyCheckinRequests->isNotEmpty())
+            <p class="text-xs text-slate-500 dark:text-slate-400">Đơn này đã gửi yêu cầu nhận phòng sớm (mỗi đơn chỉ được gửi 1 lần).</p>
         @elseif ($booking->canRequestEarlyCheckin())
             <a href="{{ route('customer.bookings.early-checkin.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu nhận phòng sớm</a>
         @endif

@@ -60,9 +60,9 @@ class EarlyCheckinRequestService
             ]);
         }
 
-        if ($booking->earlyCheckinRequests()->where('status', 'pending')->exists()) {
+        if ($booking->earlyCheckinRequests()->exists()) {
             throw ValidationException::withMessages([
-                'status' => ['Đơn này đang có 1 yêu cầu nhận phòng sớm chờ duyệt, vui lòng chờ xử lý xong trước khi gửi yêu cầu mới.'],
+                'status' => ['Đơn này đã gửi yêu cầu nhận phòng sớm trước đó, mỗi đơn chỉ được gửi 1 lần.'],
             ]);
         }
 
