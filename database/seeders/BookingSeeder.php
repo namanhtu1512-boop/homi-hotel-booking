@@ -213,15 +213,12 @@ class BookingSeeder extends Seeder
                 'paid_at'    => now()->subDays(18),
             ]);
             Review::create([
-                'booking_id'         => $b->id,
-                'room_type_id'       => $room->id,
-                'user_id'            => $data['who']->id,
-                'rating'             => $data['rating'],
-                'cleanliness_rating' => $data['rating'],
-                'service_rating'     => $data['rating'],
-                'value_rating'       => $data['rating'],
-                'comment'            => $data['comment'],
-                'status'             => 'visible',
+                'booking_id'   => $b->id,
+                'room_type_id' => $room->id,
+                'user_id'      => $data['who']->id,
+                'rating'       => $data['rating'],
+                'comment'      => $data['comment'],
+                'status'       => 'visible',
             ]);
         }
     }

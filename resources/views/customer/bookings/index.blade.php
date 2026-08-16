@@ -33,7 +33,7 @@
             @foreach ($bookings as $booking)
                 @php
                     $cover = $booking->bookingItems->first()?->roomType?->images->first();
-                    $canReview = $booking->status === \App\Enums\BookingStatus::COMPLETED;
+                    $canReview = $booking->status === \App\Enums\BookingStatus::COMPLETED && $booking->reviews_count === 0;
                 @endphp
                 <div class="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                     <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-primary-light/50 dark:bg-primary/10">
@@ -60,7 +60,7 @@
 
                     <div class="flex gap-2">
                         @if ($canReview)
-                            <a href="{{ route('customer.reviews.create') }}" class="btn-outline btn-sm">Đánh giá</a>
+                            <a href="{{ route('customer.reviews.create', $booking) }}" class="btn-outline btn-sm">Đánh giá</a>
                         @endif
                         <a href="{{ route('customer.bookings.show', $booking->id) }}" class="btn-outline btn-sm">Xem chi tiết</a>
                     </div>

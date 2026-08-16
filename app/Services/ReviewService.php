@@ -13,49 +13,21 @@ use Illuminate\Validation\ValidationException;
 class ReviewService
 {
     /**
-     * Đơn đã hoàn tất (completed) của khách nhưng từng loại phòng trong đơn
-     * chưa được đánh giá — dùng để hiển thị nút "Viết đánh giá".
+     * Đơn có thể đánh giá: thuộc về khách, đã hoàn tất, và chưa từng được
+     * đánh giá — mỗi đơn chỉ được đánh giá đúng 1 lần.
      */
-    public function reviewableItems(User $user): \Illuminate\Support\Collection
+    public function canReview(Booking $booking, User $user): bool
     {
-        $bookings = Booking::query()
-            ->where('user_id', $user->id)
-            ->where('status', BookingStatus::COMPLETED)
-            ->with('bookingItems.roomType')
-            ->get();
-
-        $reviewed = Review::where('user_id', $user->id)
-            ->get(['booking_id', 'room_type_id'])
-            ->map(fn ($r) => $r->booking_id . '-' . $r->room_type_id)
-            ->all();
-
-        $items = collect();
-
-        foreach ($bookings as $booking) {
-            foreach ($booking->bookingItems as $item) {
-                if (! $item->roomType) {
-                    continue;
-                }
-
-                $key = $booking->id . '-' . $item->room_type_id;
-
-                if (in_array($key, $reviewed, true)) {
-                    continue;
-                }
-
-                $items->push([
-                    'booking'   => $booking,
-                    'room_type' => $item->roomType,
-                ]);
-            }
-        }
-
-        return $items->values();
+        return $booking->user_id === $user->id
+            && $booking->status === BookingStatus::COMPLETED
+            && ! Review::where('booking_id', $booking->id)->exists();
     }
 
     public function create(User $user, array $data): Review
     {
-        $booking = Booking::where('user_id', $user->id)->findOrFail($data['booking_id']);
+        $booking = Booking::where('user_id', $user->id)
+            ->with('bookingItems')
+            ->findOrFail($data['booking_id']);
 
         if ($booking->status !== BookingStatus::COMPLETED) {
             throw ValidationException::withMessages([
@@ -63,45 +35,40 @@ class ReviewService
             ]);
         }
 
-        $ownsRoomType = $booking->bookingItems()->where('room_type_id', $data['room_type_id'])->exists();
-
-        if (! $ownsRoomType) {
-            throw ValidationException::withMessages([
-                'room_type_id' => ['Loại phòng này không thuộc đơn đã chọn.'],
-            ]);
-        }
-
-        $alreadyReviewed = Review::where('booking_id', $booking->id)
-            ->where('room_type_id', $data['room_type_id'])
-            ->exists();
+        $alreadyReviewed = Review::where('booking_id', $booking->id)->exists();
 
         if ($alreadyReviewed) {
             throw ValidationException::withMessages([
-                'room_type_id' => ['Bạn đã đánh giá loại phòng này cho đơn này rồi.'],
+                'booking_id' => ['Bạn đã đánh giá đơn này rồi.'],
+            ]);
+        }
+
+        $roomTypeId = $booking->bookingItems->first()?->room_type_id;
+
+        if (! $roomTypeId) {
+            throw ValidationException::withMessages([
+                'booking_id' => ['Đơn này không có loại phòng hợp lệ để đánh giá.'],
             ]);
         }
 
         // check-then-act: exists() ở trên không chống được 2 request submit
-        // cùng lúc cho cùng booking+room_type — unique constraint ở DB mới là
-        // chốt chặn thật, bắt QueryException để trả lỗi validation thân thiện
-        // thay vì để nó vỡ thành 500.
+        // cùng lúc cho cùng đơn — unique constraint ở DB mới là chốt chặn
+        // thật, bắt QueryException để trả lỗi validation thân thiện thay vì
+        // để nó vỡ thành 500.
         try {
             return Review::create([
-                'booking_id'         => $booking->id,
-                'room_type_id'       => $data['room_type_id'],
-                'user_id'            => $user->id,
-                'rating'             => $data['rating'],
-                'cleanliness_rating' => $data['cleanliness_rating'],
-                'service_rating'     => $data['service_rating'],
-                'value_rating'       => $data['value_rating'],
-                'comment'            => $data['comment'] ?? null,
-                'images'             => $data['images'] ?? null,
-                'status'             => 'visible',
+                'booking_id'   => $booking->id,
+                'room_type_id' => $roomTypeId,
+                'user_id'      => $user->id,
+                'rating'       => $data['rating'],
+                'comment'      => $data['comment'] ?? null,
+                'images'       => $data['images'] ?? null,
+                'status'       => 'visible',
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
             if ((int) $e->getCode() === 23000) {
                 throw ValidationException::withMessages([
-                    'room_type_id' => ['Bạn đã đánh giá loại phòng này cho đơn này rồi.'],
+                    'booking_id' => ['Bạn đã đánh giá đơn này rồi.'],
                 ]);
             }
 
