@@ -22,24 +22,18 @@ class ReviewController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'booking_id'         => ['required', 'integer'],
-            'room_type_id'       => ['required', 'integer'],
-            'rating'             => ['required', 'integer', 'between:1,5'],
-            'cleanliness_rating' => ['required', 'integer', 'between:1,5'],
-            'service_rating'     => ['required', 'integer', 'between:1,5'],
-            'value_rating'       => ['required', 'integer', 'between:1,5'],
-            'comment'            => ['nullable', 'string', 'max:2000'],
-            'images'             => ['nullable', 'array', 'max:5'],
-            'images.*'           => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'booking_id'   => ['required', 'integer'],
+            'room_type_id' => ['required', 'integer'],
+            'rating'       => ['required', 'integer', 'between:1,5'],
+            'comment'      => ['nullable', 'string', 'max:2000'],
+            'images'       => ['nullable', 'array', 'max:5'],
+            'images.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
-            'booking_id'         => 'đơn đặt phòng',
-            'room_type_id'       => 'loại phòng',
-            'rating'             => 'số sao tổng thể',
-            'cleanliness_rating' => 'số sao vệ sinh phòng',
-            'service_rating'     => 'số sao thái độ phục vụ',
-            'value_rating'       => 'số sao giá cả hợp lý',
-            'comment'            => 'bình luận',
-            'images.*'           => 'ảnh',
+            'booking_id'   => 'đơn đặt phòng',
+            'room_type_id' => 'loại phòng',
+            'rating'       => 'số sao',
+            'comment'      => 'bình luận',
+            'images.*'     => 'ảnh',
         ]);
 
         $paths = [];

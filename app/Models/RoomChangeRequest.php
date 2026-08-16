@@ -11,8 +11,6 @@ class RoomChangeRequest extends Model
 
     protected $fillable = [
         'booking_id',
-        'booking_item_id',
-        'quantity',
         'user_id',
         'current_room_type_id',
         'requested_room_type_id',
@@ -28,7 +26,6 @@ class RoomChangeRequest extends Model
     ];
 
     protected $casts = [
-        'quantity'             => 'integer',
         'current_check_in'    => 'date',
         'current_check_out'   => 'date',
         'requested_check_in'  => 'date',
@@ -39,11 +36,6 @@ class RoomChangeRequest extends Model
     public function booking()
     {
         return $this->belongsTo(Booking::class);
-    }
-
-    public function bookingItem()
-    {
-        return $this->belongsTo(BookingItem::class);
     }
 
     public function user()

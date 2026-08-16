@@ -411,6 +411,10 @@
             <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu nhận phòng sớm chờ khách sạn duyệt.</p>
         @elseif ($booking->canRequestEarlyCheckin())
             <a href="{{ route('customer.bookings.early-checkin.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu nhận phòng sớm</a>
+        @elseif ($booking->status === \App\Enums\BookingStatus::CONFIRMED)
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Chỉ có thể yêu cầu nhận phòng sớm trong vòng {{ \App\Services\EarlyCheckinRequestService::REQUEST_WINDOW_HOURS_BEFORE }} giờ so với giờ nhận phòng.
+            </p>
         @endif
 
         @if ($booking->lateCheckoutRequests->contains(fn ($r) => $r->status === 'pending'))
@@ -498,10 +502,6 @@
         <form method="POST" action="{{ route('customer.bookings.pay-online', $booking->id) }}" class="mt-3">
             @csrf
             <button type="submit" class="btn-primary w-full">Thanh toán lại qua VNPay</button>
-        </form>
-        <form method="POST" action="{{ route('customer.bookings.pay-cancel-vnpay', $booking->id) }}" class="mt-2.5">
-            @csrf
-            <button type="submit" class="btn-outline w-full">Hủy, chọn hình thức thanh toán khác</button>
         </form>
     </div>
 @elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING)

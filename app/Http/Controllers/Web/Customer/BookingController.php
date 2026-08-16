@@ -231,13 +231,4 @@ class BookingController extends Controller
             ->route('customer.bookings.show', $booking->id)
             ->with('success', "Đã đặt cọc {$deposit}đ. Vui lòng thanh toán {$remaining}đ còn lại bằng tiền mặt khi nhận phòng.");
     }
-
-    public function cancelVnpay(int $id, Request $request): RedirectResponse
-    {
-        $this->bookingService->cancelVnpayAttempt($id, $request->user());
-
-        return redirect()
-            ->route('customer.bookings.show', $id)
-            ->with('success', 'Đã hủy phiên VNPay, bạn có thể chọn hình thức thanh toán khác bên dưới.');
-    }
 }

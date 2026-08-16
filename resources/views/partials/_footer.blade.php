@@ -2,7 +2,7 @@
     <div class="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
             <div class="flex items-center gap-2">
-                <img src="{{ asset('images/logo-icon.png') }}" alt="Homi" class="h-9 w-9 object-contain">
+                <img src="{{ asset('images/logo.png') }}" alt="Homi" class="h-9 w-9 rounded-[10px] object-cover">
                 <span class="flex flex-col justify-center gap-0.5">
                     <img src="{{ asset('images/logo-wordmark.png') }}" alt="Homi" class="h-5 w-auto object-contain dark:hidden">
                     <img src="{{ asset('images/logo-wordmark-white.png') }}" alt="Homi" class="hidden h-5 w-auto object-contain dark:block">
