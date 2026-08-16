@@ -58,6 +58,17 @@
     const CSRF       = document.querySelector('meta[name="csrf-token"]')?.content ?? '{{ csrf_token() }}';
     const STORAGE_KEY = 'homi_ai_assistant_history';
 
+    // Câu hỏi gợi ý — chỉ hiện khi chưa có hội thoại nào (renderAll() ở
+    // nhánh history rỗng), giúp khách bấm nhanh thay vì phải tự gõ.
+    const SUGGESTED_QUESTIONS = [
+        'Khách sạn có những loại phòng nào, giá bao nhiêu?',
+        'Cuối tuần này còn phòng trống không?',
+        'Giờ nhận phòng và trả phòng là mấy giờ?',
+        'Chính sách hủy phòng thế nào?',
+        'Đặt phòng cần đặt cọc bao nhiêu?',
+        'Phòng Family sức chứa bao nhiêu người?',
+    ];
+
     const widget   = document.getElementById('ai-assistant-widget');
     const toggle   = document.getElementById('ai-assistant-toggle');
     const panel    = document.getElementById('ai-assistant-panel');
@@ -101,10 +112,27 @@
         return wrapper;
     }
 
+    function appendSuggestions() {
+        const wrapper = document.createElement('div');
+        wrapper.id = 'ai-assistant-suggestions';
+        wrapper.className = 'flex flex-wrap gap-1.5 pl-1';
+        SUGGESTED_QUESTIONS.forEach(question => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'rounded-full border border-primary/30 bg-primary-light px-3 py-1.5 text-left text-xs text-primary transition hover:bg-primary hover:text-white dark:bg-primary/10 dark:text-primary-light dark:hover:text-white';
+            chip.textContent = question;
+            chip.addEventListener('click', () => sendMessage(question));
+            wrapper.appendChild(chip);
+        });
+        messagesEl.appendChild(wrapper);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
     function renderAll() {
         messagesEl.innerHTML = '';
         if (history.length === 0) {
             appendBubble('assistant', 'Xin chào! Mình là trợ lý ảo của Homi Hotel. Bạn cần tìm phòng, hỏi giá hay kiểm tra phòng trống theo ngày không?');
+            appendSuggestions();
             return;
         }
         history.forEach(turn => appendBubble(turn.role, turn.content));
@@ -155,10 +183,10 @@
         renderAll();
     });
 
-    form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const message = input.value.trim();
+    async function sendMessage(message) {
         if (!message) return;
+
+        document.getElementById('ai-assistant-suggestions')?.remove();
 
         input.value = '';
         sendBtn.disabled = true;
@@ -199,6 +227,13 @@
         } finally {
             sendBtn.disabled = false;
         }
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const message = input.value.trim();
+        if (!message) return;
+        sendMessage(message);
     });
 
     renderAll();

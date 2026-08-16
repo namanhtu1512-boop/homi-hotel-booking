@@ -9,7 +9,7 @@
 @php
     $statusBadge = ['pending' => 'badge-orange', 'approved' => 'badge-green', 'rejected' => 'badge-red'][$roomChangeRequest->status] ?? 'badge-green';
     $statusLabel = ['pending' => 'Chờ duyệt', 'approved' => 'Đã duyệt', 'rejected' => 'Đã từ chối'][$roomChangeRequest->status] ?? $roomChangeRequest->status;
-    $item = $roomChangeRequest->booking->bookingItems->first();
+    $item = $roomChangeRequest->bookingItem ?? $roomChangeRequest->booking->bookingItems->first();
 @endphp
 
 <div class="card">
@@ -24,6 +24,12 @@
             <span class="label">Khách</span>
             <span class="value">{{ $roomChangeRequest->user->name }} ({{ $roomChangeRequest->user->email }})</span>
         </div>
+        @if ($roomChangeRequest->booking->bookingItems->count() > 1)
+            <div class="info-item">
+                <span class="label">Loại đơn</span>
+                <span class="value">Đặt đoàn (nhiều loại phòng) — yêu cầu đổi đúng dòng "{{ $item?->roomType?->name ?? '—' }}"</span>
+            </div>
+        @endif
         <div class="info-item">
             <span class="label">Loại phòng hiện tại</span>
             <span class="value">{{ $roomChangeRequest->currentRoomType->name ?? '—' }}</span>
@@ -50,6 +56,12 @@
             <span class="label">Số lượng phòng / khách</span>
             <span class="value">{{ $item?->quantity }} phòng, {{ $item?->adults }} người lớn + {{ $item?->children }} trẻ em</span>
         </div>
+        @if ($roomChangeRequest->requestedRoomType && $roomChangeRequest->quantity && $item && $roomChangeRequest->quantity < $item->quantity)
+            <div class="info-item">
+                <span class="label">Số phòng muốn đổi</span>
+                <span class="value">{{ $roomChangeRequest->quantity }} / {{ $item->quantity }} phòng — chỉ đổi 1 phần, {{ $item->quantity - $roomChangeRequest->quantity }} phòng còn lại giữ nguyên loại "{{ $roomChangeRequest->currentRoomType->name ?? '—' }}"</span>
+            </div>
+        @endif
         <div class="info-item">
             <span class="label">Lý do</span>
             <span class="value">{{ $roomChangeRequest->reason ?? '—' }}</span>

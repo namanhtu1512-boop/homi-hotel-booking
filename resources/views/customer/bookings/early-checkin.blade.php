@@ -10,7 +10,7 @@
 @php
     $hotel = \App\Models\HotelInfo::instance();
     $standardTime = substr($hotel->check_in_time ?? '14:00:00', 0, 5);
-    $maxHours = \App\Services\EarlyCheckinRequestService::MAX_HOURS_EARLY;
+    $autoApproveMaxHours = \App\Services\EarlyCheckinRequestService::AUTO_APPROVE_MAX_HOURS;
     $feePerHour = \App\Services\EarlyCheckinRequestService::FEE_PER_HOUR;
 @endphp
 
@@ -35,7 +35,9 @@
     </div>
 
     <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        Bạn có thể yêu cầu nhận phòng sớm hơn giờ chuẩn tối đa {{ $maxHours }} giờ.
+        Sớm tối đa {{ $autoApproveMaxHours }} giờ so với giờ chuẩn: yêu cầu được <strong>tự động duyệt ngay</strong>,
+        bạn nhận thông báo được vào phòng sớm ngay lập tức. Muốn sớm hơn nữa: yêu cầu cần khách sạn xem xét
+        tình trạng phòng trống thực tế trong ngày trước khi duyệt.
         Phụ phí {{ number_format($feePerHour, 0, ',', '.') }}đ cho mỗi giờ đến sớm
         (làm tròn lên), cộng vào tổng tiền đơn và chỉ cần thanh toán khi trả phòng.
     </p>

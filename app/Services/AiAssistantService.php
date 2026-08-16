@@ -2,29 +2,34 @@
 
 namespace App\Services;
 
-use Anthropic\Client;
-use Anthropic\Messages\ToolUseBlock;
 use App\Models\HotelInfo;
 use App\Models\RoomType;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Throwable;
 
 /**
- * Trợ lý ảo trả lời khách bằng Claude API, có thể gọi tool để tra cứu
- * loại phòng và tình trạng phòng trống THẬT từ DB (không tự bịa số liệu).
+ * Trợ lý ảo trả lời khách bằng Gemini API (có gói miễn phí), có thể gọi tool
+ * để tra cứu loại phòng và tình trạng phòng trống THẬT từ DB (không tự bịa
+ * số liệu). Gọi thẳng REST endpoint generateContent bằng Http facade — không
+ * cần SDK riêng.
  *
  * Lịch sử hội thoại được client (widget JS) giữ dưới dạng mảng phẳng
  * {role, content} và gửi lại mỗi request — server không lưu trạng thái.
- * Toàn bộ vòng lặp tool_use (gọi tool, gửi kết quả, gọi lại Claude) chạy
- * gọn trong một request HTTP vì tool chỉ đọc DB nội bộ, không có I/O chậm.
+ * Toàn bộ vòng lặp function-calling (gọi tool, gửi kết quả, gọi lại Gemini)
+ * chạy gọn trong một request HTTP vì tool chỉ đọc DB nội bộ, không có I/O
+ * chậm.
  */
 class AiAssistantService
 {
     private const MAX_TOOL_ROUNDS = 4;
 
-    private const MAX_TOKENS = 1024;
+    private const MAX_OUTPUT_TOKENS = 1024;
+
+    private const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
     public function __construct(private readonly AvailabilityService $availability) {}
 
@@ -33,55 +38,48 @@ class AiAssistantService
      */
     public function reply(array $history, string $userMessage): string
     {
-        $apiKey = config('services.anthropic.key');
+        $apiKey = config('services.gemini.key');
 
         if (empty($apiKey)) {
-            return 'Trợ lý AI hiện chưa được cấu hình (thiếu ANTHROPIC_API_KEY). Bạn vui lòng dùng khung "Hỗ trợ" để trò chuyện trực tiếp với nhân viên nhé.';
+            return 'Trợ lý AI hiện chưa được cấu hình (thiếu GEMINI_API_KEY). Bạn vui lòng dùng khung "Hỗ trợ" để trò chuyện trực tiếp với nhân viên nhé.';
         }
 
-        $client = new Client(apiKey: $apiKey);
-        $model = config('services.anthropic.model', 'claude-opus-4-8');
-        $tools = $this->toolDefinitions();
-        $messages = $this->buildMessages($history, $userMessage);
+        $model = config('services.gemini.model', 'gemini-flash-lite-latest');
+        $contents = $this->buildContents($history, $userMessage);
 
         try {
-            $response = $client->messages->create(
-                model: $model,
-                maxTokens: self::MAX_TOKENS,
-                system: $this->systemPrompt(),
-                tools: $tools,
-                messages: $messages,
-            );
+            $parts = $this->candidateParts($this->callGemini($apiKey, $model, $contents));
 
             $rounds = 0;
 
-            while ($response->stopReason === 'tool_use' && $rounds < self::MAX_TOOL_ROUNDS) {
+            while ($this->hasFunctionCall($parts) && $rounds < self::MAX_TOOL_ROUNDS) {
                 $rounds++;
-                $toolResults = [];
 
-                foreach ($response->content as $block) {
-                    if ($block instanceof ToolUseBlock) {
-                        $toolResults[] = [
-                            'type' => 'tool_result',
-                            'toolUseID' => $block->id,
-                            'content' => $this->executeTool($block->name, $block->input),
-                        ];
+                $contents[] = ['role' => 'model', 'parts' => $this->normalizeFunctionCallArgs($parts)];
+
+                $functionResponseParts = [];
+                foreach ($parts as $part) {
+                    if (! isset($part['functionCall'])) {
+                        continue;
                     }
+
+                    $name = $part['functionCall']['name'];
+                    $args = $part['functionCall']['args'] ?? [];
+
+                    $functionResponseParts[] = [
+                        'functionResponse' => [
+                            'name'     => $name,
+                            'response' => ['content' => $this->executeTool($name, $args)],
+                        ],
+                    ];
                 }
 
-                $messages[] = ['role' => 'assistant', 'content' => $response->content];
-                $messages[] = ['role' => 'user', 'content' => $toolResults];
+                $contents[] = ['role' => 'user', 'parts' => $functionResponseParts];
 
-                $response = $client->messages->create(
-                    model: $model,
-                    maxTokens: self::MAX_TOKENS,
-                    system: $this->systemPrompt(),
-                    tools: $tools,
-                    messages: $messages,
-                );
+                $parts = $this->candidateParts($this->callGemini($apiKey, $model, $contents));
             }
 
-            $text = $this->extractText($response);
+            $text = $this->extractText($parts);
 
             return $text !== ''
                 ? $text
@@ -94,16 +92,88 @@ class AiAssistantService
     }
 
     /**
-     * @param  array<int, array{role: string, content: string}>  $history
-     * @return array<int, array{role: string, content: string}>
+     * @param  array<int, array<string, mixed>>  $contents
+     * @return array<string, mixed>
      */
-    private function buildMessages(array $history, string $userMessage): array
+    private function callGemini(string $apiKey, string $model, array $contents): array
+    {
+        // Header x-goog-api-key thay vì query param ?key= — cách xác thực
+        // được Google khuyến nghị cho các "authorization key" tạo mới từ AI
+        // Studio, tránh lộ key qua access log/referrer khi để trong URL.
+        $response = Http::timeout(30)
+            ->withHeaders(['x-goog-api-key' => $apiKey])
+            ->post(self::API_BASE."/{$model}:generateContent", [
+                'system_instruction' => ['parts' => [['text' => $this->systemPrompt()]]],
+                'contents'           => $contents,
+                'tools'              => [['functionDeclarations' => $this->toolDefinitions()]],
+                'generationConfig'   => ['maxOutputTokens' => self::MAX_OUTPUT_TOKENS],
+            ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException('Gemini API lỗi '.$response->status().': '.$response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     * @return array<int, array<string, mixed>>
+     */
+    private function candidateParts(array $response): array
+    {
+        return $response['candidates'][0]['content']['parts'] ?? [];
+    }
+
+    /**
+     * Khi echo lại nguyên văn functionCall part của model vào lượt sau (bắt
+     * buộc, kèm thoughtSignature — xem callGemini()), field `args` của tool
+     * KHÔNG nhận tham số (VD list_room_types) đến từ Gemini dạng object rỗng
+     * `{}`. json_decode(..., true) biến nó thành mảng PHP rỗng `[]`, và
+     * json_encode() lại mảng rỗng đó ra `[]` (list) thay vì `{}` (object) —
+     * Gemini từ chối vì `args` là Struct proto, không phải repeated field.
+     * Ép về (object) trước khi gửi lại để tránh lỗi "Proto field is not
+     * repeating, cannot start list".
+     *
+     * @param  array<int, array<string, mixed>>  $parts
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeFunctionCallArgs(array $parts): array
+    {
+        foreach ($parts as &$part) {
+            if (isset($part['functionCall']) && ($part['functionCall']['args'] ?? null) === []) {
+                $part['functionCall']['args'] = (object) [];
+            }
+        }
+
+        return $parts;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $parts
+     */
+    private function hasFunctionCall(array $parts): bool
+    {
+        foreach ($parts as $part) {
+            if (isset($part['functionCall'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, array{role: string, content: string}>  $history
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildContents(array $history, string $userMessage): array
     {
         // Chỉ giữ tối đa 20 lượt gần nhất để giới hạn token, tránh lịch sử
         // client gửi lên phình to vô hạn.
         $recent = array_slice($history, -20);
 
-        $messages = [];
+        $contents = [];
         foreach ($recent as $turn) {
             $role = $turn['role'] ?? null;
             $content = trim((string) ($turn['content'] ?? ''));
@@ -112,12 +182,14 @@ class AiAssistantService
                 continue;
             }
 
-            $messages[] = ['role' => $role, 'content' => $content];
+            // Gemini chỉ nhận role "user"/"model" trong contents (không có
+            // "assistant" như Anthropic).
+            $contents[] = ['role' => $role === 'assistant' ? 'model' : 'user', 'parts' => [['text' => $content]]];
         }
 
-        $messages[] = ['role' => 'user', 'content' => trim($userMessage)];
+        $contents[] = ['role' => 'user', 'parts' => [['text' => trim($userMessage)]]];
 
-        return $messages;
+        return $contents;
     }
 
     private function systemPrompt(): string
@@ -149,7 +221,7 @@ class AiAssistantService
             [
                 'name' => 'list_room_types',
                 'description' => 'Lấy danh sách các loại phòng đang mở bán tại khách sạn, kèm room_type_id, giá/đêm, sức chứa, loại giường, diện tích. Gọi tool này khi khách hỏi về các loại phòng hiện có hoặc muốn so sánh phòng, hoặc trước khi gọi check_room_availability nếu chưa biết room_type_id.',
-                'inputSchema' => [
+                'parameters' => [
                     'type' => 'object',
                     'properties' => (object) [],
                 ],
@@ -157,7 +229,7 @@ class AiAssistantService
             [
                 'name' => 'check_room_availability',
                 'description' => 'Kiểm tra số phòng còn trống thực tế của MỘT loại phòng trong khoảng ngày nhận/trả phòng. Cần room_type_id lấy từ list_room_types trước.',
-                'inputSchema' => [
+                'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'room_type_id' => ['type' => 'integer', 'description' => 'ID loại phòng, lấy từ list_room_types'],
@@ -173,17 +245,21 @@ class AiAssistantService
 
     /**
      * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
      */
-    private function executeTool(string $name, array $input): string
+    private function executeTool(string $name, array $input): array
     {
         return match ($name) {
             'list_room_types' => $this->listRoomTypes(),
             'check_room_availability' => $this->checkRoomAvailability($input),
-            default => json_encode(['error' => "Không hỗ trợ tool: {$name}"], JSON_UNESCAPED_UNICODE),
+            default => ['error' => "Không hỗ trợ tool: {$name}"],
         };
     }
 
-    private function listRoomTypes(): string
+    /**
+     * @return array<string, mixed>
+     */
+    private function listRoomTypes(): array
     {
         $types = RoomType::active()
             ->orderBy('price_per_night')
@@ -200,13 +276,14 @@ class AiAssistantService
             ])
             ->values();
 
-        return json_encode(['room_types' => $types], JSON_UNESCAPED_UNICODE);
+        return ['room_types' => $types];
     }
 
     /**
      * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
      */
-    private function checkRoomAvailability(array $input): string
+    private function checkRoomAvailability(array $input): array
     {
         $roomTypeId = (int) ($input['room_type_id'] ?? 0);
         $checkIn = (string) ($input['check_in'] ?? '');
@@ -220,27 +297,28 @@ class AiAssistantService
             $result['room_type_name'] = $roomType?->name;
             $result['price_per_night_vnd'] = $roomType ? (int) $roomType->price_per_night : null;
 
-            return json_encode($result, JSON_UNESCAPED_UNICODE);
+            return $result;
         } catch (ValidationException $e) {
-            return json_encode([
-                'error' => 'Ngày không hợp lệ: '.implode(' ', $e->validator->errors()->all()),
-            ], JSON_UNESCAPED_UNICODE);
+            return ['error' => 'Ngày không hợp lệ: '.implode(' ', $e->validator->errors()->all())];
         } catch (ModelNotFoundException) {
-            return json_encode(['error' => 'Không tìm thấy loại phòng với room_type_id này.'], JSON_UNESCAPED_UNICODE);
+            return ['error' => 'Không tìm thấy loại phòng với room_type_id này.'];
         } catch (Throwable $e) {
             Log::warning('check_room_availability tool error: '.$e->getMessage());
 
-            return json_encode(['error' => 'Không thể kiểm tra phòng trống lúc này.'], JSON_UNESCAPED_UNICODE);
+            return ['error' => 'Không thể kiểm tra phòng trống lúc này.'];
         }
     }
 
-    private function extractText(object $response): string
+    /**
+     * @param  array<int, array<string, mixed>>  $parts
+     */
+    private function extractText(array $parts): string
     {
         $text = '';
 
-        foreach ($response->content as $block) {
-            if ($block->type === 'text') {
-                $text .= $block->text;
+        foreach ($parts as $part) {
+            if (isset($part['text'])) {
+                $text .= $part['text'];
             }
         }
 
