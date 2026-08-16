@@ -46,32 +46,17 @@
                 <input type="hidden" id="room_type_id" name="room_type_id" value="{{ old('room_type_id') }}">
             </div>
 
-            @php
-                $ratingCriteria = [
-                    'rating'             => 'Đánh giá tổng thể',
-                    'cleanliness_rating' => 'Vệ sinh phòng',
-                    'service_rating'     => 'Thái độ phục vụ',
-                    'value_rating'       => 'Giá cả hợp lý',
-                ];
-            @endphp
-
-            @foreach ($ratingCriteria as $field => $label)
-                <div>
-                    <label class="form-label">{{ $label }} *</label>
-                    {{-- Sao xếp NGƯỢC trong DOM (5→1) + flex-row-reverse để hiển thị
-                    đúng thứ tự 1→5 trái sang phải, nhưng cho phép chọn selector
-                    peer-checked (chỉ "nhìn" được sibling PHÍA SAU trong DOM) tô
-                    sáng ĐỦ các sao từ 1 tới sao đã chọn — không chỉ 1 sao lẻ. --}}
-                    <div class="flex flex-row-reverse gap-1 text-3xl">
-                        @for ($i = 5; $i >= 1; $i--)
-                            <input type="radio" id="{{ $field }}_{{ $i }}" name="{{ $field }}" value="{{ $i }}"
-                                class="peer hidden" @checked(old($field) == $i) required>
-                            <label for="{{ $field }}_{{ $i }}"
-                                class="peer-checked:text-accent cursor-pointer text-slate-300 transition-colors hover:text-accent">★</label>
-                        @endfor
-                    </div>
+            <div>
+                <label class="form-label">Số sao *</label>
+                <div class="flex gap-2 text-3xl">
+                    @for ($i = 1; $i <= 5; $i++)
+                        <label class="cursor-pointer text-slate-300 has-[:checked]:text-accent">
+                            <input type="radio" name="rating" value="{{ $i }}" class="hidden" @checked(old('rating') == $i) required>
+                            ★
+                        </label>
+                    @endfor
                 </div>
-            @endforeach
+            </div>
 
             <div>
                 <label class="form-label" for="comment">Bình luận</label>

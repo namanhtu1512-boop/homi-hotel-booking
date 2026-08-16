@@ -38,7 +38,7 @@
                 <tbody>
                     @foreach ($rooms as $room)
                         <tr>
-                            <td><a href="{{ route('staff.rooms.show', $room->id) }}">{{ $room->room_number }}</a></td>
+                            <td>{{ $room->room_number }}</td>
                             <td>{{ $room->roomType->name ?? '—' }}</td>
                             <td>
                                 @php $occ = $room->occupancy_status; @endphp

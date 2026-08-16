@@ -16,16 +16,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Khách gửi yêu cầu nhận phòng sớm hơn giờ chuẩn của khách sạn. Đây là luồng
- * RIÊNG, độc lập với phụ phí nhận phòng sớm tự động (% giá phòng, không cần
- * duyệt) đã có sẵn ở BookingService::checkIn()/applyEarlyCheckinSurchargeIfNeeded()
- * — không đụng vào cơ chế đó.
- *
- * Sớm tối đa self::AUTO_APPROVE_MAX_HOURS (1 giờ): tự động DUYỆT ngay lúc
- * gửi, không cần chờ staff — khách nhận thông báo được vào phòng sớm ngay
- * lập tức. Sớm hơn thế: vẫn phải chờ staff/admin duyệt dựa trên tình trạng
- * phòng trống thực tế ngày hôm đó (không giới hạn số giờ cứng — staff toàn
- * quyền quyết định theo phòng còn trống hay không).
+ * Khách gửi yêu cầu nhận phòng sớm hơn giờ chuẩn của khách sạn (tối đa 3 giờ),
+ * staff/admin duyệt hoặc từ chối. Đây là luồng RIÊNG, độc lập với phụ phí nhận
+ * phòng sớm tự động (% giá phòng, không cần duyệt) đã có sẵn ở
+ * BookingService::checkIn()/applyEarlyCheckinSurchargeIfNeeded() — không đụng
+ * vào cơ chế đó.
  *
  * Phí cố định 100.000đ/giờ sớm (làm tròn lên), ghi vào "hóa đơn phát sinh"
  * riêng (IncidentalInvoiceService) — hoàn toàn KHÔNG đụng payment (tiền
@@ -37,12 +32,17 @@ class EarlyCheckinRequestService
 {
     public const FEE_PER_HOUR = 100000;
 
+    public const MAX_HOURS_EARLY = 3;
+
     /**
-     * Sớm tối đa bằng số giờ này được tự động duyệt ngay khi gửi yêu cầu,
-     * không cần staff can thiệp — sớm hơn phải chờ staff duyệt dựa trên
-     * tình trạng phòng trống thực tế.
+     * Khách chỉ được gửi yêu cầu nhận phòng sớm khi còn trong vòng N giờ
+     * trước giờ nhận phòng đã đặt — tránh gửi yêu cầu quá sớm (VD ngay lúc
+     * vừa đặt phòng, còn vài ngày nữa mới tới) rồi quên mất, khách sạn khó
+     * chủ động sắp xếp phòng trước quá lâu. Cùng cơ chế với
+     * Booking::canCancelByCustomer() (dùng hoursUntilCheckIn()), chỉ khác
+     * chiều so sánh (<=  thay vì  >=).
      */
-    public const AUTO_APPROVE_MAX_HOURS = 1;
+    public const REQUEST_WINDOW_HOURS_BEFORE = 20;
 
     public function __construct(
         private readonly IncidentalInvoiceService $incidentalInvoiceService,
@@ -57,6 +57,12 @@ class EarlyCheckinRequestService
         if ($booking->status !== BookingStatus::CONFIRMED) {
             throw ValidationException::withMessages([
                 'status' => ['Chỉ có thể yêu cầu nhận phòng sớm khi đơn đã được xác nhận (chưa nhận phòng).'],
+            ]);
+        }
+
+        if ($booking->hoursUntilCheckIn() > self::REQUEST_WINDOW_HOURS_BEFORE) {
+            throw ValidationException::withMessages([
+                'status' => ['Chỉ có thể gửi yêu cầu nhận phòng sớm trong vòng ' . self::REQUEST_WINDOW_HOURS_BEFORE . ' giờ trước giờ nhận phòng, vui lòng quay lại gần ngày nhận phòng hơn.'],
             ]);
         }
 
@@ -83,57 +89,27 @@ class EarlyCheckinRequestService
         $minutesEarly = $requested->diffInMinutes($standard, true);
         $hoursEarly = (int) ceil($minutesEarly / 60);
 
-        $autoApprove = $hoursEarly <= self::AUTO_APPROVE_MAX_HOURS;
+        if ($hoursEarly > self::MAX_HOURS_EARLY) {
+            throw ValidationException::withMessages([
+                'requested_arrival_time' => ['Chỉ hỗ trợ nhận phòng sớm tối đa ' . self::MAX_HOURS_EARLY . ' giờ trước giờ chuẩn, vui lòng liên hệ khách sạn nếu cần sớm hơn.'],
+            ]);
+        }
 
-        $attributes = [
+        $request = EarlyCheckinRequest::create([
             'booking_id'              => $booking->id,
             'user_id'                 => $customer->id,
             'requested_arrival_time'  => $requestedTime,
             'hours_early'             => $hoursEarly,
             'fee_amount'              => $hoursEarly * self::FEE_PER_HOUR,
             'reason'                  => $data['reason'] ?? null,
-            'status'                  => $autoApprove ? 'approved' : 'pending',
-            'handled_at'              => $autoApprove ? now() : null,
-        ];
+            'status'                  => 'pending',
+        ]);
 
-        if (! $autoApprove) {
-            $request = EarlyCheckinRequest::create($attributes);
-
-            User::whereIn('role', ['admin', 'staff'])->each(
-                fn (User $u) => $u->notify(new NewEarlyCheckinRequest($request))
-            );
-
-            return $request;
-        }
-
-        return DB::transaction(function () use ($attributes, $booking) {
-            $request = EarlyCheckinRequest::create($attributes);
-
-            $this->grantEarlyCheckin($request, $booking, ' Yêu cầu nhận phòng sớm trong vòng ' . self::AUTO_APPROVE_MAX_HOURS . ' giờ được tự động duyệt.');
-
-            return $request;
-        });
-    }
-
-    /**
-     * Cộng phụ phí nhận phòng sớm vào hóa đơn phát sinh + báo khách — dùng
-     * chung cho cả nhánh tự động duyệt (create(), sớm ≤ AUTO_APPROVE_MAX_HOURS)
-     * và nhánh staff duyệt tay (approve()).
-     */
-    private function grantEarlyCheckin(EarlyCheckinRequest $request, Booking $booking, string $extraNote = ''): void
-    {
-        $fee = (float) $request->fee_amount;
-
-        $this->incidentalInvoiceService->addItem(
-            $booking, 'surcharge', "Phụ phí nhận phòng sớm {$request->hours_early} giờ (đã duyệt)", $fee
+        User::whereIn('role', ['admin', 'staff'])->each(
+            fn (User $u) => $u->notify(new NewEarlyCheckinRequest($request))
         );
 
-        $feeText = number_format($fee, 0, ',', '.') . 'đ';
-        $arrivalTime = substr($request->requested_arrival_time, 0, 5);
-        $booking->user?->notify(new BookingStatusChanged(
-            $booking,
-            "Yêu cầu nhận phòng sớm lúc {$arrivalTime} cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.{$extraNote}"
-        ));
+        return $request;
     }
 
     public function adminList(array $filters = []): LengthAwarePaginator
@@ -191,13 +167,24 @@ class EarlyCheckinRequestService
         }
 
         return DB::transaction(function () use ($earlyCheckinRequest, $booking, $staff) {
+            $fee = (float) $earlyCheckinRequest->fee_amount;
+
+            $this->incidentalInvoiceService->addItem(
+                $booking, 'surcharge', "Phụ phí nhận phòng sớm {$earlyCheckinRequest->hours_early} giờ (đã duyệt)", $fee
+            );
+
             $earlyCheckinRequest->update([
                 'status'     => 'approved',
                 'handled_by' => $staff->id,
                 'handled_at' => now(),
             ]);
 
-            $this->grantEarlyCheckin($earlyCheckinRequest, $booking);
+            $feeText = number_format($fee, 0, ',', '.') . 'đ';
+            $arrivalTime = substr($earlyCheckinRequest->requested_arrival_time, 0, 5);
+            $booking->user?->notify(new BookingStatusChanged(
+                $booking,
+                "Yêu cầu nhận phòng sớm lúc {$arrivalTime} cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng."
+            ));
 
             return [
                 'request' => $earlyCheckinRequest->fresh(),

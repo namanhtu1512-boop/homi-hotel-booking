@@ -220,7 +220,7 @@
     <div class="login-wrapper">
         <div class="login-side">
             <div class="brand">
-                <img src="{{ asset('images/logo-icon.png') }}" alt="Homi" style="width:40px;height:40px;object-fit:contain;">
+                <img src="{{ asset('images/logo.png') }}" alt="Homi" style="width:40px;height:40px;border-radius:12px;object-fit:cover;">
                 <span style="display:flex;flex-direction:column;justify-content:center;gap:3px;">
                     <img src="{{ asset('images/logo-wordmark-white.png') }}" alt="Homi" style="height:22px;width:auto;object-fit:contain;">
                     <img src="{{ asset('images/logo-tagline-white.png') }}" alt="Stay. Book. Smile." style="height:8px;width:auto;object-fit:contain;">

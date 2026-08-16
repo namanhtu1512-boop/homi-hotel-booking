@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Web\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\RoomType;
-use App\Services\AuditLogService;
 use App\Services\RoomService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +13,6 @@ class RoomController extends Controller
 {
     public function __construct(
         private readonly RoomService $roomService,
-        private readonly AuditLogService $auditLog,
     ) {}
 
     public function index(Request $request): View
@@ -46,16 +44,6 @@ class RoomController extends Controller
             'roomTypes' => RoomType::orderBy('name')->get(),
             'filters'   => $request->only('room_type_id', 'month', 'start_date', 'end_date'),
         ] + $this->roomService->monthlyOccupancy($month, $roomTypeId, $startDate, $endDate));
-    }
-
-    public function show(int $id): View
-    {
-        $room = $this->roomService->find($id);
-
-        return view('staff.rooms.show', [
-            'room'    => $room,
-            'history' => $this->auditLog->forSubject($room),
-        ]);
     }
 
     public function updateHousekeeping(Request $request, int $id): RedirectResponse
