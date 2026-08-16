@@ -196,15 +196,14 @@ class Booking extends Model
     }
 
     /**
-     * Yêu cầu nhận phòng sớm hợp lệ bất kỳ lúc nào đơn đã được xác nhận
-     * (chưa nhận phòng) — không còn giới hạn "chỉ trong vòng N giờ trước
-     * giờ nhận phòng" như trước, vì yêu cầu sớm ≤ AUTO_APPROVE_MAX_HOURS giờ
-     * giờ nay được tự động duyệt ngay (xem EarlyCheckinRequestService::create()),
-     * không cần chờ tới sát ngày mới có ý nghĩa gửi.
+     * Yêu cầu nhận phòng sớm hợp lệ khi đơn đã được xác nhận (chưa nhận
+     * phòng) VÀ chưa từng gửi yêu cầu nhận phòng sớm nào trước đó — mỗi đơn
+     * chỉ được gửi đúng 1 lần, kể cả khi yêu cầu trước đã bị từ chối
+     * (xem EarlyCheckinRequestService::create()).
      */
     public function canRequestEarlyCheckin(): bool
     {
-        return $this->status === BookingStatus::CONFIRMED;
+        return $this->status === BookingStatus::CONFIRMED && $this->earlyCheckinRequests->isEmpty();
     }
 
     /**

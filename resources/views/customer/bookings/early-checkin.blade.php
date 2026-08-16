@@ -3,7 +3,7 @@
 @section('title', 'Yêu cầu nhận phòng sớm · Homi')
 @section('banner_tag', 'Đơn ' . $booking->booking_code)
 @section('banner_title', 'Yêu cầu nhận phòng sớm')
-@section('banner_subtitle', 'Chọn giờ bạn muốn đến, khách sạn sẽ xem xét và phản hồi.')
+@section('banner_subtitle', 'Yêu cầu nhận phòng sớm được tự động duyệt ngay.')
 
 @section('content')
 
@@ -12,6 +12,10 @@
     $standardTime = substr($hotel->check_in_time ?? '14:00:00', 0, 5);
     $autoApproveMaxHours = \App\Services\EarlyCheckinRequestService::AUTO_APPROVE_MAX_HOURS;
     $feePerHour = \App\Services\EarlyCheckinRequestService::FEE_PER_HOUR;
+    $earlyTime = \Carbon\Carbon::createFromFormat('H:i', $standardTime)
+        ->subHours($autoApproveMaxHours)
+        ->format('H:i');
+    $totalFee = $autoApproveMaxHours * $feePerHour;
 @endphp
 
 <div class="card auth-card" style="max-width: 640px; margin: 0 auto;">
@@ -35,21 +39,13 @@
     </div>
 
     <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        Sớm tối đa {{ $autoApproveMaxHours }} giờ so với giờ chuẩn: yêu cầu được <strong>tự động duyệt ngay</strong>,
-        bạn nhận thông báo được vào phòng sớm ngay lập tức. Muốn sớm hơn nữa: yêu cầu cần khách sạn xem xét
-        tình trạng phòng trống thực tế trong ngày trước khi duyệt.
-        Phụ phí {{ number_format($feePerHour, 0, ',', '.') }}đ cho mỗi giờ đến sớm
-        (làm tròn lên), cộng vào tổng tiền đơn và chỉ cần thanh toán khi trả phòng.
+        Yêu cầu nhận phòng lúc <strong>{{ $earlyTime }}</strong> (sớm {{ $autoApproveMaxHours }} giờ so với giờ chuẩn)
+        được <strong>tự động duyệt ngay</strong>, bạn nhận thông báo được vào phòng sớm ngay lập tức.
+        Phụ phí {{ number_format($totalFee, 0, ',', '.') }}đ cộng vào tổng tiền đơn và chỉ cần thanh toán khi trả phòng.
     </p>
 
     <form method="POST" action="{{ route('customer.bookings.early-checkin.store', $booking->id) }}" class="form-grid">
         @csrf
-
-        <div class="form-group">
-            <label for="requested_arrival_time">Giờ bạn muốn đến</label>
-            <input id="requested_arrival_time" type="time" name="requested_arrival_time"
-                value="{{ old('requested_arrival_time') }}" required>
-        </div>
 
         <div class="form-group">
             <label for="reason">Lý do (không bắt buộc)</label>

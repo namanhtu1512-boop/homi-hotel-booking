@@ -82,7 +82,7 @@
                                 class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
                                 @unless (auth()->user()->isAdmin() || auth()->user()->isStaff())
                                     <a href="{{ route('customer.bookings.index') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
-                                    <a href="{{ route('customer.chat.index') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
+                                    <a href="{{ route('customer.chat.index') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
                                     <a href="{{ route('customer.profile.show') }}" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
                                     <div class="my-1 border-t border-slate-100 dark:border-slate-800"></div>
                                 @endunless
@@ -139,7 +139,7 @@
                         <div x-show="open" x-cloak x-transition class="flex flex-col gap-1 pl-3">
                             @unless (auth()->user()->isAdmin() || auth()->user()->isStaff())
                                 <a href="{{ route('customer.bookings.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Đơn của tôi</a>
-                                <a href="{{ route('customer.chat.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">💬 Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
+                                <a href="{{ route('customer.chat.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Hỗ trợ{{ ($customerChatUnreadCount ?? 0) > 0 ? ' (' . $customerChatUnreadCount . ')' : '' }}</a>
                                 <a href="{{ route('customer.profile.show') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Tài khoản</a>
                             @endunless
                             <form method="POST" action="{{ route('logout') }}" class="m-0">
