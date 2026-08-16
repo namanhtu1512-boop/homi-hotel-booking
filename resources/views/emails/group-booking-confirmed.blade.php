@@ -85,6 +85,17 @@
                                 <p style="margin:0 0 16px; font-size:14px; line-height:1.6; white-space:pre-line;"><strong>Ghi chú:</strong> {{ $booking->note }}</p>
                             @endif
 
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ route('customer.bookings.show', $booking->id) }}"
+                                            style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; font-size:14px; font-weight:bold; padding:12px 28px; border-radius:8px;">
+                                            Đến trang thanh toán
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
                             <p style="margin:0; font-size:13px; color:#64748b; line-height:1.6;">
                                 Mọi thắc mắc, anh/chị vui lòng liên hệ lại {{ $hotel->name }}
                                 @if ($hotel->phone) qua số điện thoại <strong>{{ $hotel->phone }}</strong> @endif
