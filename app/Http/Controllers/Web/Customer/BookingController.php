@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Services\AvailabilityService;
 use App\Services\BookingService;
+use App\Services\ExtraBedInventoryService;
 use App\Services\HotelInfoService;
 use App\Services\PricingService;
 use App\Services\RoomHoldService;
@@ -24,6 +25,7 @@ class BookingController extends Controller
         private readonly RoomHoldService $roomHoldService,
         private readonly PricingService $pricingService,
         private readonly HotelInfoService $hotelInfoService,
+        private readonly ExtraBedInventoryService $extraBedInventoryService,
     ) {}
 
     public function create(Request $request): View
@@ -49,6 +51,16 @@ class BookingController extends Controller
 
         $checkIn  = $request->query('check_in');
         $checkOut = $request->query('check_out');
+
+        // Số giường phụ CÒN TRỐNG trong khoảng ngày khách vừa chọn — hiển thị
+        // ngay cạnh checkbox "Cần giường phụ?" để khách biết trước, tránh bị
+        // bất ngờ khi đơn bị chuyển sang "chờ tư vấn" do giường phụ đã hết
+        // (xem ExtraBedInventoryService — pool dùng chung toàn khách sạn).
+        // Chỉ là số tại THỜI ĐIỂM xem trang — có thể đổi ngay sau đó nếu
+        // khách khác đặt trước, giống mọi số "còn trống" khác trên trang này.
+        $extraBedsAvailable = ($checkIn && $checkOut)
+            ? $this->extraBedInventoryService->countAvailable($checkIn, $checkOut)
+            : null;
 
         // Danh sách dòng loại phòng khách đang chọn (để repopulate form):
         // ưu tiên `items[]` từ lần "Kiểm tra phòng trống"; nếu vào từ trang chi
@@ -119,6 +131,7 @@ class BookingController extends Controller
             'holdExpiresAt'             => $holdExpiresAt,
             'todayPrices'               => $todayPrices,
             'extraBedSurchargePerNight' => (int) $this->hotelInfoService->current()->extra_bed_surcharge_per_night,
+            'extraBedsAvailable'        => $extraBedsAvailable,
         ]);
     }
 

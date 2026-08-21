@@ -49,8 +49,27 @@
                 @endif
 
                 @if ($booking->canCancelByAdmin())
+                    @php
+                        // Khớp đúng logic BookingService::attemptRefund() (admin hủy
+                        // luôn feePercent=0): số hoàn = amount_collected, KHÔNG dùng
+                        // paidAmount() vì hàm đó fallback sang deposit_amount cho đơn
+                        // mới đặt cọc — tiền cọc KHÔNG được hoàn theo chính sách "cọc
+                        // giữ chỗ" (payDepositDemo()/admin đánh dấu DEPOSIT_PAID không
+                        // ghi amount_collected).
+                        $refundAmount = (float) ($booking->payment->amount_collected ?? 0);
+                        $isDepositOnly = $refundAmount <= 0
+                            && $booking->payment
+                            && $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID;
+
+                        $cancelConfirmMessage = "Hủy đơn {$booking->booking_code}?";
+                        if ($refundAmount > 0) {
+                            $cancelConfirmMessage .= ' Sẽ hoàn ' . number_format($refundAmount, 0, ',', '.') . 'đ cho khách.';
+                        } elseif ($isDepositOnly) {
+                            $cancelConfirmMessage .= ' Tiền cọc đã đặt sẽ KHÔNG được hoàn (theo chính sách cọc giữ chỗ).';
+                        }
+                    @endphp
                     <form method="POST" action="{{ route('admin.bookings.cancel', $booking->id) }}"
-                        onsubmit="return confirm('Hủy đơn {{ $booking->booking_code }}?');">
+                        onsubmit="return confirm('{{ $cancelConfirmMessage }}');">
                         @csrf
                         <button type="submit" class="btn btn-danger btn-sm">Hủy đơn</button>
                     </form>
@@ -62,6 +81,12 @@
 
         @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED && ! $booking->canCheckIn())
             <div class="alert alert-warning mt-4 mb-0">Khách cần đặt cọc hoặc thanh toán trước khi có thể check-in.</div>
+        @endif
+
+        @if ($booking->canCancelByAdmin() && $refundAmount > 0)
+            <div class="alert alert-warning mt-4 mb-0">Nếu hủy đơn này, sẽ hoàn {{ number_format($refundAmount, 0, ',', '.') }}đ cho khách.</div>
+        @elseif ($booking->canCancelByAdmin() && $isDepositOnly)
+            <div class="alert alert-warning mt-4 mb-0">Nếu hủy đơn này, tiền cọc đã đặt sẽ KHÔNG được hoàn (theo chính sách cọc giữ chỗ).</div>
         @endif
 
         @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN && ! $booking->canCheckOut())

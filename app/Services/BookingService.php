@@ -584,8 +584,10 @@ class BookingService
     }
 
     /**
-     * @return array{booking: Booking, refund_ok: bool} xem cancelByAdmin()
-     *         — `refund_ok` = false nghĩa là cần xử lý hoàn tiền thủ công.
+     * @return array{booking: Booking, refund_ok: bool, refund_amount: float}
+     *         xem cancelByAdmin() — `refund_ok` = false nghĩa là cần xử lý
+     *         hoàn tiền thủ công; `refund_amount` = số tiền NÊN được hoàn
+     *         (đã trừ phí hủy), kể cả khi `refund_ok=false`.
      */
     public function cancelByCustomer(int $bookingId, User $customer): array
     {
@@ -615,9 +617,9 @@ class BookingService
 
         $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã được hủy." . ($feePercent > 0 ? " Phí hủy {$feePercent}% (theo chính sách hủy), phần còn lại sẽ được hoàn." : '')));
 
-        $refundOk = $this->attemptRefund($booking, $customer->id, $feePercent);
+        $refund = $this->attemptRefund($booking, $customer->id, $feePercent);
 
-        return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refundOk];
+        return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refund['ok'], 'refund_amount' => $refund['amount']];
     }
 
     /**
@@ -2139,11 +2141,15 @@ class BookingService
     }
 
     /**
-     * @return array{booking: Booking, refund_ok: bool} `refund_ok` = false
-     *         nghĩa là đơn đã hủy thành công nhưng hoàn tiền tự động qua
-     *         cổng KHÔNG thực hiện được (cần xử lý hoàn tiền thủ công) —
-     *         nơi gọi PHẢI báo rõ điều này cho admin/staff, không được coi
-     *         "hủy đơn" và "đã hoàn tiền" là một.
+     * @return array{booking: Booking, refund_ok: bool, refund_amount: float}
+     *         `refund_ok` = false nghĩa là đơn đã hủy thành công nhưng hoàn
+     *         tiền tự động qua cổng KHÔNG thực hiện được (cần xử lý hoàn
+     *         tiền thủ công) — nơi gọi PHẢI báo rõ điều này cho admin/staff,
+     *         không được coi "hủy đơn" và "đã hoàn tiền" là một.
+     *         `refund_amount` = số tiền NÊN được hoàn cho khách (0 nếu đơn
+     *         mới chỉ đặt cọc — cọc giữ chỗ không hoàn theo chính sách, hoặc
+     *         nếu đơn chưa từng thanh toán gì), kể cả khi `refund_ok=false`
+     *         (nơi gọi cần biết chính xác cần hoàn thủ công bao nhiêu).
      */
     public function cancelByAdmin(Booking $booking): array
     {
@@ -2178,9 +2184,9 @@ class BookingService
         // Gọi ngoài transaction ở trên — đây là 1 lời gọi HTTP ra ngoài
         // (API hoàn tiền VNPay), không nên giữ transaction DB mở trong lúc
         // chờ network.
-        $refundOk = $this->attemptRefund($booking, Auth::id());
+        $refund = $this->attemptRefund($booking, Auth::id());
 
-        return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refundOk];
+        return ['booking' => $booking->fresh(['payment']), 'refund_ok' => $refund['ok'], 'refund_amount' => $refund['amount']];
     }
 
     /**
@@ -2498,19 +2504,22 @@ class BookingService
      * đa những gì đã trả, hệ thống không đòi thêm phần thiếu nếu phí hủy tính
      * ra lớn hơn số tiền cọc/đã trả.
      *
-     * @return bool true nếu đã hoàn xong (hoặc không cần hoàn tự động qua
-     *              cổng — chuyển khoản/tiền mặt); false nếu ĐÁNG LẼ phải tự
-     *              động hoàn qua cổng nhưng không thực hiện được (lỗi mạng,
-     *              cổng từ chối, hoặc thiếu thông tin giao dịch) — nơi gọi
-     *              hàm này cần báo rõ cho người dùng biết để xử lý thủ công,
-     *              KHÔNG được coi là đã hoàn tiền thành công.
+     * @return array{ok: bool, amount: float} `ok` = true nếu đã hoàn xong
+     *              (hoặc không cần hoàn tự động qua cổng — chuyển khoản/tiền
+     *              mặt); false nếu ĐÁNG LẼ phải tự động hoàn qua cổng nhưng
+     *              không thực hiện được (lỗi mạng, cổng từ chối, hoặc thiếu
+     *              thông tin giao dịch) — nơi gọi hàm này cần báo rõ cho
+     *              người dùng biết để xử lý thủ công, KHÔNG được coi là đã
+     *              hoàn tiền thành công. `amount` = số tiền NÊN được hoàn cho
+     *              khách (đã trừ phí hủy nếu có) — trả về cả khi `ok=false`
+     *              để nơi gọi biết chính xác cần hoàn thủ công bao nhiêu.
      */
-    private function attemptRefund(Booking $booking, ?int $actorId, int $feePercent = 0): bool
+    private function attemptRefund(Booking $booking, ?int $actorId, int $feePercent = 0): array
     {
         $payment = $booking->payment;
 
         if (! $payment) {
-            return true;
+            return ['ok' => true, 'amount' => 0.0];
         }
 
         $oldStatus = $payment->status;
@@ -2521,9 +2530,12 @@ class BookingService
         // applyExtraCharge() có thể đã mở lại PAID→PENDING do phát sinh phụ
         // phí SAU khi thanh toán xong, nhưng tiền cũ vẫn đang nằm ở VNPay và
         // vẫn phải hoàn khi hủy đơn, bất kể status lúc này không còn là PAID
-        // nữa. Nếu chưa từng thu được đồng nào thì không có gì để hoàn/giữ.
+        // nữa. Nếu chưa từng thu được đồng nào thì không có gì để hoàn/giữ
+        // (kể cả tiền cọc — payDepositDemo()/admin đánh dấu DEPOSIT_PAID
+        // không ghi amount_collected, đúng chính sách "cọc giữ chỗ" không
+        // hoàn khi hủy).
         if ($collected <= 0) {
-            return true;
+            return ['ok' => true, 'amount' => 0.0];
         }
 
         $forfeitAmount = $feePercent > 0
@@ -2539,13 +2551,13 @@ class BookingService
                 $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
                 $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hủy đơn — số tiền đã thu không vượt quá phí hủy, giữ lại toàn bộ, không có phần hoàn.' . $forfeitNote);
 
-                return true;
+                return ['ok' => true, 'amount' => 0.0];
             }
 
             if (! $payment->gateway_transaction_no) {
                 $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Thanh toán VNPay thiếu thông tin giao dịch cổng (chưa từng được VNPay xác nhận thật) — không thể tự động hoàn tiền, cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
-                return false;
+                return ['ok' => false, 'amount' => $refundableTotal];
             }
 
             // transaction_code/gateway_transaction_no chỉ lưu được giao dịch
@@ -2571,7 +2583,7 @@ class BookingService
             } catch (\Throwable $e) {
                 $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Gọi API hoàn tiền VNPay lỗi: ' . $e->getMessage() . ' — cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
-                return false;
+                return ['ok' => false, 'amount' => $refundableTotal];
             }
 
             if (($response['vnp_ResponseCode'] ?? null) === '00') {
@@ -2586,18 +2598,18 @@ class BookingService
                         . number_format($refundable, 0, ',', '.') . 'đ (giao dịch gần nhất) — còn '
                         . number_format($strandedFromEarlierTxn, 0, ',', '.') . 'đ từ (các) giao dịch trước đó không còn thông tin cổng để tự động hoàn, cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
-                    return false;
+                    return ['ok' => false, 'amount' => $strandedFromEarlierTxn];
                 }
 
                 $payment->update(['status' => PaymentStatus::REFUNDED, 'amount_collected' => 0, 'last_gateway_amount' => null]);
                 $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, 'Hoàn tiền tự động qua VNPay thành công.' . $forfeitNote);
 
-                return true;
+                return ['ok' => true, 'amount' => $refundableTotal];
             }
 
             $this->logPaymentStatus($payment, $oldStatus, $oldStatus, $actorId, 'Hoàn tiền tự động qua VNPay thất bại (mã ' . ($response['vnp_ResponseCode'] ?? '?') . ') — cần xử lý hoàn tiền thủ công.' . $forfeitNote);
 
-            return false;
+            return ['ok' => false, 'amount' => $refundableTotal];
         }
 
         // Các phương thức thủ công (chuyển khoản, tiền mặt...): dựa theo
@@ -2617,7 +2629,7 @@ class BookingService
         };
         $this->logPaymentStatus($payment, $oldStatus, PaymentStatus::REFUNDED, $actorId, $manualNote);
 
-        return true;
+        return ['ok' => true, 'amount' => $refundableTotal];
     }
 
     private function logStatus(

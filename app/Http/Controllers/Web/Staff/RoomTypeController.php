@@ -134,6 +134,8 @@ class RoomTypeController extends Controller
             'area'            => ['nullable', 'numeric', 'min:0'],
             'total_rooms'     => ['required', 'integer', 'min:1'],
             'images_text'     => ['nullable', 'string', $this->eachImageLineMax500()],
+            'image_files'     => ['nullable', 'array'],
+            'image_files.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
             'name'            => 'tên loại phòng',
             'category'        => 'nhóm loại phòng',
@@ -143,15 +145,23 @@ class RoomTypeController extends Controller
             'bed_type'        => 'loại giường',
             'area'            => 'diện tích',
             'total_rooms'     => 'tổng số phòng',
+            'image_files.*'   => 'file ảnh',
         ]);
 
-        $data['images'] = collect(explode("\n", $data['images_text'] ?? ''))
+        $textPaths = collect(explode("\n", $data['images_text'] ?? ''))
             ->map(fn ($line) => trim($line))
             ->filter()
             ->values()
             ->all();
 
-        unset($data['images_text']);
+        $uploadedPaths = [];
+        foreach ($request->file('image_files', []) as $file) {
+            $uploadedPaths[] = $file->store('rooms', 'public');
+        }
+
+        $data['images'] = array_merge($textPaths, $uploadedPaths);
+
+        unset($data['images_text'], $data['image_files']);
 
         return $data;
     }

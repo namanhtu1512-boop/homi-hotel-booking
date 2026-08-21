@@ -115,15 +115,21 @@ class BookingController extends Controller
 
         $this->auditLog->log('booking.cancelled', $booking, "Hủy đơn \"{$booking->booking_code}\".");
 
+        $refundAmount = number_format($result['refund_amount'], 0, ',', '.') . 'đ';
+
         if (! $result['refund_ok']) {
             return redirect()
                 ->route('admin.bookings.show', $id)
-                ->with('error', "Đã hủy đơn {$booking->booking_code}, nhưng hoàn tiền tự động qua VNPay không thành công — cần xử lý hoàn tiền thủ công.");
+                ->with('error', "Đã hủy đơn {$booking->booking_code}, nhưng hoàn tiền tự động qua VNPay không thành công — cần xử lý hoàn tiền thủ công {$refundAmount}.");
         }
+
+        $message = $result['refund_amount'] > 0
+            ? "Đã hủy đơn {$booking->booking_code} — đã hoàn {$refundAmount} cho khách."
+            : "Đã hủy đơn {$booking->booking_code}.";
 
         return redirect()
             ->route('admin.bookings.show', $id)
-            ->with('success', "Đã hủy đơn {$booking->booking_code}.");
+            ->with('success', $message);
     }
 
     public function showCheckIn(int $id): View

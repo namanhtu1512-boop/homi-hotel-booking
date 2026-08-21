@@ -433,6 +433,15 @@ class RoomTypeService
     }
 
     /**
+     * Danh sách loại phòng đã bị xóa mềm, mới xóa gần nhất lên trước — dùng
+     * cho khu vực "Đã xóa" ở trang quản lý, nơi admin bấm khôi phục.
+     */
+    public function trashed(): Collection
+    {
+        return RoomType::onlyTrashed()->orderByDesc('deleted_at')->get();
+    }
+
+    /**
      * Sinh slug duy nhất cho loại phòng (slug giờ unique toàn cục vì chỉ còn 1 khách sạn).
      */
     private function uniqueSlug(string $name, ?int $ignoreId = null): string
