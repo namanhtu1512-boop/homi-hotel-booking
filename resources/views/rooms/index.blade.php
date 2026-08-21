@@ -40,7 +40,45 @@
             </div>
 
             <div>
-                <label class="form-label" for="capacity">Sức chứa tối thiểu</label>
+                <div class="form-label">Thời gian lưu trú</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="date" name="check_in" class="input" value="{{ $filters['check_in'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->toDateString() }}">
+                    <input type="date" name="check_out" class="input" value="{{ $filters['check_out'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->addDay()->toDateString() }}">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="form-label" for="quantity">Số phòng</label>
+                    <select id="quantity" name="quantity" class="input">
+                        @foreach (range(1, 10) as $n)
+                            <option value="{{ $n }}" @selected(($filters['quantity'] ?? 1) == $n)>{{ $n }} phòng</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="guests">Số khách</label>
+                    <select id="guests" name="guests" class="input">
+                        <option value="">Bất kỳ</option>
+                        @foreach (range(1, 20) as $n)
+                            <option value="{{ $n }}" @selected(($filters['guests'] ?? '') == $n)>{{ $n }} khách</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label" for="category">Loại phòng</label>
+                <select id="category" name="category" class="input">
+                    <option value="">Tất cả</option>
+                    @foreach (['standard' => 'Standard', 'superior' => 'Superior', 'deluxe' => 'Deluxe', 'family' => 'Family', 'suite' => 'Suite'] as $value => $label)
+                        <option value="{{ $value }}" @selected(($filters['category'] ?? '') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label" for="capacity">Sức chứa tối thiểu / phòng</label>
                 <select id="capacity" name="capacity" class="input">
                     <option value="">Bất kỳ</option>
                     @foreach ([1,2,3,4,5,6] as $n)
@@ -50,25 +88,21 @@
             </div>
 
             <div>
-                <label class="form-label" for="bed_type">Loại phòng</label>
-                <input id="bed_type" type="text" name="bed_type" class="input" value="{{ $filters['bed_type'] ?? '' }}" placeholder="VD: Giường đôi">
+                <label class="form-label" for="bed_type">Kiểu giường</label>
+                <input id="bed_type" type="text" name="bed_type" class="input" value="{{ $filters['bed_type'] ?? '' }}" placeholder="VD: 1 giường đôi">
             </div>
 
             <div>
-                <div class="form-label">Thời gian lưu trú</div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="date" name="check_in" class="input" value="{{ $filters['check_in'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->toDateString() }}">
-                    <input type="date" name="check_out" class="input" value="{{ $filters['check_out'] ?? '' }}" min="{{ now('Asia/Ho_Chi_Minh')->addDay()->toDateString() }}">
-                </div>
-            </div>
-
-            <div>
-                <label class="form-label" for="quantity">Số phòng</label>
-                <select id="quantity" name="quantity" class="input">
-                    @foreach ([1,2,3,4] as $n)
-                        <option value="{{ $n }}" @selected(($filters['quantity'] ?? 1) == $n)>{{ $n }} phòng</option>
+                <div class="form-label">Tiện nghi</div>
+                <div class="grid max-h-40 gap-1.5 overflow-y-auto">
+                    @foreach ($amenities as $amenity)
+                        <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <input type="checkbox" name="amenities[]" value="{{ $amenity->id }}" class="h-4 rounded border-slate-300 accent-primary"
+                                @checked(in_array($amenity->id, array_map('intval', $filters['amenities'] ?? [])))>
+                            {{ $amenity->name }}
+                        </label>
                     @endforeach
-                </select>
+                </div>
             </div>
 
             <input type="hidden" name="sort" value="{{ $filters['sort'] ?? '' }}">
@@ -83,6 +117,8 @@
     </aside>
 
     <div>
+        @include('partials._room-combination-banner')
+
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
                 <span class="section-kicker">Kết quả</span>
@@ -91,7 +127,13 @@
 
             <form method="GET" action="{{ route('rooms.index') }}" class="flex items-center gap-2">
                 @foreach ($filters as $key => $value)
-                    @if ($key !== 'sort' && $value !== null && $value !== '')
+                    @if ($key === 'sort')
+                        @continue
+                    @elseif (is_array($value))
+                        @foreach ($value as $item)
+                            <input type="hidden" name="{{ $key }}[]" value="{{ $item }}">
+                        @endforeach
+                    @elseif ($value !== null && $value !== '')
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                     @endif
                 @endforeach
@@ -100,6 +142,8 @@
                     <option value="price_asc" @selected(($filters['sort'] ?? 'price_asc') === 'price_asc')>Giá thấp đến cao</option>
                     <option value="price_desc" @selected(($filters['sort'] ?? '') === 'price_desc')>Giá cao đến thấp</option>
                     <option value="rating" @selected(($filters['sort'] ?? '') === 'rating')>Đánh giá</option>
+                    <option value="popularity" @selected(($filters['sort'] ?? '') === 'popularity')>Phổ biến</option>
+                    <option value="best_match" @selected(($filters['sort'] ?? '') === 'best_match')>Phù hợp nhất</option>
                     <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Mới nhất</option>
                 </select>
             </form>

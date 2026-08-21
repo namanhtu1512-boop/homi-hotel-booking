@@ -16,7 +16,11 @@ use App\Http\Requests\BaseFormRequest;
  *   min_price  — giá tối thiểu/đêm (nullable, numeric, >= 0)
  *   max_price  — giá tối đa/đêm (nullable, numeric, >= 0, >= min_price)
  *   amenities  — danh sách id tiện ích cần có (nullable, mảng id tồn tại trong amenities)
- *   capacity   — sức chứa tối thiểu (nullable, integer, >= 1)
+ *   capacity   — sức chứa tối thiểu CỦA MỘT PHÒNG (nullable, integer, >= 1)
+ *   guests     — tổng số khách của cả đoàn (nullable, integer, >= 1) — dùng
+ *                cho thuật toán tìm tổ hợp nhiều phòng (RoomCombinationService),
+ *                khác với `capacity` (yêu cầu riêng cho từng phòng)
+ *   category   — loại phòng cụ thể (nullable, standard/superior/deluxe/family/suite)
  *   check_in   — ngày nhận phòng dự kiến (nullable, Y-m-d, không ở quá khứ)
  *   check_out  — ngày trả phòng dự kiến (nullable, Y-m-d, sau check_in)
  *
@@ -36,9 +40,11 @@ class FilterRoomRequest extends BaseFormRequest
             'amenities'    => ['nullable', 'array'],
             'amenities.*'  => ['integer', 'exists:amenities,id'],
             'capacity'     => ['nullable', 'integer', 'min:1'],
+            'guests'       => ['nullable', 'integer', 'min:1', 'max:60'],
+            'category'     => ['nullable', 'in:standard,superior,deluxe,family,suite'],
             'quantity'     => ['nullable', 'integer', 'min:1', 'max:10'],
             'bed_type'     => ['nullable', 'string', 'max:100'],
-            'sort'         => ['nullable', 'in:price_asc,price_desc,rating,newest'],
+            'sort'         => ['nullable', 'in:price_asc,price_desc,rating,newest,popularity,best_match'],
             'check_in'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn(), 'required_with:check_out'],
             'check_out'    => ['nullable', 'date_format:Y-m-d', 'after:check_in', 'required_with:check_in'],
         ];
@@ -52,6 +58,8 @@ class FilterRoomRequest extends BaseFormRequest
             'max_price'   => 'giá tối đa',
             'amenities'   => 'tiện ích',
             'capacity'    => 'sức chứa',
+            'guests'      => 'số khách',
+            'category'    => 'loại phòng',
             'check_in'    => 'ngày nhận phòng',
             'check_out'   => 'ngày trả phòng',
         ];

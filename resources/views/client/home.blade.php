@@ -23,17 +23,17 @@
         <div>
             <label class="form-label !text-slate-500" for="quantity">Số phòng</label>
             <select id="quantity" name="quantity" class="input">
-                @foreach ([1,2,3,4] as $n)
+                @foreach (range(1, 10) as $n)
                     <option value="{{ $n }}" @selected(($filters['quantity'] ?? 1) == $n)>{{ $n }} phòng</option>
                 @endforeach
             </select>
         </div>
         <div>
-            <label class="form-label !text-slate-500" for="capacity">Số khách</label>
-            <select id="capacity" name="capacity" class="input">
+            <label class="form-label !text-slate-500" for="guests">Số khách</label>
+            <select id="guests" name="guests" class="input">
                 <option value="">Bất kỳ</option>
-                @foreach ([1,2,3,4] as $n)
-                    <option value="{{ $n }}" @selected(($filters['capacity'] ?? '') == $n)>{{ $n }} khách</option>
+                @foreach (range(1, 20) as $n)
+                    <option value="{{ $n }}" @selected(($filters['guests'] ?? '') == $n)>{{ $n }} khách</option>
                 @endforeach
             </select>
         </div>
@@ -187,6 +187,8 @@
     @endif
 
     <section id="rooms-section" class="scroll-mt-24">
+        @include('partials._room-combination-banner')
+
         <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
                 <span class="section-kicker">Loại phòng</span>

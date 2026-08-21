@@ -74,16 +74,31 @@
                 @csrf
                 <div>
                     <label class="form-label" for="current_password">Mật khẩu hiện tại</label>
-                    <input class="input" type="password" id="current_password" name="current_password" required>
+                    <div class="password-field" x-data="{ show: false }">
+                        <input class="input" :type="show ? 'text' : 'password'" id="current_password" name="current_password" required>
+                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                            @include('partials._eye-icon')
+                        </button>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="form-label" for="password">Mật khẩu mới</label>
-                        <input class="input" type="password" id="password" name="password" required>
+                        <div class="password-field" x-data="{ show: false }">
+                            <input class="input" :type="show ? 'text' : 'password'" id="password" name="password" required>
+                            <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                                @include('partials._eye-icon')
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <label class="form-label" for="password_confirmation">Xác nhận mật khẩu mới</label>
-                        <input class="input" type="password" id="password_confirmation" name="password_confirmation" required>
+                        <div class="password-field" x-data="{ show: false }">
+                            <input class="input" :type="show ? 'text' : 'password'" id="password_confirmation" name="password_confirmation" required>
+                            <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                                @include('partials._eye-icon')
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <button type="submit" class="btn-outline">Đổi mật khẩu</button>
@@ -102,7 +117,12 @@
                 </div>
                 <div>
                     <label class="form-label" for="email_current_password">Mật khẩu hiện tại (xác nhận)</label>
-                    <input class="input" type="password" id="email_current_password" name="current_password" required>
+                    <div class="password-field" x-data="{ show: false }">
+                        <input class="input" :type="show ? 'text' : 'password'" id="email_current_password" name="current_password" required>
+                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                            @include('partials._eye-icon')
+                        </button>
+                    </div>
                 </div>
                 <button type="submit" class="btn-outline">Đổi email</button>
             </form>
