@@ -43,13 +43,23 @@
 
                 <div class="form-group">
                     <label for="password">Mật khẩu</label>
-                    <input id="password" type="password" name="password" placeholder="Tối thiểu 8 ký tự" required>
+                    <div class="password-field" x-data="{ show: false }">
+                        <input :type="show ? 'text' : 'password'" id="password" name="password" placeholder="Tối thiểu 8 ký tự" required>
+                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                            @include('partials._eye-icon')
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="password_confirmation">Xác nhận mật khẩu</label>
-                    <input id="password_confirmation" type="password" name="password_confirmation"
-                        placeholder="Nhập lại mật khẩu" required>
+                    <div class="password-field" x-data="{ show: false }">
+                        <input :type="show ? 'text' : 'password'" id="password_confirmation" name="password_confirmation"
+                            placeholder="Nhập lại mật khẩu" required>
+                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                            @include('partials._eye-icon')
+                        </button>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-block">Đăng ký</button>

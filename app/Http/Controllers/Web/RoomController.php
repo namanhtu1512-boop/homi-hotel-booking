@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\FilterRoomRequest;
+use App\Models\Amenity;
 use App\Services\AvailabilityService;
 use App\Services\HotelInfoService;
 use App\Services\PricingService;
 use App\Services\ReviewService;
+use App\Services\RoomCombinationService;
 use App\Services\RoomTypeService;
 use App\Services\SeasonalRateService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -23,6 +26,7 @@ class RoomController extends Controller
         private readonly ReviewService $reviewService,
         private readonly SeasonalRateService $seasonalRateService,
         private readonly PricingService $pricingService,
+        private readonly RoomCombinationService $roomCombinationService,
     ) {}
 
     public function index(FilterRoomRequest $request): View
@@ -32,6 +36,9 @@ class RoomController extends Controller
             'min_price' => $request->input('min_price'),
             'max_price' => $request->input('max_price'),
             'capacity'  => $request->input('capacity'),
+            'guests'    => $request->input('guests'),
+            'category'  => $request->input('category'),
+            'amenities' => $request->amenityIds(),
             'bed_type'  => $request->input('bed_type'),
             'sort'      => $request->input('sort'),
             'quantity'  => $request->input('quantity'),
@@ -39,7 +46,15 @@ class RoomController extends Controller
             'check_out' => $request->input('check_out'),
         ], fn ($value) => $value !== null && $value !== '');
 
-        $roomTypes = $this->roomTypeService->search($filters);
+        $candidates = $this->roomTypeService->searchCandidates($filters);
+
+        $combination = $this->buildCombination($request, $filters, $candidates);
+
+        if (($filters['sort'] ?? null) === 'best_match' && $combination && $combination['status'] === 'ok') {
+            $candidates = $this->sortByBestMatch($candidates, $combination);
+        }
+
+        $roomTypes = $this->roomTypeService->paginate($candidates);
         $roomTypeIds = $roomTypes->pluck('id')->all();
 
         // previewTonight() dùng chung PricingService::calculate() với lúc đặt
@@ -61,14 +76,89 @@ class RoomController extends Controller
         }
 
         return view('rooms.index', [
-            'roomTypes' => $roomTypes,
-            'filters'   => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
-            'hotel'     => $this->hotelInfoService->current(),
-            'ratings'   => $this->reviewService->summaryForMany($roomTypeIds),
+            'roomTypes'   => $roomTypes,
+            'filters'     => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'guests', 'category', 'amenities', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
+            'hotel'       => $this->hotelInfoService->current(),
+            'ratings'     => $this->reviewService->summaryForMany($roomTypeIds),
+            'amenities'   => Amenity::orderBy('name')->get(),
+            'combination' => $combination,
             'seasonalRates'    => $seasonalRates,
             'discountedPrices' => $discountedPrices,
             'discountLabels'   => $discountLabels,
         ]);
+    }
+
+    /**
+     * Chạy RoomCombinationService khi khách có nhập `guests` (tổng số khách)
+     * kèm ngày lưu trú — trả về null nếu thiếu điều kiện để chạy (không tính
+     * là "không tìm thấy", chỉ đơn giản là khách chưa yêu cầu tính tổ hợp).
+     * Khi thất bại và có lọc theo `category`, gắn thêm gợi ý category khác
+     * đang khả dụng (KHÔNG tự áp dụng thay khách hàng).
+     */
+    private function buildCombination(FilterRoomRequest $request, array $filters, Collection $candidates): ?array
+    {
+        if (! $request->hasDateRange() || empty($filters['guests'])) {
+            return null;
+        }
+
+        $quantity = max(1, (int) ($filters['quantity'] ?? 1));
+        $guests   = (int) $filters['guests'];
+
+        $combination = $this->roomCombinationService->find(
+            $this->toCombinationCandidates($candidates), $quantity, $guests
+        );
+
+        if ($combination['status'] !== 'ok' && ! empty($filters['category'])) {
+            $unrestrictedFilters = $filters;
+            unset($unrestrictedFilters['category']);
+
+            $allCandidates = $this->roomTypeService->searchCandidates($unrestrictedFilters);
+
+            $combination['alternative_categories'] = $this->roomCombinationService->suggestAlternativeCategories(
+                $this->toCombinationCandidates($allCandidates), $quantity, $guests, $filters['category']
+            );
+        }
+
+        return $combination;
+    }
+
+    /**
+     * @return Collection<int, array>
+     */
+    private function toCombinationCandidates(Collection $roomTypes): Collection
+    {
+        return $roomTypes->map(fn ($rt) => [
+            'room_type_id'     => $rt->id,
+            'name'             => $rt->name,
+            'category'         => $rt->category,
+            'capacity'         => (int) $rt->capacity,
+            'available_quantity' => (int) $rt->available_quantity,
+            'price_per_night'  => (float) $rt->price_per_night,
+        ])->values();
+    }
+
+    /**
+     * Sắp candidates: loại phòng nằm trong tổ hợp thắng lên đầu (theo số
+     * lượng đóng góp giảm dần), phần còn lại theo giá tăng dần như price_asc.
+     */
+    private function sortByBestMatch(Collection $candidates, array $combination): Collection
+    {
+        $winningQuantities = collect($combination['rooms'])->pluck('quantity', 'room_type_id');
+
+        return $candidates->sort(function ($a, $b) use ($winningQuantities) {
+            $aIn = $winningQuantities->has($a->id);
+            $bIn = $winningQuantities->has($b->id);
+
+            if ($aIn !== $bIn) {
+                return $aIn ? -1 : 1;
+            }
+
+            if ($aIn) {
+                return $winningQuantities->get($b->id) <=> $winningQuantities->get($a->id);
+            }
+
+            return $a->price_per_night <=> $b->price_per_night;
+        })->values();
     }
 
     public function show(int $id, Request $request): View

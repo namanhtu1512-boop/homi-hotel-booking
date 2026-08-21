@@ -24,6 +24,7 @@ class FilterRoomTypeRequest extends BaseFormRequest
             'min_price' => ['nullable', 'numeric', 'min:0'],
             'max_price' => ['nullable', 'numeric', 'min:0'],
             'capacity'  => ['nullable', 'integer', 'min:1', 'max:10'],
+            'guests'    => ['nullable', 'integer', 'min:1', 'max:60'],
             'quantity'  => ['nullable', 'integer', 'min:1', 'max:10'],
             'check_in'  => ['nullable', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn()],
             'check_out' => ['nullable', 'date_format:Y-m-d', 'after:check_in'],
@@ -55,6 +56,6 @@ class FilterRoomTypeRequest extends BaseFormRequest
 
     public function filters(): array
     {
-        return $this->only(['keyword', 'min_price', 'max_price', 'capacity', 'quantity', 'check_in', 'check_out']);
+        return $this->only(['keyword', 'min_price', 'max_price', 'capacity', 'guests', 'quantity', 'check_in', 'check_out']);
     }
 }

@@ -35,8 +35,50 @@ class RoomTypeService
      * Khi có đủ check_in/check_out, chỉ trả về loại phòng còn đủ số lượng
      * trống trong khoảng ngày đó (dùng lại logic overlap của AvailabilityService,
      * tính bulk 1 query thay vì gọi lặp từng phòng).
+     *
+     * Chỉ phân trang 1 collection đã lọc/gắn availability sẵn (searchCandidates())
+     * — không paginate() thẳng ở DB nữa, vì nhánh có date-range luôn phải lọc
+     * available_quantity trong bộ nhớ nên trước đây phải duy trì 2 cách phân
+     * trang khác nhau. Danh mục phòng của 1 khách sạn nhỏ nên load hết vào
+     * Collection rồi tự phân trang không phải là vấn đề hiệu năng.
      */
     public function search(array $filters = [], int $perPage = 12): LengthAwarePaginator
+    {
+        return $this->paginate($this->searchCandidates($filters), $perPage);
+    }
+
+    /**
+     * Phân trang thủ công 1 Collection đã lọc/sắp xếp sẵn — tách riêng để
+     * RoomController có thể tự sắp lại thứ tự candidates (sort best_match
+     * theo kết quả RoomCombinationService) rồi mới phân trang, thay vì phải
+     * lặp lại đoạn slice/LengthAwarePaginator này.
+     */
+    public function paginate(Collection $items, int $perPage = 12): LengthAwarePaginator
+    {
+        $page  = (int) request('page', 1);
+        $slice = $items->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return new BaseLengthAwarePaginator($slice, $items->count(), $perPage, $page, [
+            'path'  => request()->url(),
+            'query' => request()->query(),
+        ]);
+    }
+
+    /**
+     * Lọc + gắn `available_quantity` + sắp xếp, KHÔNG phân trang — dùng chung
+     * bởi search() (trang danh sách) và RoomController/HomeController khi cần
+     * đưa thẳng tập ứng viên vào RoomCombinationService.
+     *
+     * Ngữ nghĩa lọc theo `quantity` phụ thuộc `guests` có được truyền hay
+     * không:
+     *   - Không có `guests`: hành vi cũ — 1 loại phòng phải TỰ đủ `quantity`
+     *     phòng (available_quantity >= quantity).
+     *   - Có `guests`: nới lỏng thành "còn ít nhất 1 phòng trống" — loại
+     *     phòng chỉ cần đủ điều kiện để CÓ THỂ góp vào 1 tổ hợp nhiều loại;
+     *     việc tổ hợp đó có thực sự đủ quantity+guests hay không do
+     *     RoomCombinationService quyết định, không lọc cứng ở đây.
+     */
+    public function searchCandidates(array $filters = []): Collection
     {
         $query = RoomType::with('images')->where('status', 'active');
 
@@ -64,40 +106,47 @@ class RoomTypeService
             $query->where('bed_type', $filters['bed_type']);
         }
 
+        if (! empty($filters['category'])) {
+            $query->where('category', $filters['category']);
+        }
+
+        if (! empty($filters['amenities'])) {
+            foreach ($filters['amenities'] as $amenityId) {
+                $query->whereHas('amenities', fn ($q) => $q->where('amenities.id', $amenityId));
+            }
+        }
+
         $this->applySort($query, $filters['sort'] ?? null);
 
         $hasDateRange = ! empty($filters['check_in']) && ! empty($filters['check_out']);
+        $checkIn  = $hasDateRange ? $filters['check_in']  : now()->toDateString();
+        $checkOut = $hasDateRange ? $filters['check_out'] : now()->addDay()->toDateString();
+
+        $roomTypes = $query->get();
+
+        $this->attachAvailability($roomTypes, $checkIn, $checkOut);
 
         if (! $hasDateRange) {
-            $paginator = $query->paginate($perPage)->withQueryString();
-
-            $this->attachAvailability($paginator->getCollection(), now()->toDateString(), now()->addDay()->toDateString());
-
-            return $paginator;
+            return $roomTypes;
         }
 
         $quantity = max(1, (int) ($filters['quantity'] ?? 1));
-        $roomTypes = $query->get();
+        $hasGuestsFilter = ! empty($filters['guests']);
 
-        $this->attachAvailability($roomTypes, $filters['check_in'], $filters['check_out']);
-
-        $available = $roomTypes->filter(
-            fn (RoomType $room) => $room->available_quantity >= $quantity
+        return $roomTypes->filter(
+            fn (RoomType $room) => $hasGuestsFilter
+                ? $room->available_quantity > 0
+                : $room->available_quantity >= $quantity
         )->values();
-
-        $page = (int) request('page', 1);
-        $slice = $available->slice(($page - 1) * $perPage, $perPage)->values();
-
-        return (new BaseLengthAwarePaginator($slice, $available->count(), $perPage, $page, [
-            'path'  => request()->url(),
-            'query' => request()->query(),
-        ]));
     }
 
     /**
      * Gắn `available_quantity` (số phòng còn trống thực tế trong khoảng
-     * check_in/check_out cho trước, đã trừ các booking đang giữ chỗ) lên
-     * từng RoomType — dùng chung cho cả nhánh có/không có date range trong
+     * check_in/check_out cho trước, đã trừ cả booking đang giữ chỗ VÀ
+     * RoomHold đang active — cùng logic với AvailabilityService::getBookedQuantity(),
+     * tránh trường hợp trang danh sách công khai báo còn phòng trong khi
+     * phòng đó thực ra đang bị 1 session khác tạm giữ 15 phút) lên từng
+     * RoomType — dùng chung cho cả nhánh có/không có date range trong
      * search(), để danh sách công khai luôn khớp với số liệu admin thấy.
      */
     private function attachAvailability(iterable $roomTypes, string $checkIn, string $checkOut): void
@@ -108,9 +157,11 @@ class RoomTypeService
             return;
         }
 
+        $roomTypeIds = $roomTypes->pluck('id');
+
         $bookedCounts = DB::table('booking_items')
             ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
-            ->whereIn('booking_items.room_type_id', $roomTypes->pluck('id'))
+            ->whereIn('booking_items.room_type_id', $roomTypeIds)
             ->whereIn('bookings.status', BookingStatus::holdingStatuses())
             ->whereDate('bookings.check_in', '<', $checkOut)
             ->whereDate('bookings.check_out', '>', $checkIn)
@@ -118,8 +169,18 @@ class RoomTypeService
             ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_quantity')
             ->pluck('total_quantity', 'room_type_id');
 
+        $heldCounts = DB::table('room_holds')
+            ->whereIn('room_type_id', $roomTypeIds)
+            ->where('expires_at', '>', now())
+            ->whereDate('check_in', '<', $checkOut)
+            ->whereDate('check_out', '>', $checkIn)
+            ->groupBy('room_type_id')
+            ->selectRaw('room_type_id, SUM(quantity) as total_quantity')
+            ->pluck('total_quantity', 'room_type_id');
+
         foreach ($roomTypes as $room) {
-            $room->available_quantity = max(0, $room->total_rooms - (int) $bookedCounts->get($room->id, 0));
+            $booked = (int) $bookedCounts->get($room->id, 0) + (int) $heldCounts->get($room->id, 0);
+            $room->available_quantity = max(0, $room->total_rooms - $booked);
         }
     }
 
@@ -135,6 +196,20 @@ class RoomTypeService
                 '=',
                 'room_types.id'
             )->orderByDesc('review_avg.avg_rating')->select('room_types.*'),
+            'popularity' => $query->leftJoinSub(
+                DB::table('booking_items')
+                    ->join('bookings', 'bookings.id', '=', 'booking_items.booking_id')
+                    ->where('bookings.status', '!=', BookingStatus::CANCELLED->value)
+                    ->groupBy('booking_items.room_type_id')
+                    ->selectRaw('booking_items.room_type_id, SUM(booking_items.quantity) as total_booked'),
+                'popularity_stats',
+                'popularity_stats.room_type_id',
+                '=',
+                'room_types.id'
+            )->orderByDesc('popularity_stats.total_booked')->select('room_types.*'),
+            // best_match: chỉ có ý nghĩa khi có kết quả RoomCombinationService —
+            // controller tự sắp lại Collection sau khi có tổ hợp, ở đây coi như
+            // price_asc mặc định (áp dụng khi chưa/không có guests+quantity).
             default => $query->orderBy('price_per_night'),
         };
     }

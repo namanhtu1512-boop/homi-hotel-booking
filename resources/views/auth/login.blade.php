@@ -31,7 +31,12 @@
 
                 <div class="form-group">
                     <label for="password">Mật khẩu</label>
-                    <input id="password" type="password" name="password" placeholder="Nhập mật khẩu" required>
+                    <div class="password-field" x-data="{ show: false }">
+                        <input :type="show ? 'text' : 'password'" id="password" name="password" placeholder="Nhập mật khẩu" required>
+                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
+                            @include('partials._eye-icon')
+                        </button>
+                    </div>
                 </div>
 
                 <div class="text-right text-sm">

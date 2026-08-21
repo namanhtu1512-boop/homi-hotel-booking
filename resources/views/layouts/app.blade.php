@@ -31,7 +31,10 @@
 
             <nav class="hidden items-center gap-1 lg:flex">
                 <a href="{{ route('home') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Trang chủ</a>
-                <a href="{{ route('rooms.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Khách sạn</a>
+                <a href="{{ route('rooms.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Loại phòng</a>
+                @if (Route::has('about'))
+                    <a href="{{ route('about') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Giới thiệu</a>
+                @endif
                 @if (Route::has('promotions.index'))
                     <a href="{{ route('promotions.index') }}" class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">Khuyến mãi</a>
                 @endif
@@ -108,7 +111,10 @@
         <div id="homi-mobile-nav" class="hidden border-t border-slate-200 px-4 py-3 sm:hidden dark:border-slate-800">
             <div class="flex flex-col gap-1">
                 <a href="{{ route('home') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Trang chủ</a>
-                <a href="{{ route('rooms.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khách sạn</a>
+                <a href="{{ route('rooms.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Loại phòng</a>
+                @if (Route::has('about'))
+                    <a href="{{ route('about') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Giới thiệu</a>
+                @endif
                 @if (Route::has('promotions.index'))
                     <a href="{{ route('promotions.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">Khuyến mãi</a>
                 @endif
