@@ -33,7 +33,10 @@
     @endphp
     <div class="alert alert-warning">
         <div class="mb-2 font-bold">
-            ⏳ Đơn đang chờ tư vấn — giường phụ tạm thời không đủ trong khoảng ngày bạn chọn{{ $extraBedMissing ? " (thiếu {$extraBedMissing} giường)" : '' }}.
+            ⏳ Đơn đang chờ tư vấn — giường phụ tạm thời không đủ trong khoảng ngày bạn chọn.
+            @if ($extraBedRequest)
+                Hiện chỉ còn <strong>{{ $extraBedRequest->available_extra_beds }}</strong> giường phụ trống vào ngày {{ $booking->check_in->format('d/m/Y') }} (bạn cần {{ $extraBedRequest->requested_extra_beds }}, thiếu {{ $extraBedMissing }}).
+            @endif
         </div>
         <p class="mb-3 text-sm">Khách sạn cũng đang được thông báo để hỗ trợ bạn. Vui lòng chọn 1 phương án bên dưới, hoặc chờ nhân viên liên hệ trực tiếp:</p>
 

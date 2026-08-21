@@ -17,7 +17,7 @@
 
     <form method="POST"
         action="{{ $isEdit ? route('admin.room-types.update', $roomType->id) : route('admin.room-types.store') }}"
-        class="form-grid">
+        class="form-grid" enctype="multipart/form-data">
         @csrf
         @if ($isEdit)
             @method('PUT')
@@ -77,11 +77,30 @@
         </div>
 
         <div class="form-group">
-            <label for="images_text">Ảnh phòng (mỗi dòng 1 đường dẫn/URL)</label>
+            <label for="image_files">Ảnh phòng — tải lên từ máy</label>
+            <input id="image_files" type="file" name="image_files[]" multiple accept="image/*">
+            @error('image_files.*')
+                <p style="color: red; font-size: 13px; margin-top: 4px;">{{ $message }}</p>
+            @enderror
+
+            @if ($isEdit && $roomType->images->isNotEmpty())
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                    @foreach ($roomType->images as $image)
+                        <img
+                            src="{{ Str::startsWith($image->path, ['http://', 'https://']) ? $image->path : asset('storage/' . $image->path) }}"
+                            style="width: 100px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;"
+                            alt="{{ $roomType->name }}">
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        <div class="form-group">
+            <label for="images_text">Hoặc nhập đường dẫn / URL (mỗi dòng 1 ảnh)</label>
             <textarea id="images_text" name="images_text" rows="3"
-                placeholder="rooms/anh1.jpg&#10;rooms/anh2.jpg">{{ old('images_text', $isEdit ? $roomType->images->pluck('path')->implode("\n") : '') }}</textarea>
+                placeholder="rooms/anh1.jpg&#10;https://example.com/anh2.jpg">{{ old('images_text', '') }}</textarea>
             @if ($isEdit)
-                <p class="section-desc">Lưu ý: nếu nhập ảnh mới ở đây, toàn bộ ảnh cũ sẽ bị thay thế. Để trống nếu không muốn đổi ảnh.</p>
+                <p class="section-desc">Lưu ý: nếu tải ảnh mới hoặc nhập đường dẫn ở đây, toàn bộ ảnh cũ sẽ bị thay thế. Để cả hai trống nếu không muốn đổi ảnh.</p>
             @endif
         </div>
 

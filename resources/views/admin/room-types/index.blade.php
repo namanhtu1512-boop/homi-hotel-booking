@@ -110,4 +110,45 @@
         </div>
     @endif
 </div>
+
+@if ($trashedRoomTypes->isNotEmpty())
+    <div class="card mt-4">
+        <div class="page-actions">
+            <div>
+                <div class="section-kicker">Đã xóa</div>
+                <h2 class="section-title">{{ $trashedRoomTypes->count() }} loại phòng đã xóa mềm</h2>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tên</th>
+                        <th>Sức chứa</th>
+                        <th>Giá / đêm</th>
+                        <th>Ngày xóa</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($trashedRoomTypes as $room)
+                        <tr>
+                            <td>{{ $room->name }}</td>
+                            <td>{{ $room->capacity }} khách</td>
+                            <td>{{ number_format($room->price_per_night, 0, ',', '.') }}đ</td>
+                            <td>{{ $room->deleted_at->format('d/m/Y H:i') }}</td>
+                            <td>
+                                <form method="POST" action="{{ route('admin.room-types.restore', $room->id) }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline btn-sm">Khôi phục</button>
+                                </form>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+@endif
 @endsection

@@ -76,6 +76,9 @@
                                 <input type="checkbox" name="items[{{ $i }}][extra_bed]" class="item-extra-bed" value="1"
                                        @checked(! empty($row['extra_bed'])) onchange="updateEstimate()">
                                 Cần giường phụ? <span class="font-normal text-slate-400">(chỉ dành cho trẻ em 6-11 tuổi vượt sức chứa, không dùng cho người lớn, tối đa 1 giường/phòng, phụ thu {{ number_format($extraBedSurchargePerNight, 0, ',', '.') }}đ/giường/đêm)</span>
+                                @if ($extraBedsAvailable !== null)
+                                    <span class="font-normal {{ $extraBedsAvailable > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500' }}">— còn {{ $extraBedsAvailable }} giường phụ trống trong khoảng ngày đã chọn</span>
+                                @endif
                             </label>
 
                             <div class="item-capacity-warning mt-1.5 hidden text-xs font-semibold text-red-500"></div>
@@ -249,6 +252,9 @@
         <label class="item-extra-bed-wrap mt-2 hidden items-center gap-1.5 text-xs font-bold">
             <input type="checkbox" name="items[__INDEX__][extra_bed]" class="item-extra-bed" value="1" onchange="updateEstimate()">
             Cần giường phụ? <span class="font-normal text-slate-400">(chỉ dành cho trẻ em 6-11 tuổi vượt sức chứa, không dùng cho người lớn, tối đa 1 giường/phòng, phụ thu {{ number_format($extraBedSurchargePerNight, 0, ',', '.') }}đ/giường/đêm)</span>
+            @if ($extraBedsAvailable !== null)
+                <span class="font-normal {{ $extraBedsAvailable > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500' }}">— còn {{ $extraBedsAvailable }} giường phụ trống trong khoảng ngày đã chọn</span>
+            @endif
         </label>
 
         <div class="item-capacity-warning mt-1.5 hidden text-xs font-semibold text-red-500"></div>
