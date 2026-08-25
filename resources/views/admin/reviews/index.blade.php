@@ -38,11 +38,16 @@
                             <td>{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</td>
                             <td style="max-width: 320px;">{{ $review->comment ?: '—' }}</td>
                             <td>
-                                @if (! empty($review->images))
+                                @if (! empty($review->images) || ! empty($review->videos))
                                     <div class="action-row">
-                                        @foreach ($review->images as $img)
+                                        @foreach ($review->images ?? [] as $img)
                                             <a href="{{ asset('storage/' . $img) }}" target="_blank" rel="noopener">
                                                 <img src="{{ asset('storage/' . $img) }}" alt="" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">
+                                            </a>
+                                        @endforeach
+                                        @foreach ($review->videos ?? [] as $video)
+                                            <a href="{{ asset('storage/' . $video) }}" target="_blank" rel="noopener">
+                                                <video src="{{ asset('storage/' . $video) }}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;"></video>
                                             </a>
                                         @endforeach
                                     </div>

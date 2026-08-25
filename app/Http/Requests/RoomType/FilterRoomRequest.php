@@ -15,7 +15,6 @@ use App\Http\Requests\BaseFormRequest;
  *   keyword    — tìm theo tên/mô tả loại phòng (nullable, max 255)
  *   min_price  — giá tối thiểu/đêm (nullable, numeric, >= 0)
  *   max_price  — giá tối đa/đêm (nullable, numeric, >= 0, >= min_price)
- *   amenities  — danh sách id tiện ích cần có (nullable, mảng id tồn tại trong amenities)
  *   capacity   — sức chứa tối thiểu CỦA MỘT PHÒNG (nullable, integer, >= 1)
  *   guests     — tổng số khách của cả đoàn (nullable, integer, >= 1) — dùng
  *                cho thuật toán tìm tổ hợp nhiều phòng (RoomCombinationService),
@@ -37,12 +36,10 @@ class FilterRoomRequest extends BaseFormRequest
             'keyword'      => ['nullable', 'string', 'max:255'],
             'min_price'    => ['nullable', 'numeric', 'min:0'],
             'max_price'    => ['nullable', 'numeric', 'min:0', 'gte:min_price'],
-            'amenities'    => ['nullable', 'array'],
-            'amenities.*'  => ['integer', 'exists:amenities,id'],
             'capacity'     => ['nullable', 'integer', 'min:1'],
-            'guests'       => ['nullable', 'integer', 'min:1', 'max:60'],
+            'guests'       => ['nullable', 'integer', 'min:1', 'max:8'],
             'category'     => ['nullable', 'in:standard,superior,deluxe,family,suite'],
-            'quantity'     => ['nullable', 'integer', 'min:1', 'max:10'],
+            'quantity'     => ['nullable', 'integer', 'min:1', 'max:4'],
             'bed_type'     => ['nullable', 'string', 'max:100'],
             'sort'         => ['nullable', 'in:price_asc,price_desc,rating,newest,popularity,best_match'],
             'check_in'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn(), 'required_with:check_out'],
@@ -56,7 +53,6 @@ class FilterRoomRequest extends BaseFormRequest
             'keyword'     => 'từ khóa tìm kiếm',
             'min_price'   => 'giá tối thiểu',
             'max_price'   => 'giá tối đa',
-            'amenities'   => 'tiện ích',
             'capacity'    => 'sức chứa',
             'guests'      => 'số khách',
             'category'    => 'loại phòng',
@@ -69,8 +65,6 @@ class FilterRoomRequest extends BaseFormRequest
     {
         return [
             'max_price.gte'        => 'Giá tối đa phải lớn hơn hoặc bằng giá tối thiểu.',
-            'amenities.array'      => 'Tiện ích không đúng định dạng.',
-            'amenities.*.exists'   => 'Một hoặc nhiều tiện ích đã chọn không tồn tại.',
             'check_in.after_or_equal' => 'Ngày nhận phòng không được ở quá khứ.',
             'check_in.required_with'  => 'Vui lòng chọn ngày nhận phòng.',
             'check_out.after'         => 'Ngày trả phòng phải sau ngày nhận phòng.',
@@ -84,14 +78,6 @@ class FilterRoomRequest extends BaseFormRequest
     public function keyword(): ?string
     {
         return $this->trimmedString('keyword');
-    }
-
-    /**
-     * Danh sách id tiện ích đã chọn (mảng rỗng nếu không lọc theo tiện ích).
-     */
-    public function amenityIds(): array
-    {
-        return array_map('intval', $this->input('amenities', []));
     }
 
     /**

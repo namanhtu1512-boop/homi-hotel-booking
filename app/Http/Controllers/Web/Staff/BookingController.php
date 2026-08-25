@@ -9,6 +9,7 @@ use App\Http\Requests\Booking\AddSurchargeRequest;
 use App\Http\Requests\Booking\CreateWalkInBookingRequest;
 use App\Http\Requests\Booking\ExtendStayRequest;
 use App\Http\Requests\Booking\UpdatePaymentStatusRequest;
+use App\Models\BookingItemRoom;
 use App\Models\RoomType;
 use App\Services\AuditLogService;
 use App\Services\BookingService;
@@ -60,6 +61,12 @@ class BookingController extends Controller
     {
         $booking = $this->bookingService->findForAdmin($id);
 
+        $checkedInRooms = $booking->bookingItemRooms()
+            ->whereNotNull('checked_in_at')
+            ->whereNull('checked_out_at')
+            ->with(['room', 'bookingItem.roomType'])
+            ->get();
+
         return view('staff.bookings.show', [
             'booking'         => $booking,
             'activeServices'  => $this->serviceService->activePublic(),
@@ -67,6 +74,7 @@ class BookingController extends Controller
             'violationItems'  => $this->surchargeItemService->activePublic(SurchargeCategory::Violation),
             'cleaningItems'   => $this->surchargeItemService->activePublic(SurchargeCategory::Cleaning),
             'timeline'        => $this->timelineService->buildTimeline($booking),
+            'checkedInRooms'  => $checkedInRooms,
         ]);
     }
 
@@ -88,11 +96,20 @@ class BookingController extends Controller
             ->with('success', "Đã tạo đơn đặt phòng tại quầy {$booking->booking_code}.");
     }
 
-    public function invoice(int $id): View
+    public function invoice(int $id, Request $request): View
     {
+        $booking = $this->bookingService->findForAdmin($id);
+        $roomId = $request->query('room') ? (int) $request->query('room') : null;
+        $room = $roomId
+            ? $booking->bookingItemRooms()->with(['room', 'bookingItem.roomType', 'settlement'])->find($roomId)
+            : null;
+        $roomPreview = ($room && ! $room->settlement) ? $this->bookingService->previewRoomSettlement($booking, $room) : null;
+
         return view('bookings.invoice', [
-            'booking'   => $this->bookingService->findForAdmin($id),
-            'backRoute' => route('staff.bookings.show', $id),
+            'booking'     => $booking,
+            'room'        => $room,
+            'roomPreview' => $roomPreview,
+            'backRoute'   => route('staff.bookings.show', $id),
         ]);
     }
 
@@ -169,24 +186,57 @@ class BookingController extends Controller
     {
         $booking = $this->bookingService->findForAdmin($id);
 
+        $pendingRooms = $booking->bookingItemRooms()
+            ->whereNotNull('checked_in_at')
+            ->whereNull('checked_out_at')
+            ->with(['room', 'bookingItem.roomType'])
+            ->get()
+            ->map(fn (BookingItemRoom $room) => [
+                'room'    => $room,
+                'preview' => $this->bookingService->previewRoomSettlement($booking, $room),
+            ]);
+
         return view('bookings.check-out', [
-            'booking'    => $booking,
-            'formAction' => route('staff.bookings.check-out', $id),
-            'backRoute'  => route('staff.bookings.show', $id),
-            'layout'     => 'layouts.staff',
+            'booking'      => $booking,
+            'pendingRooms' => $pendingRooms,
+            'formAction'   => route('staff.bookings.check-out', $id),
+            'backRoute'    => route('staff.bookings.show', $id),
+            'layout'       => 'layouts.staff',
         ]);
     }
 
-    public function checkOut(int $id): RedirectResponse
+    public function checkOut(int $id, Request $request): RedirectResponse
     {
         $booking = $this->bookingService->findForAdmin($id);
-        $result  = $this->bookingService->checkOut($booking);
 
-        $this->auditLog->log('booking.checked_out', $booking, "Check-out đơn \"{$booking->booking_code}\".");
+        $roomIds = array_map('intval', (array) $request->input('rooms', []));
 
-        $message = "Đã check-out đơn {$booking->booking_code}.";
-        if ($result['late_checkout_fee']) {
-            $message .= ' Đã tự động cộng phụ phí trả phòng muộn ' . number_format($result['late_checkout_fee'], 0, ',', '.') . 'đ.';
+        if (empty($roomIds)) {
+            return redirect()->back()->with('error', 'Vui lòng chọn ít nhất 1 phòng để trả phòng.');
+        }
+
+        $settlementInput = [
+            'method' => $request->input('method'),
+            'note'   => $request->input('note'),
+        ];
+
+        $totalCollected = 0.0;
+        $lateFee = null;
+
+        foreach ($roomIds as $roomId) {
+            $bookingItemRoom = BookingItemRoom::findOrFail($roomId);
+            $result = $this->bookingService->checkOutRoom($booking, $bookingItemRoom, $settlementInput);
+
+            $totalCollected += (float) $result['settlement']->amount_collected;
+            $lateFee = $lateFee ?? $result['late_checkout_fee'];
+            $booking = $result['booking'];
+        }
+
+        $this->auditLog->log('booking.checked_out', $booking, 'Trả phòng cho đơn "' . $booking->booking_code . '" (' . count($roomIds) . ' phòng).');
+
+        $message = 'Đã trả phòng (' . count($roomIds) . ") phòng cho đơn {$booking->booking_code} — thu " . number_format($totalCollected, 0, ',', '.') . 'đ.';
+        if ($lateFee) {
+            $message .= ' Đã tự động cộng phụ phí trả phòng muộn ' . number_format($lateFee, 0, ',', '.') . 'đ.';
         }
 
         return redirect()
@@ -227,6 +277,7 @@ class BookingController extends Controller
             (int) $request->validated('quantity'),
             $request->validated('amount') !== null ? (float) $request->validated('amount') : null,
             $request->validated('note'),
+            $request->validated('booking_item_room_id') ? (int) $request->validated('booking_item_room_id') : null,
         );
 
         $this->auditLog->log('booking.service_added', $booking, "Thêm dịch vụ phát sinh cho đơn \"{$booking->booking_code}\".");
@@ -245,6 +296,7 @@ class BookingController extends Controller
             $request->validated('note'),
             $request->validated('surcharge_item_id') ? (int) $request->validated('surcharge_item_id') : null,
             (int) ($request->validated('quantity') ?: 1),
+            $request->validated('booking_item_room_id') ? (int) $request->validated('booking_item_room_id') : null,
         );
 
         $this->auditLog->log('booking.surcharge_added', $booking, "Thêm phụ phí phát sinh cho đơn \"{$booking->booking_code}\".");

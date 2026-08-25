@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RoomType\FilterRoomRequest;
-use App\Models\Amenity;
 use App\Services\AvailabilityService;
 use App\Services\HotelInfoService;
 use App\Services\PricingService;
@@ -38,7 +37,6 @@ class RoomController extends Controller
             'capacity'  => $request->input('capacity'),
             'guests'    => $request->input('guests'),
             'category'  => $request->input('category'),
-            'amenities' => $request->amenityIds(),
             'bed_type'  => $request->input('bed_type'),
             'sort'      => $request->input('sort'),
             'quantity'  => $request->input('quantity'),
@@ -77,10 +75,9 @@ class RoomController extends Controller
 
         return view('rooms.index', [
             'roomTypes'   => $roomTypes,
-            'filters'     => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'guests', 'category', 'amenities', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
+            'filters'     => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'guests', 'category', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
             'hotel'       => $this->hotelInfoService->current(),
             'ratings'     => $this->reviewService->summaryForMany($roomTypeIds),
-            'amenities'   => Amenity::orderBy('name')->get(),
             'combination' => $combination,
             'seasonalRates'    => $seasonalRates,
             'discountedPrices' => $discountedPrices,

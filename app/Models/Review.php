@@ -16,12 +16,14 @@ class Review extends Model
         'rating',
         'comment',
         'images',
+        'videos',
         'status',
     ];
 
     protected $casts = [
         'rating' => 'integer',
         'images' => 'array',
+        'videos' => 'array',
     ];
 
     public function booking()

@@ -11,6 +11,7 @@ class IncidentalInvoiceItem extends Model
 
     protected $fillable = [
         'incidental_invoice_id',
+        'booking_item_room_id',
         'type',
         'description',
         'amount',
@@ -38,6 +39,11 @@ class IncidentalInvoiceItem extends Model
     public function surchargeItem()
     {
         return $this->belongsTo(SurchargeItem::class);
+    }
+
+    public function bookingItemRoom()
+    {
+        return $this->belongsTo(BookingItemRoom::class);
     }
 
     public function createdByUser()

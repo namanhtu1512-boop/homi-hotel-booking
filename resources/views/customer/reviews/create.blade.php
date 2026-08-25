@@ -51,6 +51,11 @@
             <input id="images" type="file" name="images[]" accept="image/*" multiple class="input">
         </div>
 
+        <div>
+            <label class="form-label" for="videos">Đăng video bằng chứng khảo sát (tối đa 2 video, mỗi video tối đa 50MB)</label>
+            <input id="videos" type="file" name="videos[]" accept="video/*" multiple class="input">
+        </div>
+
         <button type="submit" class="btn-primary w-full">Gửi đánh giá</button>
     </form>
 </div>

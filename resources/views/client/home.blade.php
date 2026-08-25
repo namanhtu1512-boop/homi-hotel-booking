@@ -23,7 +23,7 @@
         <div>
             <label class="form-label !text-slate-500" for="quantity">Số phòng</label>
             <select id="quantity" name="quantity" class="input">
-                @foreach (range(1, 10) as $n)
+                @foreach (range(1, 4) as $n)
                     <option value="{{ $n }}" @selected(($filters['quantity'] ?? 1) == $n)>{{ $n }} phòng</option>
                 @endforeach
             </select>
@@ -32,7 +32,7 @@
             <label class="form-label !text-slate-500" for="guests">Số khách</label>
             <select id="guests" name="guests" class="input">
                 <option value="">Bất kỳ</option>
-                @foreach (range(1, 20) as $n)
+                @foreach (range(1, 8) as $n)
                     <option value="{{ $n }}" @selected(($filters['guests'] ?? '') == $n)>{{ $n }} khách</option>
                 @endforeach
             </select>

@@ -1,0 +1,133 @@
+<mxfile host="65bd71144e">
+    <diagram id="uc-master" name="Hình 3.4.1 – Sơ đồ use case tổng quát hệ thống Homi">
+        <mxGraphModel dx="1884" dy="2632" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="1600" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="uc-master-la-0" value="Khách hàng" style="shape=umlActor;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;html=1;outlineConnect=0;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="228" y="260" width="60" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-ra-0" value="Nhân viên" style="shape=umlActor;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;html=1;outlineConnect=0;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="1179" y="520" width="60" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-ra-1" value="Quản trị viên" style="shape=umlActor;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;html=1;outlineConnect=0;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="1179" y="760" width="60" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-boundary" value="Hệ thống Homi" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;verticalAlign=top;align=center;fontStyle=1;fontSize=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="559" y="-30" width="540" height="1520" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-0" value="Đăng ký / Đăng nhập / Đăng xuất" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="40" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-0-l-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-la-0" target="uc-master-b-0" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-0-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-0" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-0-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-0" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-1" value="Tìm kiếm, xem chi tiết &amp; đặt phòng (online/đoàn-nhóm) &amp; thanh toán" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="150" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-1-l-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-la-0" target="uc-master-b-1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-2" value="Xem lịch sử, huỷ đặt phòng, đánh giá &amp; yêu thích phòng" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="260" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-2-l-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-la-0" target="uc-master-b-2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-3" value="Yêu cầu dịch vụ phát sinh trong lưu trú (đổi phòng, giường phụ, gia hạn, nhận sớm/trả muộn)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="370" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-3-l-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-la-0" target="uc-master-b-3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-3-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-3-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-4" value="Chat hỗ trợ khách hàng" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="480" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-4-l-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-la-0" target="uc-master-b-4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-4-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-4-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-5" value="Đặt phòng tại quầy, Check-in/Check-out" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="590" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-5-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-5-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-6" value="Quản lý đặt phòng &amp; thanh toán" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="700" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-6-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-6-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-7" value="Duyệt yêu cầu phát sinh &amp; xử lý hoàn tiền" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="810" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-7-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-7-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-8" value="Quản lý danh mục (phòng, loại phòng, dịch vụ, khuyến mãi, phụ thu)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="920" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-8-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-8" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-8-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-8" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-9" value="Quản lý người dùng &amp; khách hàng" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="1030" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-9-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-9" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-10" value="Báo cáo &amp; thống kê doanh thu, audit log" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="1140" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-10-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-10" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-11" value="Quản lý nội dung (tin tức, banner, đánh giá, liên hệ)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="1250" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-11-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-11" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-12" value="Đề xuất &amp; duyệt khuyến mãi / ưu đãi đặt đoàn-nhóm" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="619" y="1360" width="420" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-12-r-0" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-0" target="uc-master-b-12" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc-master-b-12-r-1" style="edgeStyle=none;html=1;strokeColor=#999999;endArrow=block;endFill=1;" parent="1" source="uc-master-ra-1" target="uc-master-b-12" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

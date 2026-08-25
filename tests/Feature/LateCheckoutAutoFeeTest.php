@@ -87,7 +87,8 @@ class LateCheckoutAutoFeeTest extends TestCase
 
         $booking = $this->checkedInBookingCheckingOutToday();
 
-        $result = $this->service()->checkOut($booking);
+        $room = $booking->bookingItemRooms()->first();
+        $result = $this->service()->checkOutRoom($booking, $room);
 
         // 13:30 - giờ chuẩn 12:00 = trễ 1.5h → rơi vào bậc "đến 2 giờ" = 30% giá phòng đêm cuối (1.000.000đ) = 300.000đ.
         $this->assertSame(300000.0, $result['late_checkout_fee']);
@@ -103,7 +104,8 @@ class LateCheckoutAutoFeeTest extends TestCase
 
         $booking = $this->checkedInBookingCheckingOutToday();
 
-        $result = $this->service()->checkOut($booking);
+        $room = $booking->bookingItemRooms()->first();
+        $result = $this->service()->checkOutRoom($booking, $room);
 
         $this->assertNull($result['late_checkout_fee']);
         $this->assertNull($booking->fresh()->incidentalInvoice);
@@ -127,7 +129,8 @@ class LateCheckoutAutoFeeTest extends TestCase
             'handled_at'              => now(),
         ]);
 
-        $result = $this->service()->checkOut($booking);
+        $room = $booking->bookingItemRooms()->first();
+        $result = $this->service()->checkOutRoom($booking, $room);
 
         $this->assertNull($result['late_checkout_fee']);
     }

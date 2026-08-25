@@ -90,11 +90,6 @@ enum BookingStatus: string
         return $this === self::CONFIRMED;
     }
 
-    public function canCheckOut(): bool
-    {
-        return $this === self::CHECKED_IN;
-    }
-
     /**
      * Admin đánh dấu đơn đã hoàn thành — chỉ hợp lệ từ checked_out, bắt buộc
      * phải qua check-in/check-out phòng thật trước. Trước đây cho phép cả

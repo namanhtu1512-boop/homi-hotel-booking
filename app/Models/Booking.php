@@ -142,11 +142,67 @@ class Booking extends Model
         return $this->hasOne(IncidentalInvoice::class)->latestOfMany();
     }
 
+    public function roomSettlements()
+    {
+        return $this->hasMany(RoomSettlement::class);
+    }
+
+    /**
+     * Toàn bộ phòng vật lý đã gán cho đơn (qua các dòng bookingItems) — dùng
+     * cho luồng check-in/check-out RIÊNG TỪNG PHÒNG (xem BookingService::
+     * checkIn()/checkOutRoom()). Khác bookingItems->rooms (belongsToMany, mất
+     * thông tin checked_in_at/checked_out_at của từng dòng gán).
+     */
+    public function bookingItemRooms()
+    {
+        return $this->hasManyThrough(BookingItemRoom::class, BookingItem::class);
+    }
+
+    /**
+     * Tổng số phòng vật lý CẦN gán cho đơn (tổng quantity của mọi dòng đơn).
+     */
+    public function totalRoomsRequired(): int
+    {
+        return (int) $this->bookingItems->sum('quantity');
+    }
+
+    /**
+     * Còn dòng đơn nào chưa được gán đủ phòng vật lý hay không — cho phép
+     * check-in NHIỀU LẦN (mỗi lần gán 1 phần) thay vì bắt buộc gán hết toàn
+     * bộ phòng trong 1 lượt (xem BookingService::checkIn()).
+     */
+    public function hasUnassignedRooms(): bool
+    {
+        return $this->bookingItemRooms()->count() < $this->totalRoomsRequired();
+    }
+
+    /**
+     * Có phòng nào đã check-in nhưng chưa check-out hay không — dùng để hiện
+     * nút "Trả phòng" (mỗi phòng trả riêng, xem BookingService::checkOutRoom()).
+     */
+    public function hasRoomsPendingCheckout(): bool
+    {
+        return $this->bookingItemRooms()->whereNotNull('checked_in_at')->whereNull('checked_out_at')->exists();
+    }
+
+    /**
+     * Toàn bộ phòng của đơn đã được gán VÀ đã trả phòng hết chưa — mốc để tự
+     * động chuyển đơn sang COMPLETED (xem BookingService::checkOutRoom()).
+     */
+    public function allRoomsCheckedOut(): bool
+    {
+        $total = $this->totalRoomsRequired();
+
+        return $total > 0
+            && $this->bookingItemRooms()->count() === $total
+            && $this->bookingItemRooms()->whereNull('checked_out_at')->doesntExist();
+    }
+
     /**
      * Hóa đơn phát sinh (dịch vụ/phụ phí thêm trong lúc lưu trú) còn tiền
-     * CHƯA thu — dùng để chặn trả phòng cho tới khi lễ tân xác nhận đã thu
-     * đủ (xem IncidentalInvoiceService::markPaid(), BookingService::checkOut()).
-     * Tách hẳn khỏi tiền phòng gốc (payment) — xem canCheckOut().
+     * CHƯA thu — chỉ còn "mở" tới khi phòng CUỐI CÙNG của đơn trả phòng (xem
+     * IncidentalInvoiceService::markPaid(), BookingService::checkOutRoom()).
+     * Tách hẳn khỏi tiền phòng gốc (payment).
      */
     public function hasUnpaidIncidentalInvoice(): bool
     {
@@ -254,29 +310,24 @@ class Booking extends Model
     }
 
     /**
-     * Chỉ check-in được khi đơn đã xác nhận VÀ đã cọc/thanh toán — tránh
-     * khách vào phòng mà chưa trả bất kỳ khoản nào (xem báo cáo lỗi:
-     * check-in xong là vào phòng luôn không cần thanh toán).
+     * Check-in được khi đơn đã xác nhận VÀ đã cọc/thanh toán — tránh khách
+     * vào phòng mà chưa trả bất kỳ khoản nào (xem báo cáo lỗi: check-in xong
+     * là vào phòng luôn không cần thanh toán). Cũng cho phép gọi LẠI khi đơn
+     * đã CHECKED_IN nhưng còn dòng đơn nào đó chưa được gán đủ phòng — mỗi
+     * phòng được check-in RIÊNG, không bắt buộc gán hết trong 1 lượt (xem
+     * BookingService::checkIn()).
      */
     public function canCheckIn(): bool
     {
-        return $this->status->canCheckIn()
-            && $this->payment
+        $hasDepositOrPaid = $this->payment
             && in_array($this->payment->status, [PaymentStatus::DEPOSIT_PAID, PaymentStatus::PAID], true);
-    }
 
-    /**
-     * Chỉ check-out được khi đã thanh toán ĐỦ (PAID) — trước đây trả phòng
-     * được bất kể trạng thái thanh toán, nghĩa là phí phát sinh thêm trong
-     * lúc lưu trú (BookingService::applyExtraCharge(), mở lại về PENDING
-     * khi có phí mới sau khi đã PAID) có thể bị bỏ qua không thu. Bắt buộc
-     * thanh toán xong xuôi (kể cả phần phát sinh) ngay tại bước trả phòng.
-     */
-    public function canCheckOut(): bool
-    {
-        return $this->status->canCheckOut()
-            && $this->payment
-            && $this->payment->status === PaymentStatus::PAID;
+        if (! $hasDepositOrPaid) {
+            return false;
+        }
+
+        return $this->status->canCheckIn()
+            || ($this->status === BookingStatus::CHECKED_IN && $this->hasUnassignedRooms());
     }
 
     /**

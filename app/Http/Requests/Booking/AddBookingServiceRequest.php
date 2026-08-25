@@ -9,10 +9,11 @@ class AddBookingServiceRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
-            'service_id' => ['required', 'integer', 'exists:services,id'],
-            'quantity'   => ['required', 'integer', 'min:1', 'max:20'],
-            'amount'     => ['nullable', 'numeric', 'min:1'],
-            'note'       => ['nullable', 'string', 'max:255'],
+            'service_id'           => ['required', 'integer', 'exists:services,id'],
+            'quantity'             => ['required', 'integer', 'min:1', 'max:20'],
+            'amount'               => ['nullable', 'numeric', 'min:1'],
+            'note'                 => ['nullable', 'string', 'max:255'],
+            'booking_item_room_id' => ['nullable', 'integer', 'exists:booking_item_rooms,id'],
         ];
     }
 

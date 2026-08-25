@@ -18,20 +18,21 @@ use Illuminate\Support\Facades\DB;
  */
 class IncidentalInvoiceService
 {
-    public function addItem(Booking $booking, string $type, string $description, float $amount, ?int $bookingServiceId = null, ?int $surchargeItemId = null, int $quantity = 1): IncidentalInvoiceItem
+    public function addItem(Booking $booking, string $type, string $description, float $amount, ?int $bookingServiceId = null, ?int $surchargeItemId = null, int $quantity = 1, ?int $bookingItemRoomId = null): IncidentalInvoiceItem
     {
-        return DB::transaction(function () use ($booking, $type, $description, $amount, $bookingServiceId, $surchargeItemId, $quantity) {
+        return DB::transaction(function () use ($booking, $type, $description, $amount, $bookingServiceId, $surchargeItemId, $quantity, $bookingItemRoomId) {
             $invoice = $booking->incidentalInvoice()->where('status', 'open')->first()
                 ?? IncidentalInvoice::create(['booking_id' => $booking->id, 'status' => 'open']);
 
             $item = $invoice->items()->create([
-                'type'               => $type,
-                'description'        => $description,
-                'amount'             => $amount,
-                'quantity'           => $quantity,
-                'booking_service_id' => $bookingServiceId,
-                'surcharge_item_id'  => $surchargeItemId,
-                'created_by'         => Auth::id(),
+                'type'                  => $type,
+                'description'           => $description,
+                'amount'                => $amount,
+                'quantity'              => $quantity,
+                'booking_service_id'    => $bookingServiceId,
+                'surcharge_item_id'     => $surchargeItemId,
+                'booking_item_room_id'  => $bookingItemRoomId,
+                'created_by'            => Auth::id(),
             ]);
 
             $invoice->increment('total_amount', $amount);

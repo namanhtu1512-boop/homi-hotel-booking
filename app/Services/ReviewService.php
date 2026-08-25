@@ -63,6 +63,7 @@ class ReviewService
                 'rating'       => $data['rating'],
                 'comment'      => $data['comment'] ?? null,
                 'images'       => $data['images'] ?? null,
+                'videos'       => $data['videos'] ?? null,
                 'status'       => 'visible',
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
@@ -163,6 +164,10 @@ class ReviewService
     {
         if ($review->images) {
             Storage::disk('public')->delete($review->images);
+        }
+
+        if ($review->videos) {
+            Storage::disk('public')->delete($review->videos);
         }
 
         $review->delete();

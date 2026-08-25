@@ -153,6 +153,13 @@
                                     @endforeach
                                 </div>
                             @endif
+                            @if (! empty($review->videos))
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @foreach ($review->videos as $video)
+                                        <video src="{{ asset('storage/' . $video) }}" class="h-32 w-48 rounded-lg object-cover" controls></video>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>

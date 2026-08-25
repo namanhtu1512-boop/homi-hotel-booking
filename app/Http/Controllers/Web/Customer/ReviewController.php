@@ -34,11 +34,14 @@ class ReviewController extends Controller
             'comment'    => ['nullable', 'string', 'max:2000'],
             'images'     => ['nullable', 'array', 'max:5'],
             'images.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'videos'     => ['nullable', 'array', 'max:2'],
+            'videos.*'   => ['mimes:mp4,mov,webm', 'max:51200'],
         ], [], [
             'booking_id' => 'đơn đặt phòng',
             'rating'     => 'số sao đánh giá',
             'comment'    => 'bình luận',
             'images.*'   => 'ảnh',
+            'videos.*'   => 'video',
         ]);
 
         $paths = [];
@@ -46,6 +49,12 @@ class ReviewController extends Controller
             $paths[] = $file->store('reviews', 'public');
         }
         $data['images'] = $paths ?: null;
+
+        $videoPaths = [];
+        foreach ($request->file('videos', []) as $file) {
+            $videoPaths[] = $file->store('reviews/videos', 'public');
+        }
+        $data['videos'] = $videoPaths ?: null;
 
         $this->reviewService->create($request->user(), $data);
 

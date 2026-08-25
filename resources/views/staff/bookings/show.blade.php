@@ -31,10 +31,12 @@
                 <a href="{{ route('staff.bookings.check-in.show', $booking->id) }}" class="btn btn-primary">Check-in</a>
             @endif
 
-            @if ($booking->canCheckOut() && $booking->isEarlyCheckoutToday())
-                <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">⚠ Trả phòng sớm</a>
-            @elseif ($booking->canCheckOut())
-                <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">Check-out</a>
+            @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN && $booking->hasRoomsPendingCheckout())
+                @if ($booking->isEarlyCheckoutToday())
+                    <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">⚠ Trả phòng sớm</a>
+                @else
+                    <a href="{{ route('staff.bookings.check-out.show', $booking->id) }}" class="btn btn-primary">Check-out</a>
+                @endif
             @endif
 
             @if ($booking->canComplete())
@@ -59,10 +61,6 @@
 
     @if ($booking->status === \App\Enums\BookingStatus::CONFIRMED && ! $booking->canCheckIn())
         <div class="alert alert-warning" style="margin-top: 16px;">Khách cần đặt cọc hoặc thanh toán trước khi có thể check-in.</div>
-    @endif
-
-    @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN && ! $booking->canCheckOut())
-        <div class="alert alert-warning" style="margin-top: 16px;">Cần thu đủ tiền (kể cả phần dịch vụ/phụ phí phát sinh thêm trong lúc lưu trú, nếu có) trước khi có thể trả phòng.</div>
     @endif
 
     <div class="section-kicker" style="margin-top: 22px;">Phòng đã đặt</div>
@@ -93,6 +91,7 @@
                                     @elseif ($bir->checked_in_at)
                                         · <span class="text-xs text-slate-500 dark:text-slate-400">chưa trả phòng</span>
                                     @endif
+                                    · <a href="{{ route('staff.bookings.invoice', $booking->id) }}?room={{ $bir->id }}" target="_blank" class="text-xs font-semibold text-primary hover:underline">🖨 Hóa đơn phòng</a>
                                 </div>
                             @empty
                                 —
@@ -483,6 +482,7 @@
                             <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="20" value="1" title="Số lượng">
                             <input type="number" name="amount" class="input surcharge-amount" style="width:150px;" min="1000" step="1000" placeholder="Số tiền (nếu chưa có giá cố định)">
                             <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Ghi chú (không bắt buộc)">
+                            @include('partials._room-select')
                             <button type="submit" class="btn btn-outline btn-sm">🔵 Thêm dịch vụ phát sinh</button>
                         </form>
 
@@ -492,6 +492,7 @@
                             <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
                             <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
                             <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
+                            @include('partials._room-select')
                             <button type="submit" class="btn btn-outline btn-sm">🔴 Thêm phụ phí hỏng/mất đồ</button>
                         </form>
 
@@ -501,6 +502,7 @@
                             <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
                             <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
                             <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
+                            @include('partials._room-select')
                             <button type="submit" class="btn btn-outline btn-sm">🟠 Thêm phụ phí vi phạm</button>
                         </form>
 
@@ -510,6 +512,7 @@
                             <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
                             <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
                             <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
+                            @include('partials._room-select')
                             <button type="submit" class="btn btn-outline btn-sm">🟡 Thêm phụ phí vệ sinh đặc biệt</button>
                         </form>
 

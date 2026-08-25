@@ -3,7 +3,6 @@
 namespace Tests\Feature\Services;
 
 use App\Enums\BookingStatus;
-use App\Models\Amenity;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\RoomHold;
@@ -65,23 +64,6 @@ class RoomTypeServiceSearchFilterTest extends TestCase
         $row = $result->firstWhere('id', $roomType->id);
 
         $this->assertSame(5, $row->available_quantity);
-    }
-
-    public function test_loc_theo_amenities_yeu_cau_co_du_tat_ca_tien_ich_da_chon(): void
-    {
-        $amenityA = Amenity::create(['name' => 'Wifi']);
-        $amenityB = Amenity::create(['name' => 'Bồn tắm']);
-
-        $fullMatch = RoomType::factory()->create();
-        $fullMatch->amenities()->attach([$amenityA->id, $amenityB->id]);
-
-        $partialMatch = RoomType::factory()->create();
-        $partialMatch->amenities()->attach([$amenityA->id]);
-
-        $result = $this->service()->searchCandidates(['amenities' => [$amenityA->id, $amenityB->id]]);
-
-        $this->assertTrue($result->contains('id', $fullMatch->id));
-        $this->assertFalse($result->contains('id', $partialMatch->id));
     }
 
     public function test_loc_theo_category_chi_tra_ve_dung_hang_phong(): void

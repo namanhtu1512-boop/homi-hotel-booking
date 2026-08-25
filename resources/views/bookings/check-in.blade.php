@@ -43,29 +43,51 @@
         @csrf
 
         @foreach ($booking->bookingItems as $item)
+            @php
+                $assignedRooms = $item->bookingItemRooms;
+                $remaining = $item->quantity - $assignedRooms->count();
+            @endphp
             <div class="form-group">
                 <label>
                     {{ $item->roomType->name ?? 'Loại phòng #' . $item->room_type_id }}
-                    — cần chọn đúng <strong>{{ $item->quantity }}</strong> phòng
+                    @if ($remaining > 0)
+                        — cần chọn <strong>{{ $remaining }}</strong> phòng (đã gán {{ $assignedRooms->count() }}/{{ $item->quantity }})
+                    @else
+                        — <span class="badge badge-green">Đã gán đủ {{ $item->quantity }}/{{ $item->quantity }} phòng</span>
+                    @endif
                 </label>
 
-                @php $available = $availableRooms->get($item->id, collect()); @endphp
-
-                @if ($available->isEmpty())
-                    <div class="empty-box">Không còn phòng trống nào của loại này để gán.</div>
-                @else
-                    <div class="checkbox-grid">
-                        @foreach ($available as $room)
-                            <label class="checkbox-item">
-                                <input type="checkbox" name="rooms[{{ $item->id }}][]" value="{{ $room->id }}">
-                                Phòng {{ $room->room_number }}
-                                <span class="badge {{ $room->housekeeping_status === 'clean' ? 'badge-green' : 'badge-orange' }}">{{ $room->housekeeping_status }}</span>
-                            </label>
+                @if ($assignedRooms->isNotEmpty())
+                    <div class="checkbox-grid mb-2">
+                        @foreach ($assignedRooms as $bir)
+                            <span class="badge badge-blue">Phòng {{ $bir->room->room_number ?? '—' }} — đã check-in</span>
                         @endforeach
                     </div>
                 @endif
+
+                @if ($remaining > 0)
+                    @php $available = $availableRooms->get($item->id, collect()); @endphp
+
+                    @if ($available->isEmpty())
+                        <div class="empty-box">Không còn phòng trống nào của loại này để gán.</div>
+                    @else
+                        <div class="checkbox-grid">
+                            @foreach ($available as $room)
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="rooms[{{ $item->id }}][]" value="{{ $room->id }}">
+                                    Phòng {{ $room->room_number }}
+                                    <span class="badge {{ $room->housekeeping_status === 'clean' ? 'badge-green' : 'badge-orange' }}">{{ $room->housekeeping_status }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    @endif
+                @endif
             </div>
         @endforeach
+
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
+            Có thể check-in TỪNG PHẦN — chỉ tick phòng nào đã sẵn sàng giao ngay, các loại phòng còn lại có thể check-in sau ở lượt khác.
+        </p>
 
         <button type="submit" class="btn btn-primary btn-block">Xác nhận check-in</button>
     </form>

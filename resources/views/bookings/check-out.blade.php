@@ -2,7 +2,7 @@
 
 @section('title', 'Trả phòng đơn ' . $booking->booking_code)
 @section('page_title', 'Trả phòng đơn ' . $booking->booking_code)
-@section('page_subtitle', 'Kiểm tra phòng, xác nhận toàn bộ hóa đơn phát sinh trước khi hoàn tất trả phòng.')
+@section('page_subtitle', 'Mỗi phòng được trả và quyết toán tiền RIÊNG — chọn phòng nào sẵn sàng trả ngay bây giờ.')
 
 @section('content')
 <div class="card">
@@ -19,69 +19,70 @@
     @endif
 
     @php
-        $invoice = $booking->incidentalInvoice;
-        $items = $invoice?->items ?? collect();
-    @endphp
-
-    <span class="section-kicker mt-3 block">Hóa đơn phát sinh</span>
-
-    @if ($items->isEmpty())
-        <div class="empty-box mt-2">Không có khoản phát sinh nào trong lúc lưu trú.</div>
-    @else
-        <div class="table-wrapper mt-2.5">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Loại</th>
-                        <th>Mô tả</th>
-                        <th>Số tiền</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($items as $item)
-                        <tr>
-                            <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
-                            <td>{{ $item->description }}</td>
-                            <td>{{ number_format($item->amount, 0, ',', '.') }}đ</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2"><strong>Tổng cộng</strong></td>
-                        <td><strong>{{ number_format($invoice->total_amount, 0, ',', '.') }}đ</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-
-        @if ($invoice->isOpen())
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Chưa thu — vui lòng thu đủ số tiền trên trước khi bấm xác nhận trả phòng.
-            </p>
-        @else
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Đã thanh toán lúc {{ $invoice->paid_at?->timezone('Asia/Ho_Chi_Minh')->format('d/m/Y H:i') }}.
-            </p>
-        @endif
-    @endif
-
-    @php
         $hotel = \App\Models\HotelInfo::instance();
     @endphp
     @if ($hotel->check_out_time && $booking->isCheckOutDateToday())
-        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
             Giờ trả phòng chuẩn: {{ substr($hotel->check_out_time, 0, 5) }}. Nếu khách chưa có "Yêu cầu trả phòng
-            muộn" được duyệt trước và bấm xác nhận trả phòng sau giờ chuẩn này, hệ thống sẽ TỰ ĐỘNG cộng phụ phí
-            trả phòng muộn theo bậc (100k–300k/300k tuỳ mức trễ, hoặc 50–100% giá phòng đêm cuối nếu trễ trên 3
-            giờ/sau 18h) vào hóa đơn phát sinh ngay khi trả phòng.
+            muộn" được duyệt trước và trả phòng NGAY BÂY GIỜ (sau giờ chuẩn này), hệ thống sẽ TỰ ĐỘNG cộng phụ phí
+            trả phòng muộn theo bậc vào phòng đầu tiên được trả trong đợt này.
         </p>
     @endif
 
-    <form method="POST" action="{{ $formAction }}" class="mt-4"
-        onsubmit="return confirm('Xác nhận đã thu đủ hóa đơn phát sinh (nếu có) và hoàn tất trả phòng cho đơn {{ $booking->booking_code }}?');">
-        @csrf
-        <button type="submit" class="btn btn-primary btn-block">Xác nhận đã thu & Trả phòng</button>
-    </form>
+    @if ($pendingRooms->isEmpty())
+        <div class="empty-box mt-3">Không còn phòng nào đang lưu trú cần trả.</div>
+    @else
+        <form method="POST" action="{{ $formAction }}" class="mt-4"
+            onsubmit="return confirm('Xác nhận đã thu tiền và trả phòng cho các phòng đã chọn?');">
+            @csrf
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Phòng</th>
+                            <th class="text-right">Tiền phòng</th>
+                            <th class="text-right">Dịch vụ/phụ phí riêng phòng</th>
+                            <th class="text-right">Trừ cọc/trả trước đã phân bổ</th>
+                            <th class="text-right">Còn phải thu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($pendingRooms as $row)
+                            @php [$bir, $preview] = [$row['room'], $row['preview']]; @endphp
+                            <tr>
+                                <td><input type="checkbox" name="rooms[]" value="{{ $bir->id }}" checked></td>
+                                <td class="font-semibold text-slate-800 dark:text-slate-100">
+                                    Phòng {{ $bir->room->room_number ?? '—' }}
+                                    <div class="text-xs font-normal text-slate-500 dark:text-slate-400">{{ $bir->bookingItem->roomType->name ?? '—' }}</div>
+                                </td>
+                                <td class="text-right">{{ number_format($preview['room_charge'], 0, ',', '.') }}đ</td>
+                                <td class="text-right">{{ number_format($preview['service_charge'], 0, ',', '.') }}đ</td>
+                                <td class="text-right">-{{ number_format($preview['deposit_credit'], 0, ',', '.') }}đ</td>
+                                <td class="text-right font-bold">{{ number_format(max(0, $preview['amount_due']), 0, ',', '.') }}đ</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-group mt-3">
+                <label for="method">Hình thức thu tiền</label>
+                <select id="method" name="method" class="input">
+                    <option value="cash">Tiền mặt</option>
+                    <option value="bank_transfer">Chuyển khoản</option>
+                    <option value="other">Khác</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="note">Ghi chú (không bắt buộc)</label>
+                <input id="note" type="text" name="note" class="input" placeholder="VD: đã kiểm tra phòng, không hư hỏng...">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Xác nhận đã thu & Trả phòng (các phòng đã tick)</button>
+        </form>
+    @endif
 </div>
 @endsection

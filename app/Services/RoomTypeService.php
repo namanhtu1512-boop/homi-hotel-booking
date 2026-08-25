@@ -110,12 +110,6 @@ class RoomTypeService
             $query->where('category', $filters['category']);
         }
 
-        if (! empty($filters['amenities'])) {
-            foreach ($filters['amenities'] as $amenityId) {
-                $query->whereHas('amenities', fn ($q) => $q->where('amenities.id', $amenityId));
-            }
-        }
-
         $this->applySort($query, $filters['sort'] ?? null);
 
         $hasDateRange = ! empty($filters['check_in']) && ! empty($filters['check_out']);

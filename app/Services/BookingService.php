@@ -17,6 +17,7 @@ use App\Models\Payment;
 use App\Models\RefundRequest;
 use App\Models\Room;
 use App\Models\PaymentStatusLog;
+use App\Models\RoomSettlement;
 use App\Models\RoomType;
 use App\Models\Service;
 use App\Models\User;
@@ -1341,13 +1342,15 @@ class BookingService
      * KHÔNG đụng tới booking.total_amount/payment (tiền phòng gốc) nữa, chỉ
      * thu 1 lần lúc trả phòng (xem checkOut()).
      */
-    public function addServiceItem(Booking $booking, int $serviceId, int $quantity, ?float $amount = null, ?string $note = null): Booking
+    public function addServiceItem(Booking $booking, int $serviceId, int $quantity, ?float $amount = null, ?string $note = null, ?int $bookingItemRoomId = null): Booking
     {
         if ($booking->status !== BookingStatus::CHECKED_IN) {
             throw ValidationException::withMessages([
                 'service_id' => ['Chỉ có thể thêm dịch vụ cho đơn đang lưu trú (đã check-in).'],
             ]);
         }
+
+        $bookingItemRoomId = $this->resolveBookingItemRoomId($booking, $bookingItemRoomId);
 
         $service = Service::where('status', 'active')->findOrFail($serviceId);
 
@@ -1381,20 +1384,47 @@ class BookingService
 
         $description = $note ? "{$service->name} × {$quantity} — {$note}" : "{$service->name} × {$quantity}";
 
-        return DB::transaction(function () use ($booking, $service, $quantity, $subtotal, $description) {
+        return DB::transaction(function () use ($booking, $service, $quantity, $subtotal, $description, $bookingItemRoomId) {
             $serviceItem = $booking->serviceItems()->create([
-                'service_id' => $service->id,
-                'quantity'   => $quantity,
-                'unit_price' => $subtotal / $quantity,
-                'subtotal'   => $subtotal,
+                'booking_item_room_id' => $bookingItemRoomId,
+                'service_id'           => $service->id,
+                'quantity'             => $quantity,
+                'unit_price'           => $subtotal / $quantity,
+                'subtotal'             => $subtotal,
             ]);
 
             $this->incidentalInvoiceService->addItem(
-                $booking, 'service', $description, $subtotal, $serviceItem->id
+                $booking, 'service', $description, $subtotal, $serviceItem->id, null, 1, $bookingItemRoomId
             );
 
             return $booking->fresh(['serviceItems.service', 'payment', 'incidentalInvoice.items']);
         });
+    }
+
+    /**
+     * Chuẩn hóa `booking_item_room_id` cho addServiceItem()/addSurcharge():
+     * nếu đơn CHỈ có đúng 1 phòng, tự gán phòng đó (không cần chọn) — nếu
+     * đơn có nhiều phòng, giữ nguyên lựa chọn (null nghĩa là "chung cả đơn",
+     * VD phụ phí trả phòng muộn tự động, không quy được cho 1 phòng cụ thể)
+     * nhưng phải kiểm tra phòng thực sự thuộc đơn và đang check-in.
+     */
+    private function resolveBookingItemRoomId(Booking $booking, ?int $bookingItemRoomId): ?int
+    {
+        if ($bookingItemRoomId === null) {
+            $rooms = $booking->bookingItemRooms;
+
+            return $rooms->count() === 1 ? $rooms->first()->id : null;
+        }
+
+        $room = $booking->bookingItemRooms->firstWhere('id', $bookingItemRoomId);
+
+        if (! $room || ! $room->isCheckedIn() || $room->isCheckedOut()) {
+            throw ValidationException::withMessages([
+                'booking_item_room_id' => ['Phòng đã chọn không thuộc đơn này hoặc chưa/đã trả phòng.'],
+            ]);
+        }
+
+        return $bookingItemRoomId;
     }
 
     /**
@@ -1404,7 +1434,7 @@ class BookingService
      * Ghi thẳng vào "hóa đơn phát sinh" riêng (IncidentalInvoiceService) —
      * KHÔNG đụng payment (tiền phòng gốc) nữa, xem checkOut().
      */
-    public function addSurcharge(Booking $booking, float $amount, string $note, ?int $surchargeItemId = null, int $quantity = 1): Booking
+    public function addSurcharge(Booking $booking, float $amount, string $note, ?int $surchargeItemId = null, int $quantity = 1, ?int $bookingItemRoomId = null): Booking
     {
         if ($booking->status !== BookingStatus::CHECKED_IN) {
             throw ValidationException::withMessages([
@@ -1418,8 +1448,10 @@ class BookingService
             ]);
         }
 
-        return DB::transaction(function () use ($booking, $amount, $note, $surchargeItemId, $quantity) {
-            $this->incidentalInvoiceService->addItem($booking, 'surcharge', $note, $amount, null, $surchargeItemId, $quantity);
+        $bookingItemRoomId = $this->resolveBookingItemRoomId($booking, $bookingItemRoomId);
+
+        return DB::transaction(function () use ($booking, $amount, $note, $surchargeItemId, $quantity, $bookingItemRoomId) {
+            $this->incidentalInvoiceService->addItem($booking, 'surcharge', $note, $amount, null, $surchargeItemId, $quantity, $bookingItemRoomId);
 
             return $booking->fresh(['payment', 'incidentalInvoice.items']);
         });
@@ -1827,14 +1859,29 @@ class BookingService
         $this->guardEarlyCheckinApproval($booking);
 
         return DB::transaction(function () use ($booking, $roomAssignments) {
+            $assignedAny = false;
+
             foreach ($booking->bookingItems as $item) {
                 $roomIds = array_values(array_unique($roomAssignments[$item->id] ?? []));
 
-                if (count($roomIds) !== $item->quantity) {
+                // Cho phép check-in TỪNG PHẦN: bỏ qua dòng đơn nào chưa chọn
+                // phòng trong lượt này (staff sẽ check-in nốt ở lượt sau) —
+                // chỉ báo lỗi khi CÓ chọn nhưng KHÔNG đủ số phòng CÒN THIẾU
+                // của dòng đó (không phải quantity gốc, vì có thể đã gán một
+                // phần từ lượt check-in trước).
+                if (empty($roomIds)) {
+                    continue;
+                }
+
+                $remaining = $item->quantity - $item->bookingItemRooms()->count();
+
+                if (count($roomIds) > $remaining) {
                     throw ValidationException::withMessages([
-                        'rooms' => ["Phải chọn đúng {$item->quantity} phòng cho loại phòng \"{$item->roomType->name}\"."],
+                        'rooms' => ["Loại phòng \"{$item->roomType->name}\" chỉ còn thiếu {$remaining} phòng cần gán."],
                     ]);
                 }
+
+                $assignedAny = true;
 
                 foreach ($roomIds as $roomId) {
                     // lockForUpdate() để chặn 2 giao dịch check-in cùng lúc
@@ -1858,22 +1905,36 @@ class BookingService
                 }
             }
 
+            if (! $assignedAny) {
+                throw ValidationException::withMessages([
+                    'rooms' => ['Vui lòng chọn ít nhất 1 phòng để check-in.'],
+                ]);
+            }
+
             $oldStatus = $booking->status;
-            $booking->update(['status' => BookingStatus::CHECKED_IN]);
-            $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_IN, Auth::id(), 'Khách nhận phòng.');
+            $isFirstCheckIn = $oldStatus !== BookingStatus::CHECKED_IN;
+            $fee = null;
 
-            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã check-in."));
+            if ($isFirstCheckIn) {
+                $booking->update(['status' => BookingStatus::CHECKED_IN]);
+                $this->logStatus($booking, $oldStatus, BookingStatus::CHECKED_IN, Auth::id(), 'Khách nhận phòng.');
 
-            // Nhận phòng TRƯỚC giờ check_in_time tiêu chuẩn của khách sạn ⇒
-            // tự động tính phụ phí = % (cấu hình ở HotelInfo) × tổng giá
-            // phòng/đêm đầu tiên của cả đơn — tái dùng addSurcharge() (đã
-            // đòi hỏi status CHECKED_IN, vừa mới đổi ở trên) nên phụ phí này
-            // cộng dồn vào đơn giống hệt phụ phí phát sinh thủ công, và nếu
-            // đơn đã thanh toán đủ từ trước thì tự mở lại chờ thu thêm. Trả
-            // fee về ngoài để staff/admin thấy ngay số tiền vừa tự động
-            // cộng — trước đây thu âm thầm, không có gì báo cho nhân viên
-            // biết đơn vừa bị cộng thêm phí và cần thu thêm khi trả phòng.
-            $fee = $this->applyEarlyCheckinSurchargeIfNeeded($booking);
+                $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã check-in."));
+
+                // Nhận phòng TRƯỚC giờ check_in_time tiêu chuẩn của khách sạn ⇒
+                // tự động tính phụ phí = % (cấu hình ở HotelInfo) × tổng giá
+                // phòng/đêm đầu tiên của cả đơn — tái dùng addSurcharge() (đã
+                // đòi hỏi status CHECKED_IN, vừa mới đổi ở trên) nên phụ phí này
+                // cộng dồn vào đơn giống hệt phụ phí phát sinh thủ công, và nếu
+                // đơn đã thanh toán đủ từ trước thì tự mở lại chờ thu thêm. Trả
+                // fee về ngoài để staff/admin thấy ngay số tiền vừa tự động
+                // cộng — trước đây thu âm thầm, không có gì báo cho nhân viên
+                // biết đơn vừa bị cộng thêm phí và cần thu thêm khi trả phòng.
+                // Chỉ tính 1 LẦN cho cả đơn, ở lượt check-in ĐẦU TIÊN — các
+                // lượt check-in từng phần sau đó (đơn đã CHECKED_IN) không
+                // tính lại, tránh cộng phí nhiều lần cho cùng 1 đơn.
+                $fee = $this->applyEarlyCheckinSurchargeIfNeeded($booking);
+            }
 
             return ['booking' => $booking->fresh(['bookingItems.rooms', 'payment']), 'early_checkin_fee' => $fee];
         });
@@ -1977,87 +2038,170 @@ class BookingService
     }
 
     /**
-     * Check-out — chuyển thẳng sang COMPLETED (bỏ qua trạng thái trung gian
-     * CHECKED_OUT) + tự động đánh dấu các phòng đã gán cần dọn (dirty), để
-     * buồng phòng biết cần xử lý trước khi nhận khách kế tiếp.
+     * Trả phòng RIÊNG TỪNG PHÒNG — mỗi phòng vật lý của đơn được check-out
+     * và quyết toán tiền độc lập (tiền phòng + dịch vụ CỦA RIÊNG phòng đó,
+     * trừ phần đặt cọc/trả trước đã phân bổ), không cần đợi các phòng khác
+     * trong cùng đơn. Đơn chỉ chuyển thẳng sang COMPLETED (bỏ qua trạng thái
+     * trung gian CHECKED_OUT, xem lịch sử quyết định ở git blame) khi TẤT
+     * CẢ phòng của đơn đã được check-out — xem Booking::allRoomsCheckedOut().
      *
-     * Trước đây trả phòng chỉ chuyển sang CHECKED_OUT, còn lại phải đợi
-     * admin/staff bấm thêm nút "Đánh dấu hoàn thành" (complete()) mới sang
-     * COMPLETED — nhưng canComplete() không có điều kiện gì khác ngoài
-     * CHECKED_OUT + đã thanh toán đủ (điều kiện này canCheckOut() đã đảm bảo
-     * TRƯỚC khi cho trả phòng), nên bước thủ công này không có tác dụng
-     * nghiệp vụ nào thêm — chỉ tạo ra 1 bước dễ bị nhân viên quên bấm. Hậu
-     * quả thực tế: ReviewService::canReview()/create() chỉ cho đánh
-     * giá khi status===COMPLETED, nên khách trả phòng xong không bao giờ
-     * thấy nút "Viết đánh giá" cho tới khi có người nhớ vào bấm hoàn thành.
-     * Gộp thẳng vào đây để khách trả phòng xong là đánh giá được ngay.
+     * Khác trước đây (checkOut() cũ, đòi hỏi payment->status===PAID cho CẢ
+     * đơn trước khi cho trả BẤT KỲ phòng nào): tiền phòng gốc của Payment
+     * (đặt cọc/trả trước online, xem Payment/VNPay) không đổi — chỉ đóng vai
+     * trò tín dụng được phân bổ đều cho từng phòng (deposit_credit). Phần
+     * còn thiếu của MỖI phòng được thu ngay lúc phòng đó check-out, ghi lại
+     * ở RoomSettlement — không còn chặn theo trạng thái thanh toán của CẢ
+     * đơn nữa.
+     *
      * complete()/canComplete() vẫn giữ lại (không xóa) để xử lý các đơn cũ
      * còn kẹt ở CHECKED_OUT từ trước khi có thay đổi này.
      *
-     * Phụ phí trả phòng muộn: nếu khách ĐÃ xin phép trước (LateCheckoutRequest
-     * đã duyệt — tự động hoặc staff duyệt tay), phí % giá phòng theo bậc đã
-     * ghi vào hóa đơn phát sinh ngay lúc duyệt (LateCheckoutRequestService::
-     * grantLateCheckout(), gọi từ create() nhánh tự động hoặc approve()) —
-     * không tính lại ở đây. Nhưng nếu khách trả phòng muộn mà KHÔNG xin phép
-     * trước, trước đây hệ thống không tự tính phí gì cả (dựa hoàn toàn vào
-     * việc lễ tân nhớ cộng phụ phí thủ công) — đây là lỗ hổng thất thu thực
-     * tế. Thêm lại 1 lớp tính phí tự động DỰ PHÒNG
-     * applyLateCheckoutSurchargeIfNeeded(), đối xứng với
-     * applyEarlyCheckinSurchargeIfNeeded(): chỉ chạy khi chưa có yêu cầu
-     * được duyệt (tránh thu 2 lần), dùng chung bảng phí bậc của
-     * LateCheckoutRequestService::calculateFee() để nhất quán với phí duyệt
-     * thủ công.
-     *
-     * @return array{booking: Booking, late_checkout_fee: ?float}
+     * @param  array{method?: ?string, amount_collected?: ?float, note?: ?string}  $settlementInput
+     * @return array{booking: Booking, settlement: RoomSettlement, late_checkout_fee: ?float, completed: bool}
      *
      * @throws ValidationException
      */
-    public function checkOut(Booking $booking): array
+    /**
+     * Xem trước số tiền quyết toán của 1 phòng NẾU trả phòng ngay bây giờ —
+     * dùng để hiển thị ở trang xác nhận trả phòng (bookings.check-out)
+     * TRƯỚC khi staff bấm xác nhận. Không ghi DB — xem checkOutRoom().
+     *
+     * @return array{room_charge: float, service_charge: float, deposit_credit: float, amount_due: float}
+     */
+    public function previewRoomSettlement(Booking $booking, BookingItemRoom $bookingItemRoom): array
     {
-        if (! $booking->canCheckOut()) {
+        return $this->computeRoomSettlementAmounts($booking, $bookingItemRoom, $bookingItemRoom->bookingItem);
+    }
+
+    /**
+     * @return array{room_charge: float, service_charge: float, deposit_credit: float, amount_due: float}
+     */
+    private function computeRoomSettlementAmounts(Booking $booking, BookingItemRoom $bookingItemRoom, BookingItem $bookingItem): array
+    {
+        $totalRooms = $booking->totalRoomsRequired();
+
+        // Tiền phòng CỦA RIÊNG phòng này = chia đều subtotal (đã gồm phụ thu
+        // trẻ em/giường phụ) của dòng đơn cho số phòng thuộc dòng đó — xấp xỉ
+        // hợp lý cho thesis, không tách giá theo từng phòng vật lý cụ thể
+        // (mọi phòng cùng dòng đơn có cùng loại + cùng giá).
+        $roomChargeTotal = (float) $bookingItem->subtotal + (float) $bookingItem->child_surcharge + (float) $bookingItem->extra_bed_surcharge;
+        $roomCharge = round($roomChargeTotal / max(1, $bookingItem->quantity));
+
+        // Dịch vụ/phụ phí gắn ĐÚNG phòng này — LUÔN đọc từ incidental_invoice_
+        // items (hóa đơn phát sinh), không phải booking_services: mọi dịch vụ
+        // thêm trong lúc lưu trú (addServiceItem()) đều ghi 1 dòng ở CẢ 2 bảng
+        // (booking_services là bản ghi mô tả để hiển thị, incidental_invoice_
+        // items mới là sổ thu tiền thật — xem addServiceItem()) — cộng cả 2
+        // sẽ tính TRÙNG. Cộng thêm khoản CHƯA gắn phòng nào (phụ phí trả
+        // phòng muộn tự động không quy được cho 1 phòng cụ thể, hoặc đơn chỉ
+        // có đúng 1 phòng nên không cần chọn) khi đơn CHỈ có 1 phòng.
+        $serviceCharge = $booking->incidentalInvoice
+            ? (float) (($totalRooms === 1
+                ? $booking->incidentalInvoice->items()->where(fn ($q) => $q->where('booking_item_room_id', $bookingItemRoom->id)->orWhereNull('booking_item_room_id'))
+                : $booking->incidentalInvoice->items()->where('booking_item_room_id', $bookingItemRoom->id)
+              )->sum('amount'))
+            : 0.0;
+
+        // Tín dụng đặt cọc/trả trước — chia đều số tiền ĐÃ thu (Payment,
+        // không đổi) cho tổng số phòng của đơn, mỗi phòng chỉ được tính 1 lần
+        // khi chính nó check-out.
+        $depositCredit = $totalRooms > 0 ? round($booking->paidAmount() / $totalRooms) : 0.0;
+
+        $amountDue = round($roomCharge + $serviceCharge - $depositCredit);
+
+        return [
+            'room_charge'    => $roomCharge,
+            'service_charge' => $serviceCharge,
+            'deposit_credit' => $depositCredit,
+            'amount_due'     => $amountDue,
+        ];
+    }
+
+    public function checkOutRoom(Booking $booking, BookingItemRoom $bookingItemRoom, array $settlementInput = []): array
+    {
+        $bookingItem = $bookingItemRoom->bookingItem;
+
+        if (! $bookingItem || $bookingItem->booking_id !== $booking->id) {
             throw ValidationException::withMessages([
-                'status' => ['Chỉ có thể trả phòng khi đơn đang lưu trú VÀ đã thanh toán đủ (kể cả phần phát sinh thêm nếu có).'],
+                'room' => ['Phòng này không thuộc đơn đã chọn.'],
             ]);
         }
 
-        // Định nghĩa "trả phòng sớm" nằm ở Booking::isEarlyCheckoutToday() —
-        // dùng chung với dòng ghi log bên dưới, tránh nhiều nơi tự tính lại
-        // "hôm nay" mỗi nơi một kiểu rồi lệch nhau (xem docblock ở model để
-        // biết vì sao phải quy về ngày lịch thuần túy).
+        if (! $bookingItemRoom->isCheckedIn() || $bookingItemRoom->isCheckedOut()) {
+            throw ValidationException::withMessages([
+                'room' => ['Phòng này chưa nhận phòng hoặc đã trả phòng rồi.'],
+            ]);
+        }
+
         $isEarly = $booking->isEarlyCheckoutToday();
 
-        return DB::transaction(function () use ($booking, $isEarly) {
-            // Phải tính phí trả phòng muộn TRƯỚC khi markPaid() chốt hóa đơn
-            // phát sinh — nếu không, khoản phí vừa cộng sẽ bị bỏ sót, không
-            // được đánh dấu đã thu cùng đợt. Không áp dụng cho trả phòng sớm
-            // (isEarly true nghĩa là sai ngày, không phải trễ giờ).
-            $lateFee = $isEarly ? null : $this->applyLateCheckoutSurchargeIfNeeded($booking);
+        return DB::transaction(function () use ($booking, $bookingItemRoom, $bookingItem, $settlementInput, $isEarly) {
+            // Phòng ĐẦU TIÊN được trả trong đơn — tính phụ phí trả phòng
+            // muộn (nếu có) 1 LẦN DUY NHẤT cho cả đơn ở đây, trước khi tính
+            // service_charge bên dưới để phí này (nếu phát sinh, không gắn
+            // phòng cụ thể) cũng được thu cùng đợt của phòng đầu tiên.
+            $isFirstRoomCheckedOut = ! $booking->bookingItemRooms()
+                ->whereNotNull('checked_out_at')
+                ->exists();
 
-            // Lễ tân bấm "Trả phòng" ở trang xác nhận (đã hiện toàn bộ hóa
-            // đơn phát sinh cho khách xem + thu tiền mặt tại quầy) — hành
-            // động này VỪA xác nhận đã thu VỪA hoàn tất trả phòng trong 1
-            // bước, đúng quy trình "khách thanh toán một lần → hoàn tất
-            // check-out". Không ảnh hưởng gì nếu không có hóa đơn phát sinh
-            // nào đang mở (markPaid() tự bỏ qua, trả về null).
-            $this->incidentalInvoiceService->markPaid($booking, Auth::user());
+            $lateFee = ($isFirstRoomCheckedOut && ! $isEarly)
+                ? $this->applyLateCheckoutSurchargeIfNeeded($booking)
+                : null;
 
-            $oldStatus = $booking->status;
-            $booking->update(['status' => BookingStatus::COMPLETED]);
+            $amounts = $this->computeRoomSettlementAmounts($booking, $bookingItemRoom, $bookingItem);
+            ['room_charge' => $roomCharge, 'service_charge' => $serviceCharge, 'deposit_credit' => $depositCredit, 'amount_due' => $amountDue] = $amounts;
 
-            $note = $isEarly
-                ? "Khách trả phòng SỚM hơn dự kiến (còn " . $booking->nightsRemainingForEarlyCheckout() . " đêm chưa sử dụng, ngày đặt trả phòng: {$booking->check_out->format('d/m/Y')})."
-                : 'Khách trả phòng.';
-            $this->logStatus($booking, $oldStatus, BookingStatus::COMPLETED, Auth::id(), $note);
+            $amountCollected = array_key_exists('amount_collected', $settlementInput) && $settlementInput['amount_collected'] !== null
+                ? (float) $settlementInput['amount_collected']
+                : max(0, $amountDue);
 
-            $itemIds = $booking->bookingItems->pluck('id');
-            BookingItemRoom::whereIn('booking_item_id', $itemIds)->whereNull('checked_out_at')->update(['checked_out_at' => now()]);
+            $settlement = RoomSettlement::create([
+                'booking_id'           => $booking->id,
+                'booking_item_room_id' => $bookingItemRoom->id,
+                'room_charge'          => $roomCharge,
+                'service_charge'       => $serviceCharge,
+                'deposit_credit'       => $depositCredit,
+                'amount_due'           => $amountDue,
+                'amount_collected'     => $amountCollected,
+                'method'               => $settlementInput['method'] ?? null,
+                'note'                 => $settlementInput['note'] ?? null,
+                'collected_by'         => Auth::id(),
+                'collected_at'         => now(),
+            ]);
 
-            $roomIds = BookingItemRoom::whereIn('booking_item_id', $itemIds)->pluck('room_id');
-            Room::whereIn('id', $roomIds)->update(['housekeeping_status' => 'dirty']);
+            $bookingItemRoom->update(['checked_out_at' => now()]);
+            $bookingItemRoom->room?->update(['housekeeping_status' => 'dirty']);
 
-            $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
+            $completed = $booking->fresh()->allRoomsCheckedOut();
 
-            return ['booking' => $booking->fresh(['payment']), 'late_checkout_fee' => $lateFee];
+            if ($completed) {
+                $this->incidentalInvoiceService->markPaid($booking, Auth::user());
+
+                if ($booking->payment && $booking->payment->status !== PaymentStatus::PAID) {
+                    $booking->payment->update([
+                        'status'            => PaymentStatus::PAID,
+                        'amount_collected'  => $booking->payment->amount,
+                        'paid_at'           => $booking->payment->paid_at ?? now(),
+                    ]);
+                }
+
+                $oldStatus = $booking->status;
+                $booking->update(['status' => BookingStatus::COMPLETED]);
+
+                $note = $isEarly
+                    ? "Khách trả phòng SỚM hơn dự kiến (còn " . $booking->nightsRemainingForEarlyCheckout() . " đêm chưa sử dụng, ngày đặt trả phòng: {$booking->check_out->format('d/m/Y')})."
+                    : 'Khách trả phòng (đã trả hết mọi phòng của đơn).';
+                $this->logStatus($booking, $oldStatus, BookingStatus::COMPLETED, Auth::id(), $note);
+
+                $booking->user?->notify(new BookingStatusChanged($booking, "Đơn {$booking->booking_code} đã trả phòng. Cảm ơn bạn đã lưu trú!"));
+            }
+
+            return [
+                'booking'            => $booking->fresh(['payment']),
+                'settlement'         => $settlement,
+                'late_checkout_fee'  => $lateFee,
+                'completed'          => $completed,
+            ];
         });
     }
 

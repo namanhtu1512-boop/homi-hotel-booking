@@ -74,12 +74,7 @@
                 @csrf
                 <div>
                     <label class="form-label" for="current_password">Mật khẩu hiện tại</label>
-                    <div class="password-field" x-data="{ show: false }">
-                        <input class="input" :type="show ? 'text' : 'password'" id="current_password" name="current_password" required>
-                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
-                            @include('partials._eye-icon')
-                        </button>
-                    </div>
+                    <input class="input" type="text" id="current_password" name="current_password" required>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -117,12 +112,7 @@
                 </div>
                 <div>
                     <label class="form-label" for="email_current_password">Mật khẩu hiện tại (xác nhận)</label>
-                    <div class="password-field" x-data="{ show: false }">
-                        <input class="input" :type="show ? 'text' : 'password'" id="email_current_password" name="current_password" required>
-                        <button type="button" class="password-toggle" @click="show = !show" :aria-label="show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'">
-                            @include('partials._eye-icon')
-                        </button>
-                    </div>
+                    <input class="input" type="text" id="email_current_password" name="current_password" required>
                 </div>
                 <button type="submit" class="btn-outline">Đổi email</button>
             </form>

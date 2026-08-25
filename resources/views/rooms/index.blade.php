@@ -51,7 +51,7 @@
                 <div>
                     <label class="form-label" for="quantity">Số phòng</label>
                     <select id="quantity" name="quantity" class="input">
-                        @foreach (range(1, 10) as $n)
+                        @foreach (range(1, 4) as $n)
                             <option value="{{ $n }}" @selected(($filters['quantity'] ?? 1) == $n)>{{ $n }} phòng</option>
                         @endforeach
                     </select>
@@ -60,7 +60,7 @@
                     <label class="form-label" for="guests">Số khách</label>
                     <select id="guests" name="guests" class="input">
                         <option value="">Bất kỳ</option>
-                        @foreach (range(1, 20) as $n)
+                        @foreach (range(1, 8) as $n)
                             <option value="{{ $n }}" @selected(($filters['guests'] ?? '') == $n)>{{ $n }} khách</option>
                         @endforeach
                     </select>
@@ -90,19 +90,6 @@
             <div>
                 <label class="form-label" for="bed_type">Kiểu giường</label>
                 <input id="bed_type" type="text" name="bed_type" class="input" value="{{ $filters['bed_type'] ?? '' }}" placeholder="VD: 1 giường đôi">
-            </div>
-
-            <div>
-                <div class="form-label">Tiện nghi</div>
-                <div class="grid max-h-40 gap-1.5 overflow-y-auto">
-                    @foreach ($amenities as $amenity)
-                        <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                            <input type="checkbox" name="amenities[]" value="{{ $amenity->id }}" class="h-4 rounded border-slate-300 accent-primary"
-                                @checked(in_array($amenity->id, array_map('intval', $filters['amenities'] ?? [])))>
-                            {{ $amenity->name }}
-                        </label>
-                    @endforeach
-                </div>
             </div>
 
             <input type="hidden" name="sort" value="{{ $filters['sort'] ?? '' }}">
