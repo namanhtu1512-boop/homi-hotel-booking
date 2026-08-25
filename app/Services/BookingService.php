@@ -1219,7 +1219,7 @@ class BookingService
 
     public function findForAdmin(int $bookingId): Booking
     {
-        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'bookingItems.bookingItemRooms.room', 'serviceItems.service', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'auditLogs.user', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items', 'extraBedRequests'])
+        return Booking::with(['user', 'promotions', 'bookingItems.roomType', 'bookingItems.rooms', 'bookingItems.bookingItemRooms.room', 'serviceItems.service', 'serviceItems.bookingItemRoom.room', 'payment.statusLogs.changedBy', 'statusLogs.changedBy', 'auditLogs.user', 'earlyCheckinRequests', 'lateCheckoutRequests', 'incidentalInvoice.items.bookingItemRoom.room', 'extraBedRequests'])
             ->findOrFail($bookingId);
     }
 
@@ -2084,8 +2084,18 @@ class BookingService
         // trẻ em/giường phụ) của dòng đơn cho số phòng thuộc dòng đó — xấp xỉ
         // hợp lý cho thesis, không tách giá theo từng phòng vật lý cụ thể
         // (mọi phòng cùng dòng đơn có cùng loại + cùng giá).
+        //
+        // bookingItem->subtotal là giá TRƯỚC giảm giá (discount_amount trừ
+        // riêng ở cấp đơn, xem createByAdmin()/create()) — phải trừ phần
+        // giảm giá chia đều cho phòng này ở đây, nếu không "còn phải thu" sẽ
+        // bị cộng khống đúng bằng discount_amount/tổng số phòng cho MỌI
+        // phòng (kể cả phòng đã thanh toán đủ 100% giá đã giảm), vì
+        // deposit_credit bên dưới chia đều paidAmount() vốn đã là số tiền
+        // SAU giảm giá.
         $roomChargeTotal = (float) $bookingItem->subtotal + (float) $bookingItem->child_surcharge + (float) $bookingItem->extra_bed_surcharge;
         $roomCharge = round($roomChargeTotal / max(1, $bookingItem->quantity));
+        $discountShare = $totalRooms > 0 ? round((float) $booking->discount_amount / $totalRooms) : 0.0;
+        $roomCharge = max(0, $roomCharge - $discountShare);
 
         // Dịch vụ/phụ phí gắn ĐÚNG phòng này — LUÔN đọc từ incidental_invoice_
         // items (hóa đơn phát sinh), không phải booking_services: mọi dịch vụ

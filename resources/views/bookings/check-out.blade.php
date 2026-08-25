@@ -32,12 +32,39 @@
     @if ($pendingRooms->isEmpty())
         <div class="empty-box mt-3">Không còn phòng nào đang lưu trú cần trả.</div>
     @else
+        @php
+            $groupAmountDue = $pendingRooms->sum(fn ($row) => max(0, $row['preview']['amount_due']));
+        @endphp
+
+        @if ($pendingRooms->count() > 1)
+            <div class="card mt-4 mb-0">
+                <div class="info-list">
+                    <div class="info-item">
+                        <span class="label">Tổng tiền cần thu của cả đơn ({{ $pendingRooms->count() }} phòng)</span>
+                        <span class="value font-bold">{{ number_format($groupAmountDue, 0, ',', '.') }}đ</span>
+                    </div>
+                </div>
+                <div class="form-group mt-3 mb-0">
+                    <label for="checkoutRoomFilter">Lọc theo phòng (chỉ để xem — không ảnh hưởng phòng đã chọn trả)</label>
+                    <select id="checkoutRoomFilter" class="input" onchange="homiFilterCheckoutRoom(this.value)">
+                        <option value="">Tất cả phòng</option>
+                        @foreach ($pendingRooms as $row)
+                            @php [$bir, $preview] = [$row['room'], $row['preview']]; @endphp
+                            <option value="{{ $bir->id }}">
+                                Phòng {{ $bir->room->room_number ?? '—' }} — còn phải thu {{ number_format(max(0, $preview['amount_due']), 0, ',', '.') }}đ
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        @endif
+
         <form method="POST" action="{{ $formAction }}" class="mt-4"
             onsubmit="return confirm('Xác nhận đã thu tiền và trả phòng cho các phòng đã chọn?');">
             @csrf
 
             <div class="table-wrapper">
-                <table>
+                <table id="checkoutRoomsTable">
                     <thead>
                         <tr>
                             <th></th>
@@ -51,7 +78,7 @@
                     <tbody>
                         @foreach ($pendingRooms as $row)
                             @php [$bir, $preview] = [$row['room'], $row['preview']]; @endphp
-                            <tr>
+                            <tr data-room-id="{{ $bir->id }}">
                                 <td><input type="checkbox" name="rooms[]" value="{{ $bir->id }}" checked></td>
                                 <td class="font-semibold text-slate-800 dark:text-slate-100">
                                     Phòng {{ $bir->room->room_number ?? '—' }}
@@ -66,6 +93,14 @@
                     </tbody>
                 </table>
             </div>
+
+            <script>
+                function homiFilterCheckoutRoom(roomId) {
+                    document.querySelectorAll('#checkoutRoomsTable tbody tr').forEach(function (tr) {
+                        tr.style.display = (!roomId || tr.dataset.roomId === roomId) ? '' : 'none';
+                    });
+                }
+            </script>
 
             <div class="form-group mt-3">
                 <label for="method">Hình thức thu tiền</label>

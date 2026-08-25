@@ -28,6 +28,17 @@
     $grandTotal = $room
         ? ($settlement?->room_charge ?? 0) + ($settlement?->service_charge ?? $serviceItems->sum('subtotal') + $incidentalItems->sum('amount'))
         : $booking->total_amount + ($incidentalInvoice->total_amount ?? 0);
+
+    // bookingItem->subtotal/child_surcharge/extra_bed_surcharge là giá TRƯỚC
+    // giảm giá (discount_amount trừ riêng ở cấp đơn) — tách riêng từng phần
+    // (giá phòng gốc, phụ thu trẻ em, phụ thu giường phụ, giảm giá) của
+    // phòng này ra để hiện rõ trên hóa đơn từng phòng, thay vì gộp hết vào 1
+    // con số "Tiền phòng" khiến không khớp với "Giá/đêm × Số đêm" ở bảng
+    // trên (xem BookingService::computeRoomSettlementAmounts()).
+    $roomBaseCharge = $room ? round((float) $room->bookingItem->subtotal / max(1, $room->bookingItem->quantity)) : 0;
+    $roomChildSurcharge = $room ? round((float) $room->bookingItem->child_surcharge / max(1, $room->bookingItem->quantity)) : 0;
+    $roomExtraBedSurcharge = $room ? round((float) $room->bookingItem->extra_bed_surcharge / max(1, $room->bookingItem->quantity)) : 0;
+    $discountShare = $room ? round((float) $booking->discount_amount / max(1, $booking->totalRoomsRequired())) : 0;
 @endphp
 
 @section('title', 'Hóa đơn ' . $booking->booking_code . ($room ? ' — Phòng ' . ($room->room->room_number ?? '') : '') . ' · Homi')
@@ -60,7 +71,7 @@
         <div class="text-right">
             <div class="font-heading text-2xl font-extrabold tracking-wide">HÓA ĐƠN</div>
             <div class="mt-1 text-sm text-white/80">Số: INV-{{ $booking->booking_code }}</div>
-            <div class="text-sm text-white/80">Ngày: {{ now('Asia/Ho_Chi_Minh')->format('d/m/Y') }}</div>
+            <div class="text-sm text-white/80">Ngày xuất hóa đơn: {{ now('Asia/Ho_Chi_Minh')->format('d/m/Y') }}</div>
         </div>
     </div>
 
@@ -189,12 +200,46 @@
         @endif
 
         @if ($room)
-            @php $amounts = $settlement ?? (object) $roomPreview; @endphp
+            @php
+                $amounts = $settlement ?? (object) $roomPreview;
+                $roomSubtotalAfterDiscount = max(0, $roomBaseCharge + $roomChildSurcharge + $roomExtraBedSurcharge - $discountShare);
+            @endphp
             <div class="mt-6 flex justify-end">
                 <div class="w-full space-y-2 text-sm sm:max-w-sm">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                        <span>Tiền phòng (riêng phòng {{ $room->room->room_number ?? '' }})</span>
-                        <span>{{ number_format($amounts->room_charge, 0, ',', '.') }}đ</span>
+                        <span>Giá phòng (riêng phòng {{ $room->room->room_number ?? '' }})</span>
+                        <span>{{ number_format($roomBaseCharge, 0, ',', '.') }}đ</span>
+                    </div>
+                    @if ($roomChildSurcharge > 0)
+                        <div class="text-slate-500 dark:text-slate-400">
+                            <div class="flex items-center justify-between">
+                                <span>Phụ thu trẻ em</span>
+                                <span>{{ number_format($roomChildSurcharge, 0, ',', '.') }}đ</span>
+                            </div>
+                            <div class="text-xs">(đã chia đều {{ number_format($room->bookingItem->child_surcharge, 0, ',', '.') }}đ phụ thu trẻ em của cả {{ $room->bookingItem->quantity }} phòng cho phòng này — không phải đơn giá riêng 1 phòng)</div>
+                        </div>
+                    @endif
+                    @if ($roomExtraBedSurcharge > 0)
+                        <div class="text-slate-500 dark:text-slate-400">
+                            <div class="flex items-center justify-between">
+                                <span>Phụ thu giường phụ</span>
+                                <span>{{ number_format($roomExtraBedSurcharge, 0, ',', '.') }}đ</span>
+                            </div>
+                            <div class="text-xs">(đã chia đều {{ number_format($room->bookingItem->extra_bed_surcharge, 0, ',', '.') }}đ phụ thu giường phụ của cả {{ $room->bookingItem->quantity }} phòng cho phòng này — không phải đơn giá 1 giường phụ)</div>
+                        </div>
+                    @endif
+                    @if ($discountShare > 0)
+                        <div class="text-slate-500 dark:text-slate-400">
+                            <div class="flex items-center justify-between">
+                                <span>Giảm giá đoàn/nhóm (phần của phòng này){{ $booking->promotion ? ' — ' . $booking->promotion->code : '' }}</span>
+                                <span class="text-accent-dark">-{{ number_format($discountShare, 0, ',', '.') }}đ</span>
+                            </div>
+                            <div class="text-xs">(đã chia đều tổng giảm giá {{ number_format($booking->discount_amount, 0, ',', '.') }}đ của cả đơn cho {{ $booking->totalRoomsRequired() }} phòng)</div>
+                        </div>
+                    @endif
+                    <div class="flex items-center justify-between border-t border-slate-200 pt-2 font-bold text-slate-800 dark:border-slate-800 dark:text-slate-100">
+                        <span>Tổng tiền phòng (sau giảm giá)</span>
+                        <span>{{ number_format($roomSubtotalAfterDiscount, 0, ',', '.') }}đ</span>
                     </div>
                     @if ($amounts->service_charge > 0)
                         <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
@@ -203,11 +248,11 @@
                         </div>
                     @endif
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                        <span>Trừ cọc/trả trước đã phân bổ</span>
+                        <span>Đã thanh toán trước (đặt cọc/trả trước đã phân bổ)</span>
                         <span class="text-accent-dark">-{{ number_format($amounts->deposit_credit, 0, ',', '.') }}đ</span>
                     </div>
                     <div class="invoice-total-box mt-1 flex items-center justify-between rounded-xl bg-primary-light px-4 py-3.5 dark:bg-primary/15">
-                        <span class="font-heading text-base font-extrabold text-slate-900 dark:text-white">{{ $settlement ? 'ĐÃ THU' : 'DỰ KIẾN PHẢI THU' }}</span>
+                        <span class="font-heading text-base font-extrabold text-slate-900 dark:text-white">{{ $settlement ? 'ĐÃ THU KHI TRẢ PHÒNG' : 'DỰ KIẾN PHẢI THU KHI TRẢ PHÒNG' }}</span>
                         <span class="font-heading text-xl font-extrabold text-primary">{{ number_format($settlement ? $settlement->amount_collected : max(0, $amounts->amount_due), 0, ',', '.') }}đ</span>
                     </div>
                 </div>

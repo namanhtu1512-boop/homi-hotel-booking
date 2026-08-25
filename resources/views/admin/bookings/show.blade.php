@@ -146,8 +146,14 @@
     {{-- Dịch vụ phát sinh --}}
     @php
         $extraBedItems = $booking->bookingItems->where('extra_bed_surcharge', '>', 0);
+        // "Bồi thường/hư hỏng - vi phạm - vệ sinh đặc biệt" (3 nút phụ phí,
+        // xem addSurcharge()) chỉ ghi vào incidental_invoice_items (KHÔNG
+        // ghi booking_services như addServiceItem()) — phải gom riêng ở đây
+        // để hiện chung 1 chỗ với dịch vụ, không chỉ nằm trong "Hóa đơn phát
+        // sinh" bên dưới.
+        $surchargeItems = $booking->incidentalInvoice?->items->where('type', 'surcharge') ?? collect();
     @endphp
-    @if ($booking->serviceItems->isNotEmpty() || $extraBedItems->isNotEmpty())
+    @if ($booking->serviceItems->isNotEmpty() || $extraBedItems->isNotEmpty() || $surchargeItems->isNotEmpty())
         <div class="card">
             <div class="section-kicker">Dịch vụ phát sinh</div>
             <div class="table-wrapper mt-3">
@@ -184,18 +190,39 @@
                             <tr>
                                 <td class="font-semibold text-slate-800 dark:text-slate-100">
                                     {{ $serviceItem->service?->name ?? '—' }}
-                                    <div class="mt-1"><span class="badge {{ $incidentalPaidNow ? 'badge-green' : 'badge-orange' }}">{{ $incidentalPaidNow ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span></div>
+                                    <div class="mt-1 flex flex-wrap gap-1">
+                                        @if ($booking->totalRoomsRequired() > 1)
+                                            <span class="badge badge-gray">{{ $serviceItem->bookingItemRoom?->room?->room_number ? 'Phòng ' . $serviceItem->bookingItemRoom->room->room_number : 'Chung cả đơn' }}</span>
+                                        @endif
+                                        <span class="badge {{ $incidentalPaidNow ? 'badge-green' : 'badge-orange' }}">{{ $incidentalPaidNow ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span>
+                                    </div>
                                 </td>
                                 <td class="text-center">{{ $serviceItem->quantity }}</td>
                                 <td class="text-right">{{ number_format($serviceItem->unit_price, 0, ',', '.') }}đ</td>
                                 <td class="text-right font-bold">{{ number_format($serviceItem->subtotal, 0, ',', '.') }}đ</td>
                             </tr>
                         @endforeach
+                        @foreach ($surchargeItems as $surchargeItem)
+                            <tr>
+                                <td class="font-semibold text-slate-800 dark:text-slate-100">
+                                    {{ $surchargeItem->description }}
+                                    <div class="mt-1 flex flex-wrap gap-1">
+                                        @if ($booking->totalRoomsRequired() > 1)
+                                            <span class="badge badge-gray">{{ $surchargeItem->bookingItemRoom?->room?->room_number ? 'Phòng ' . $surchargeItem->bookingItemRoom->room->room_number : 'Chung cả đơn' }}</span>
+                                        @endif
+                                        <span class="badge {{ $incidentalPaidNow ? 'badge-green' : 'badge-orange' }}">{{ $incidentalPaidNow ? 'Đã thanh toán' : 'Thanh toán khi trả phòng' }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">{{ $surchargeItem->quantity }}</td>
+                                <td class="text-right">{{ number_format($surchargeItem->quantity > 0 ? $surchargeItem->amount / $surchargeItem->quantity : $surchargeItem->amount, 0, ',', '.') }}đ</td>
+                                <td class="text-right font-bold">{{ number_format($surchargeItem->amount, 0, ',', '.') }}đ</td>
+                            </tr>
+                        @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="3" class="text-right font-bold">Tổng phụ phí dịch vụ phát sinh</td>
-                            <td class="text-right font-bold text-primary">{{ number_format($extraBedItems->sum('extra_bed_surcharge') + $booking->serviceItems->sum('subtotal'), 0, ',', '.') }}đ</td>
+                            <td class="text-right font-bold text-primary">{{ number_format($extraBedItems->sum('extra_bed_surcharge') + $booking->serviceItems->sum('subtotal') + $surchargeItems->sum('amount'), 0, ',', '.') }}đ</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -330,7 +357,12 @@
                 <div class="info-list mt-3">
                     @foreach ($incidentalItems as $item)
                         <div class="info-item">
-                            <span class="label">{{ $item->description }}</span>
+                            <span class="label">
+                                @if ($booking->totalRoomsRequired() > 1)
+                                    <span class="badge badge-gray">{{ $item->bookingItemRoom?->room?->room_number ? 'Phòng ' . $item->bookingItemRoom->room->room_number : 'Chung cả đơn' }}</span>
+                                @endif
+                                {{ $item->description }}
+                            </span>
                             <span class="value">{{ number_format($item->amount, 0, ',', '.') }}đ</span>
                         </div>
                     @endforeach

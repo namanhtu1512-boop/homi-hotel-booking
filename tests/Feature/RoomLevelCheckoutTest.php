@@ -132,6 +132,60 @@ class RoomLevelCheckoutTest extends TestCase
         $this->assertSame(PaymentStatus::PAID, $result2['booking']->payment->status);
     }
 
+    /**
+     * bookingItem->subtotal luôn là giá TRƯỚC giảm giá (discount_amount trừ
+     * riêng ở cấp đơn) — nếu quyết toán từng phòng không trừ lại phần giảm
+     * giá chia đều cho phòng đó thì MỌI phòng đều bị cộng khống đúng bằng
+     * discount_amount/tổng số phòng vào "còn phải thu", kể cả phòng khách đã
+     * thanh toán đủ 100% giá đã giảm (xem computeRoomSettlementAmounts()).
+     */
+    public function test_giam_gia_duoc_tru_deu_cho_tung_phong_khi_quyet_toan(): void
+    {
+        $roomType = RoomType::factory()->create(['total_rooms' => 5, 'capacity' => 2, 'price_per_night' => 1000000]);
+        $room1 = Room::create(['room_type_id' => $roomType->id, 'room_number' => 'B' . fake()->unique()->numberBetween(100, 999), 'housekeeping_status' => 'clean']);
+        $room2 = Room::create(['room_type_id' => $roomType->id, 'room_number' => 'B' . fake()->unique()->numberBetween(100, 999), 'housekeeping_status' => 'clean']);
+
+        $booking = Booking::factory()->create([
+            'status'          => BookingStatus::CONFIRMED,
+            'check_in'        => now('Asia/Ho_Chi_Minh')->subDay()->toDateString(),
+            'check_out'       => now('Asia/Ho_Chi_Minh')->addDay()->toDateString(),
+            'nights'          => 1,
+            'total_amount'    => 1800000,
+            'discount_amount' => 200000,
+        ]);
+
+        $item = BookingItem::factory()->create([
+            'booking_id'      => $booking->id,
+            'room_type_id'    => $roomType->id,
+            'quantity'        => 2,
+            'nights'          => 1,
+            'price_per_night' => 1000000,
+            'subtotal'        => 2000000,
+            'price_breakdown' => [['nightly_total' => 1000000]],
+        ]);
+
+        Payment::create([
+            'booking_id' => $booking->id,
+            'method'     => PaymentMethod::PAY_AT_HOTEL,
+            'amount'     => 1800000,
+            'status'     => PaymentStatus::PAID,
+            'paid_at'    => now(),
+        ]);
+
+        $booking = $booking->fresh(['bookingItems', 'payment']);
+        $this->service()->checkIn($booking, [$item->id => [$room1->id, $room2->id]]);
+        $booking = $booking->fresh();
+
+        $bir1 = $booking->bookingItemRooms()->where('room_id', $room1->id)->first();
+        $preview = $this->service()->previewRoomSettlement($booking, $bir1);
+
+        // Khách đã thanh toán ĐỦ 1.800.000 (giá đã giảm) — mỗi phòng phải về
+        // đúng 0, KHÔNG bị cộng khống 200.000/2 = 100.000 vì thiếu trừ giảm giá.
+        $this->assertSame(900000.0, $preview['room_charge']);
+        $this->assertSame(900000.0, $preview['deposit_credit']);
+        $this->assertSame(0.0, $preview['amount_due']);
+    }
+
     public function test_khong_the_checkout_2_lan_cung_1_phong(): void
     {
         [$booking, $item, $room1, $room2] = $this->twoRoomBooking();
