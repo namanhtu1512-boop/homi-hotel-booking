@@ -25,7 +25,7 @@ class EarlyCheckinRequestController extends Controller
         abort_unless($booking->canRequestEarlyCheckin(), 403);
 
         return view('customer.bookings.early-checkin', [
-            'booking' => $booking,
+            'booking' => $booking->load('bookingItems.roomType'),
         ]);
     }
 
@@ -34,20 +34,28 @@ class EarlyCheckinRequestController extends Controller
         $booking = $this->bookingService->findForCustomer($bookingId, $request->user());
 
         $data = $request->validate([
-            'reason' => ['nullable', 'string', 'max:1000'],
+            'reason'              => ['nullable', 'string', 'max:1000'],
+            'room_selections'     => ['required', 'array'],
+            'room_selections.*'   => ['integer', 'min:0'],
         ], [], [
-            'reason' => 'lý do',
+            'reason'           => 'lý do',
+            'room_selections'  => 'phòng muốn nhận sớm',
         ]);
 
         $standardTime = substr(HotelInfo::instance()->check_in_time ?? '14:00:00', 0, 5);
-        $data['requested_arrival_time'] = Carbon::createFromFormat('H:i', $standardTime)
+        $earlyTime = Carbon::createFromFormat('H:i', $standardTime)
             ->subHours(EarlyCheckinRequestService::AUTO_APPROVE_MAX_HOURS)
             ->format('H:i');
+        $data['requested_arrival_time'] = $earlyTime;
 
         $this->earlyCheckinRequestService->create($booking, $request->user(), $data);
 
+        // Form khách chỉ cho phép yêu cầu đúng AUTO_APPROVE_MAX_HOURS giờ sớm
+        // (xem $data['requested_arrival_time'] ở trên) nên luôn được tự động
+        // duyệt ngay — thông báo phải phản ánh đúng, không được nói kiểu
+        // "khách sạn sẽ xem xét" như đang chờ duyệt.
         return redirect()
             ->route('customer.bookings.show', $bookingId)
-            ->with('success', 'Đã gửi yêu cầu nhận phòng sớm, khách sạn sẽ xem xét và phản hồi sớm.');
+            ->with('success', "Yêu cầu nhận phòng sớm đã được duyệt tự động! Bạn có thể nhận phòng lúc {$earlyTime} như đã chọn.");
     }
 }

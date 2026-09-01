@@ -18,8 +18,10 @@ class LateCheckoutRequestController extends Controller
 
     public function create(int $bookingId, Request $request): View
     {
+        $booking = $this->bookingService->findForCustomer($bookingId, $request->user());
+
         return view('customer.bookings.late-checkout', [
-            'booking' => $this->bookingService->findForCustomer($bookingId, $request->user()),
+            'booking' => $booking->load('bookingItems.bookingItemRooms.room'),
         ]);
     }
 
@@ -28,11 +30,14 @@ class LateCheckoutRequestController extends Controller
         $booking = $this->bookingService->findForCustomer($bookingId, $request->user());
 
         $data = $request->validate([
-            'hours_late' => ['required', 'integer', 'min:1', 'max:6'],
-            'reason'     => ['nullable', 'string', 'max:1000'],
+            'hours_late'          => ['required', 'integer', 'min:1', 'max:6'],
+            'reason'              => ['nullable', 'string', 'max:1000'],
+            'room_selections'     => ['required', 'array', 'min:1'],
+            'room_selections.*'   => ['integer'],
         ], [], [
-            'hours_late' => 'số giờ muốn trả phòng trễ',
-            'reason'     => 'lý do',
+            'hours_late'       => 'số giờ muốn trả phòng trễ',
+            'reason'           => 'lý do',
+            'room_selections'  => 'phòng muốn trả muộn',
         ]);
 
         $lateCheckoutRequest = $this->lateCheckoutRequestService->create($booking, $request->user(), $data);

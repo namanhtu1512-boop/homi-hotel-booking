@@ -177,4 +177,79 @@ class RoomCombinationServiceTest extends TestCase
         $this->assertSame('ok', $result['status']);
         $this->assertSame(800_000.0, $result['total_price']);
     }
+
+    public function test_suggest_plans_luon_tra_du_3_phuong_an_tach_rieng(): void
+    {
+        // A: 1 phòng cap4 vừa khít 4 khách nhưng giá cao -> "ít phòng nhất".
+        // B: cap2 rẻ hơn hẳn, 2 phòng B cũng vừa khít 4 khách với giá thấp hơn A
+        // -> đồng thời là "tiết kiệm nhất" và "hợp lý nhất", nhưng vẫn phải trả
+        // về đủ 3 thẻ tách riêng (không gộp nhãn) để khách luôn thấy 3 lựa chọn.
+        $candidates = new Collection([
+            $this->candidate(1, 'A', 'suite', 4, 5, 1_000_000),
+            $this->candidate(2, 'B', 'standard', 2, 5, 300_000),
+        ]);
+
+        $plans = $this->service()->suggestPlans($candidates, 4, 3);
+
+        $this->assertCount(3, $plans);
+        $byKey = collect($plans)->keyBy('key');
+
+        $fewestRooms = $byKey['fewest_rooms'];
+        $this->assertSame('Phương án ít phòng nhất', $fewestRooms['label']);
+        $this->assertSame(1, $fewestRooms['total_rooms']);
+        $this->assertSame(1_000_000.0, $fewestRooms['total_price']);
+
+        $cheapest = $byKey['cheapest'];
+        $this->assertSame('Phương án tiết kiệm nhất', $cheapest['label']);
+        $this->assertSame(2, $cheapest['total_rooms']);
+        $this->assertSame(600_000.0, $cheapest['total_price']);
+
+        $balanced = $byKey['balanced'];
+        $this->assertSame('Phương án hợp lý nhất', $balanced['label']);
+        $this->assertSame(2, $balanced['total_rooms']);
+        $this->assertSame(600_000.0, $balanced['total_price']);
+    }
+
+    public function test_suggest_plans_tiet_kiem_nhat_co_the_khac_hop_ly_nhat(): void
+    {
+        // Mid: 1 phòng cap5 vừa khít 5 khách nhưng giá rất cao -> "ít phòng
+        // nhất" và "hợp lý nhất" (excess=0).
+        // Small: cap2 rẻ, dùng 3 phòng (dư 1 khách) nhưng tổng giá vẫn rẻ hơn
+        // hẳn Mid -> "tiết kiệm nhất" dù có dư chỗ, khác hẳn 2 phương án kia.
+        $candidates = new Collection([
+            $this->candidate(1, 'Mid', 'suite', 5, 5, 1_200_000),
+            $this->candidate(2, 'Small', 'standard', 2, 10, 100_000),
+        ]);
+
+        $plans = $this->service()->suggestPlans($candidates, 5);
+
+        $this->assertCount(3, $plans);
+        $byKey = collect($plans)->keyBy('key');
+
+        $cheapest = $byKey['cheapest'];
+        $this->assertSame(3, $cheapest['total_rooms']);
+        $this->assertSame(300_000.0, $cheapest['total_price']);
+        $this->assertSame(1, $cheapest['excess']);
+
+        $fewestRooms = $byKey['fewest_rooms'];
+        $this->assertSame(1, $fewestRooms['total_rooms']);
+        $this->assertSame(1_200_000.0, $fewestRooms['total_price']);
+        $this->assertSame(0, $fewestRooms['excess']);
+
+        $balanced = $byKey['balanced'];
+        $this->assertSame(1, $balanced['total_rooms']);
+        $this->assertSame(1_200_000.0, $balanced['total_price']);
+        $this->assertSame(0, $balanced['excess']);
+    }
+
+    public function test_suggest_plans_rong_khi_khong_co_phuong_an_kha_thi(): void
+    {
+        $candidates = new Collection([
+            $this->candidate(1, 'Standard', 'standard', 2, 1, 500_000),
+        ]);
+
+        $plans = $this->service()->suggestPlans($candidates, 8);
+
+        $this->assertSame([], $plans);
+    }
 }

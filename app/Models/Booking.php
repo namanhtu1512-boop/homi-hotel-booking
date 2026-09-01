@@ -272,6 +272,22 @@ class Booking extends Model
     }
 
     /**
+     * Các phòng vật lý (BookingItemRoom) đang thực sự lưu trú — đã check-in,
+     * chưa check-out. Đơn nhiều phòng có thể check-in TỪNG PHẦN (xem
+     * BookingService::checkIn()) nên KHÔNG phải mọi phòng trong đơn đều chắc
+     * chắn đã có mặt cùng lúc — dùng làm cơ sở cho yêu cầu trả phòng muộn
+     * (chỉ có ý nghĩa với phòng đang thực sự ở) ở LateCheckoutRequestService.
+     * Cần eager load `bookingItems.bookingItemRooms.room` trước khi gọi.
+     */
+    public function inHouseBookingItemRooms(): \Illuminate\Support\Collection
+    {
+        return $this->bookingItems
+            ->flatMap(fn (BookingItem $item) => $item->bookingItemRooms)
+            ->filter(fn (BookingItemRoom $bir) => $bir->checked_in_at !== null && $bir->checked_out_at === null)
+            ->values();
+    }
+
+    /**
      * Số giờ còn lại tính tới thời điểm nhận phòng DỰ KIẾN (ngày check_in +
      * giờ nhận phòng chuẩn của khách sạn `hotel_info.check_in_time`, mặc
      * định 14:00 nếu chưa cấu hình) — dùng cho canCancelByCustomer() để so

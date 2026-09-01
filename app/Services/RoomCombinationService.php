@@ -86,6 +86,55 @@ class RoomCombinationService
     }
 
     /**
+     * Sinh tối đa 3 phương án gợi ý (tiết kiệm nhất / ít phòng nhất / hợp lý
+     * nhất) — KHÔNG cố định số phòng như find(), mà thử lần lượt từ số phòng
+     * tối thiểu có thể chứa đủ $guestsNeeded đến $maxRooms, rồi so trong các
+     * phương án khả thi (status 'ok'):
+     *   - tiết kiệm nhất: tổng giá thấp nhất
+     *   - ít phòng nhất:  tổng số phòng ít nhất
+     *   - hợp lý nhất:    dư sức chứa (excess) ít nhất, tức khít với số khách
+     *                      nhất, hoà thì lấy giá thấp hơn
+     * Luôn trả về đủ 3 thẻ tách riêng theo đúng thứ tự trên, kể cả khi 2-3
+     * tiêu chí cùng trỏ về 1 tổ hợp phòng giống hệt nhau (không gộp) — để
+     * khách luôn thấy đủ 3 lựa chọn tương ứng 3 tiêu chí đã quảng cáo.
+     *
+     * @param  Collection<int, array>  $candidates
+     * @return array<int, array>
+     */
+    public function suggestPlans(Collection $candidates, int $guestsNeeded, int $maxRooms = 4): array
+    {
+        $maxCapacityPerRoom = (int) $candidates->max('capacity');
+        $minRooms = $maxCapacityPerRoom > 0 ? (int) ceil($guestsNeeded / $maxCapacityPerRoom) : 1;
+
+        $feasible = [];
+        for ($n = max(1, $minRooms); $n <= $maxRooms; $n++) {
+            $result = $this->find($candidates, $n, $guestsNeeded);
+
+            if ($result['status'] === 'ok') {
+                $feasible[] = $result;
+            }
+        }
+
+        if (empty($feasible)) {
+            return [];
+        }
+
+        $feasible = collect($feasible);
+
+        return [
+            ['key' => 'cheapest', 'label' => 'Phương án tiết kiệm nhất'] + $feasible->sort(
+                fn (array $a, array $b) => ($a['total_price'] <=> $b['total_price']) ?: ($a['total_rooms'] <=> $b['total_rooms'])
+            )->first(),
+            ['key' => 'fewest_rooms', 'label' => 'Phương án ít phòng nhất'] + $feasible->sort(
+                fn (array $a, array $b) => ($a['total_rooms'] <=> $b['total_rooms']) ?: ($a['total_price'] <=> $b['total_price'])
+            )->first(),
+            ['key' => 'balanced', 'label' => 'Phương án hợp lý nhất'] + $feasible->sort(
+                fn (array $a, array $b) => ($a['excess'] <=> $b['excess']) ?: ($a['total_price'] <=> $b['total_price'])
+            )->first(),
+        ];
+    }
+
+    /**
      * Với mỗi category khác $excludeCategory trong $allCandidates, thử tìm tổ
      * hợp tự nó (không trộn category) đủ N phòng + M khách — dùng để gợi ý
      * "loại phòng khác đang còn khả dụng" khi category đang lọc không đủ,

@@ -32,6 +32,14 @@
             <span class="value">{{ substr($earlyCheckinRequest->requested_arrival_time, 0, 5) }}</span>
         </div>
         <div class="info-item">
+            <span class="label">Phòng nhận sớm</span>
+            <span class="value">
+                @foreach ($earlyCheckinRequest->selectedRoomLines() as $line)
+                    <span class="badge badge-blue">{{ $line['quantity'] }} x {{ $line['item']->roomType->name ?? 'Phòng' }}</span>
+                @endforeach
+            </span>
+        </div>
+        <div class="info-item">
             <span class="label">Số giờ sớm</span>
             <span class="value">{{ $earlyCheckinRequest->hours_early }} giờ</span>
         </div>

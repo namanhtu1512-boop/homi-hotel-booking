@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingItem;
+use App\Models\BookingItemRoom;
 use App\Models\HotelInfo;
 use App\Models\LateCheckoutRequest;
 use App\Models\User;
@@ -29,7 +30,12 @@ use Illuminate\Validation\ValidationException;
  * phụ phí phát sinh" như trước nếu cần xử lý ngoại lệ.
  *
  * Phí tính theo % giá phòng đêm cuối, tăng dần theo bậc giờ trễ — xem
- * calculateFee().
+ * calculateFee(). Mỗi phòng khách chọn được ghi 1 dòng hóa đơn phát sinh
+ * RIÊNG, gắn đúng booking_item_room_id — bắt buộc phải tách vì
+ * BookingService::computeRoomSettlementAmounts() chỉ cộng phụ phí vào tiền
+ * phải thu của 1 phòng cụ thể nếu phụ phí đó có gắn đúng phòng ấy (đơn nhiều
+ * phòng); nếu để 1 dòng gộp không gắn phòng, phụ phí sẽ "biến mất" khỏi số
+ * tiền cần thu khi từng phòng trả riêng.
  */
 class LateCheckoutRequestService
 {
@@ -66,12 +72,6 @@ class LateCheckoutRequestService
             ]);
         }
 
-        if ($booking->lateCheckoutRequests()->where('status', 'pending')->exists()) {
-            throw ValidationException::withMessages([
-                'status' => ['Đơn này đang có 1 yêu cầu trả phòng muộn chờ duyệt, vui lòng chờ xử lý xong trước khi gửi yêu cầu mới.'],
-            ]);
-        }
-
         $hotel = HotelInfo::instance();
         $standardTime = substr($hotel->check_out_time ?? '12:00:00', 0, 5);
 
@@ -99,8 +99,11 @@ class LateCheckoutRequestService
             ]);
         }
 
+        $roomSelections = $this->normalizeRoomSelections($booking, $data['room_selections'] ?? null);
+        $this->assertRoomsNotAlreadyRequested($booking, $roomSelections);
+
         $isAfterEighteen = $requestedTime >= '18:00';
-        $fee = self::calculateFee($hoursLate, $isAfterEighteen, self::lastNightTotal($booking));
+        $fee = self::calculateFee($hoursLate, $isAfterEighteen, self::lastNightTotal($booking, $roomSelections));
 
         $autoApprove = $hoursLate <= self::AUTO_APPROVE_MAX_HOURS && ! $isAfterEighteen;
 
@@ -111,6 +114,7 @@ class LateCheckoutRequestService
             'hours_late'               => $hoursLate,
             'fee_amount'               => $fee,
             'reason'                   => $data['reason'] ?? null,
+            'room_selections'          => $roomSelections,
             'status'                   => $autoApprove ? 'approved' : 'pending',
             'handled_at'               => $autoApprove ? now() : null,
         ];
@@ -135,42 +139,127 @@ class LateCheckoutRequestService
     }
 
     /**
+     * Chuẩn hóa + validate `room_selections` khách gửi lên: mảng
+     * booking_item_room_id (khác EarlyCheckinRequestService — ở đó chưa
+     * check-in nên chọn theo SỐ LƯỢNG trừu tượng của dòng, còn ở đây đơn ĐÃ
+     * check-in nên chọn đúng theo PHÒNG VẬT LÝ đang ở). Chỉ chấp nhận phòng
+     * đang thực sự lưu trú (Booking::inHouseBookingItemRooms()) — chặn chọn
+     * phòng chưa check-in hoặc đã check-out, hoặc không thuộc đơn.
+     *
+     * @param  array<int, int|string>|null  $raw
+     * @return array<int, int>|null null = khách không chọn gì cụ thể, áp dụng TOÀN BỘ phòng đang ở
+     */
+    private function normalizeRoomSelections(Booking $booking, ?array $raw): ?array
+    {
+        if (empty($raw)) {
+            return null;
+        }
+
+        $eligibleIds = $booking->inHouseBookingItemRooms()->pluck('id');
+        $selected = collect($raw)->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($selected->diff($eligibleIds)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'room_selections' => ['Danh sách phòng chọn không hợp lệ — chỉ chọn được phòng đang thực sự lưu trú.'],
+            ]);
+        }
+
+        if ($selected->isEmpty()) {
+            throw ValidationException::withMessages([
+                'room_selections' => ['Vui lòng chọn ít nhất 1 phòng.'],
+            ]);
+        }
+
+        return $selected->all();
+    }
+
+    /**
+     * Chặn gửi yêu cầu mới cho phòng ĐÃ có yêu cầu trả phòng muộn còn hiệu
+     * lực (đang chờ duyệt hoặc đã duyệt) — tránh khách bấm gửi nhiều lần
+     * (VD double-click, hoặc gửi lại nhầm) khiến 1 phòng bị tính phí trả
+     * phòng muộn nhiều lần. Phòng đã bị TỪ CHỐI trước đó vẫn gửi lại được
+     * bình thường. Thay thế guard cũ (chặn theo CẢ ĐƠN chỉ vì có 1 yêu cầu
+     * pending) — giờ chặn đúng theo PHÒNG, phòng khác chưa từng yêu cầu vẫn
+     * gửi được dù đơn đang có yêu cầu khác cho phòng còn lại.
+     */
+    private function assertRoomsNotAlreadyRequested(Booking $booking, ?array $roomSelections): void
+    {
+        $alreadyRequestedIds = $booking->lateCheckoutRequests()
+            ->whereIn('status', ['pending', 'approved'])
+            ->get()
+            ->flatMap(fn (LateCheckoutRequest $existing) => $existing->setRelation('booking', $booking)
+                ->selectedBookingItemRooms()
+                ->pluck('id'));
+
+        if ($alreadyRequestedIds->isEmpty()) {
+            return;
+        }
+
+        $targetIds = $roomSelections ?? $booking->inHouseBookingItemRooms()->pluck('id')->all();
+
+        if (collect($targetIds)->intersect($alreadyRequestedIds)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'room_selections' => ['1 hoặc nhiều phòng đã chọn đã có yêu cầu trả phòng muộn trước đó (đang chờ duyệt hoặc đã duyệt).'],
+            ]);
+        }
+    }
+
+    /**
      * Cộng phụ phí trả phòng muộn vào hóa đơn phát sinh + báo khách — dùng
      * chung cho cả nhánh tự động duyệt (create(), trễ ≤ AUTO_APPROVE_MAX_HOURS)
      * và nhánh staff duyệt tay (approve()).
+     *
+     * Ghi 1 dòng hóa đơn RIÊNG cho MỖI phòng đã chọn (gắn đúng
+     * booking_item_room_id, ghi rõ số phòng trong mô tả) thay vì 1 dòng gộp
+     * — xem giải thích ở docblock class. Mỗi phòng tự tính phí theo đúng giá
+     * dòng đơn của nó (các phòng khác loại có thể khác giá) — tổng các dòng
+     * này có thể lệch $request->fee_amount vài đồng do làm tròn riêng từng
+     * dòng, không đáng kể.
      */
     private function grantLateCheckout(LateCheckoutRequest $request, Booking $booking, string $extraNote = ''): void
     {
-        $fee = (float) $request->fee_amount;
         $newTime = substr($request->requested_checkout_time, 0, 5);
+        $isAfterEighteen = $newTime >= '18:00';
         // Luôn là số nguyên (1-6) vì form chỉ cho chọn theo giờ tròn — xem
         // create(). Ghi rõ số giờ trễ trong mô tả để khách/staff/admin nhìn
         // hóa đơn phát sinh là hiểu ngay, không phải tự trừ giờ chuẩn.
         $hoursLate = (int) $request->hours_late;
 
-        $this->incidentalInvoiceService->addItem(
-            $booking, 'surcharge', "Phụ phí trả phòng muộn {$hoursLate} giờ (tới {$newTime}, đã duyệt)", $fee
-        );
+        $request->setRelation('booking', $booking);
+        $selectedRooms = $request->selectedBookingItemRooms();
+        $nightlyRateByItemId = self::nightlyRateByItemId($booking);
 
-        $feeText = number_format($fee, 0, ',', '.') . 'đ';
+        $roomLabels = [];
+
+        foreach ($selectedRooms as $bir) {
+            $roomFee = self::calculateFee($hoursLate, $isAfterEighteen, $nightlyRateByItemId[$bir->booking_item_id] ?? 0.0);
+            $roomLabels[] = "Phòng {$bir->room->room_number}";
+
+            $this->incidentalInvoiceService->addItem(
+                $booking, 'surcharge',
+                "Phụ phí trả phòng muộn {$hoursLate} giờ - Phòng {$bir->room->room_number} (tới {$newTime}, đã duyệt)",
+                $roomFee, null, null, 1, $bir->id
+            );
+        }
+
+        $feeText = number_format((float) $request->fee_amount, 0, ',', '.') . 'đ';
+        $roomsText = implode(', ', $roomLabels);
         $booking->user?->notify(new BookingStatusChanged(
             $booking,
-            "Yêu cầu trả phòng muộn {$hoursLate} giờ (tới {$newTime}) cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.{$extraNote}"
+            "Yêu cầu trả phòng muộn {$hoursLate} giờ (tới {$newTime}, {$roomsText}) cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.{$extraNote}"
         ));
     }
 
     /**
-     * Phí = % giá phòng đêm cuối, tăng dần theo bậc giờ trễ:
-     *   - Đến 2 giờ: 30% giá phòng
-     *   - Trên 2 đến 5 giờ: 50% giá phòng
-     *   - Trên 5 giờ (kể cả đúng 6 giờ) hoặc từ 18:00 trở đi: 100% giá phòng
-     *     (tính như thêm 1 đêm). Form chọn tới 6 giờ vẫn gửi được bình
+     * Phí = % giá phòng đêm cuối, 10%/giờ trễ tính tròn theo từng mốc giờ đã
+     * chọn (form chỉ cho chọn nguyên giờ 1-6, không cho nhập lẻ):
+     *   - Muộn 1 giờ: 10%    - Muộn 4 giờ: 40%
+     *   - Muộn 2 giờ: 20%    - Muộn 5 giờ: 50%
+     *   - Muộn 3 giờ: 30%    - Muộn 6 giờ (hoặc từ 18:00 trở đi): 100% giá
+     *     phòng (tính như thêm 1 đêm). Form chọn tới 6 giờ vẫn gửi được bình
      *     thường (chờ staff duyệt) — trên 6 giờ mới bắt xuống quầy trao đổi
      *     trực tiếp, khuyến nghị gia hạn hẳn 1 ngày thay vì trả phòng muộn
      *     (xem trang yêu cầu trả phòng muộn).
-     * So trực tiếp với mốc giờ thực tế (KHÔNG ceil theo giờ như phí nhận
-     * phòng sớm) — VD trễ 1.5 giờ rơi vào bậc "đến 2 giờ", không làm tròn
-     * lên 2 giờ.
      */
     public static function calculateFee(float $hoursLate, bool $isAfterEighteen, float $lastNightTotal): float
     {
@@ -178,11 +267,24 @@ class LateCheckoutRequestService
             return round($lastNightTotal);
         }
 
-        if ($hoursLate > 2) {
-            return round($lastNightTotal * 0.5);
-        }
+        return round($lastNightTotal * $hoursLate * 0.10);
+    }
 
-        return round($lastNightTotal * 0.3);
+    /**
+     * Giá đêm cuối/phòng (1 đơn vị, không nhân quantity) của từng dòng đơn —
+     * dùng chung cho lastNightTotal() và grantLateCheckout() (tính phí riêng
+     * từng phòng). Mọi phòng cùng 1 dòng đơn (booking_item) có cùng giá.
+     *
+     * @return Collection<int, float>
+     */
+    private static function nightlyRateByItemId(Booking $booking): Collection
+    {
+        return $booking->bookingItems->mapWithKeys(function (BookingItem $item) {
+            $breakdown = $item->price_breakdown ?? [];
+            $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
+
+            return [$item->id => (float) $lastNight];
+        });
     }
 
     /**
@@ -192,15 +294,34 @@ class LateCheckoutRequestService
      * BookingService::applyLateCheckoutSurchargeIfNeeded() (phí tự động dự
      * phòng khi khách không xin phép trước) — dùng chung 1 chỗ để 3 nơi luôn
      * ra cùng 1 kết quả.
+     *
+     * $selectedBookingItemRoomIds — truyền vào để chỉ tính trên đúng các
+     * PHÒNG VẬT LÝ khách CHỌN trả muộn thay vì cả đơn (khác phí nhận phòng
+     * sớm vốn cố định, phí này % giá phòng nên phải theo đúng phòng chọn).
+     * Mọi phòng cùng 1 dòng đơn (booking_item) có cùng giá — dùng lại giá
+     * đêm cuối của dòng đó cho từng phòng thuộc dòng (cùng cách tính ở
+     * BookingService::computeRoomSettlementAmounts()). Bỏ trống (null, mặc
+     * định) = cả đơn — dùng cho applyLateCheckoutSurchargeIfNeeded() (phí tự
+     * động, không có bước chọn phòng) và trang xem trước phí trước khi khách
+     * chọn xong.
      */
-    public static function lastNightTotal(Booking $booking): float
+    public static function lastNightTotal(Booking $booking, ?array $selectedBookingItemRoomIds = null): float
     {
-        return $booking->bookingItems->sum(function (BookingItem $item) {
-            $breakdown = $item->price_breakdown ?? [];
-            $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
+        if ($selectedBookingItemRoomIds === null) {
+            return $booking->bookingItems->sum(function (BookingItem $item) {
+                $breakdown = $item->price_breakdown ?? [];
+                $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
 
-            return (float) $lastNight * $item->quantity;
-        });
+                return (float) $lastNight * $item->quantity;
+            });
+        }
+
+        $nightlyRateByItemId = self::nightlyRateByItemId($booking);
+
+        return $booking->bookingItems
+            ->flatMap(fn (BookingItem $item) => $item->bookingItemRooms)
+            ->whereIn('id', $selectedBookingItemRoomIds)
+            ->sum(fn (BookingItemRoom $bir) => $nightlyRateByItemId[$bir->booking_item_id] ?? 0.0);
     }
 
     public function adminList(array $filters = []): LengthAwarePaginator
@@ -217,22 +338,24 @@ class LateCheckoutRequestService
     /**
      * Danh sách phòng đang trả phòng muộn trong 1 ngày cụ thể — chỉ tính các
      * yêu cầu ĐÃ DUYỆT có booking.check_out đúng ngày đó, loại đơn đã hủy.
-     * Trả về 1 dòng cho mỗi booking_item của đơn — xem
-     * EarlyCheckinRequestService::usageOnDate() (cùng quy ước).
+     * Trả về 1 dòng cho mỗi PHÒNG VẬT LÝ khách đã CHỌN trả muộn
+     * (selectedBookingItemRooms()) — xem EarlyCheckinRequestService::usageOnDate()
+     * cho quy ước tương tự bên chưa check-in (chọn theo số lượng, không có
+     * phòng vật lý cụ thể).
      */
     public function usageOnDate(string $date): Collection
     {
-        return LateCheckoutRequest::with(['booking.bookingItems.roomType', 'booking.bookingItems.rooms'])
+        return LateCheckoutRequest::with(['booking.bookingItems.roomType', 'booking.bookingItems.bookingItemRooms.room'])
             ->where('status', 'approved')
             ->whereHas('booking', fn ($q) => $q
                 ->whereDate('check_out', $date)
                 ->where('status', '!=', BookingStatus::CANCELLED->value)
             )
             ->get()
-            ->flatMap(fn (LateCheckoutRequest $request) => $request->booking->bookingItems->map(fn ($item) => [
-                'request'     => $request,
-                'booking'     => $request->booking,
-                'bookingItem' => $item,
+            ->flatMap(fn (LateCheckoutRequest $request) => $request->selectedBookingItemRooms()->map(fn (BookingItemRoom $bir) => [
+                'request'         => $request,
+                'booking'         => $request->booking,
+                'bookingItemRoom' => $bir,
             ]))
             ->values();
     }

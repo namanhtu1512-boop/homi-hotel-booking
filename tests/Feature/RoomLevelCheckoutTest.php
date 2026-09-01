@@ -186,6 +186,76 @@ class RoomLevelCheckoutTest extends TestCase
         $this->assertSame(0.0, $preview['amount_due']);
     }
 
+    /**
+     * Đơn gồm 2 LOẠI phòng khác giá nhau (không phải 2 phòng cùng 1 dòng như
+     * các test trên) — bug thật gặp: chia đều tiền đã thanh toán theo ĐẦU
+     * PHÒNG khiến phòng rẻ báo dư tiền, phòng đắt báo thiếu tiền dù đơn đã
+     * thanh toán đủ. Đồng thời kiểm tra phụ phí phát sinh CHƯA gắn phòng cụ
+     * thể (VD phí nhận phòng sớm) được phòng CUỐI CÙNG "gánh" thay vì biến
+     * mất khỏi mọi quyết toán (xem computeRoomSettlementAmounts()).
+     */
+    public function test_quyet_toan_ty_le_dung_khi_2_loai_phong_khac_gia_va_phu_phi_chua_gan_phong(): void
+    {
+        $typeA = RoomType::factory()->create(['total_rooms' => 5, 'capacity' => 2, 'price_per_night' => 1000000]);
+        $typeB = RoomType::factory()->create(['total_rooms' => 5, 'capacity' => 2, 'price_per_night' => 2000000]);
+        $roomA = Room::create(['room_type_id' => $typeA->id, 'room_number' => 'C' . fake()->unique()->numberBetween(100, 999), 'housekeeping_status' => 'clean']);
+        $roomB = Room::create(['room_type_id' => $typeB->id, 'room_number' => 'C' . fake()->unique()->numberBetween(100, 999), 'housekeeping_status' => 'clean']);
+
+        $booking = Booking::factory()->create([
+            'status'       => BookingStatus::CONFIRMED,
+            'check_in'     => now('Asia/Ho_Chi_Minh')->subDay()->toDateString(),
+            'check_out'    => now('Asia/Ho_Chi_Minh')->addDay()->toDateString(),
+            'nights'       => 1,
+            'total_amount' => 3000000,
+        ]);
+
+        $itemA = BookingItem::factory()->create([
+            'booking_id' => $booking->id, 'room_type_id' => $typeA->id, 'quantity' => 1,
+            'nights' => 1, 'price_per_night' => 1000000, 'subtotal' => 1000000,
+            'price_breakdown' => [['nightly_total' => 1000000]],
+        ]);
+        $itemB = BookingItem::factory()->create([
+            'booking_id' => $booking->id, 'room_type_id' => $typeB->id, 'quantity' => 1,
+            'nights' => 1, 'price_per_night' => 2000000, 'subtotal' => 2000000,
+            'price_breakdown' => [['nightly_total' => 2000000]],
+        ]);
+
+        Payment::create([
+            'booking_id' => $booking->id, 'method' => PaymentMethod::PAY_AT_HOTEL,
+            'amount' => 3000000, 'status' => PaymentStatus::PAID, 'paid_at' => now(),
+        ]);
+
+        $booking = $booking->fresh(['bookingItems', 'payment']);
+        $this->service()->checkIn($booking, [$itemA->id => [$roomA->id], $itemB->id => [$roomB->id]]);
+        $booking = $booking->fresh();
+
+        $birA = $booking->bookingItemRooms()->where('room_id', $roomA->id)->first();
+        $birB = $booking->bookingItemRooms()->where('room_id', $roomB->id)->first();
+
+        // Phụ phí KHÔNG gắn phòng cụ thể (booking_item_room_id null) — mô
+        // phỏng phí nhận phòng sớm/trả phòng muộn tự động không quy được
+        // cho 1 phòng.
+        app(\App\Services\IncidentalInvoiceService::class)->addItem($booking, 'surcharge', 'Phụ phí chung', 300000);
+
+        // Trả phòng A (rẻ hơn) trước — KHÔNG phải phòng cuối, không gánh phụ
+        // phí chung. Tiền phòng đã được thanh toán đúng tỷ lệ nên về đúng 0,
+        // KHÔNG âm/dư như công thức chia đều cũ.
+        $resultA = $this->service()->checkOutRoom($booking, $birA, ['method' => 'cash']);
+        $this->assertSame(1000000.0, (float) $resultA['settlement']->room_charge);
+        $this->assertSame(0.0, (float) $resultA['settlement']->service_charge);
+        $this->assertSame(1000000.0, (float) $resultA['settlement']->deposit_credit);
+        $this->assertSame(0.0, (float) $resultA['settlement']->amount_due);
+
+        // Trả phòng B (đắt hơn, CUỐI CÙNG) — gánh luôn phụ phí chung 300.000đ
+        // chưa ai thu, tiền phòng cũng về đúng 0 nhờ chia theo tỷ lệ giá.
+        $resultB = $this->service()->checkOutRoom($booking->fresh(), $birB, ['method' => 'cash']);
+        $this->assertTrue($resultB['completed']);
+        $this->assertSame(2000000.0, (float) $resultB['settlement']->room_charge);
+        $this->assertSame(300000.0, (float) $resultB['settlement']->service_charge);
+        $this->assertSame(2000000.0, (float) $resultB['settlement']->deposit_credit);
+        $this->assertSame(300000.0, (float) $resultB['settlement']->amount_due);
+    }
+
     public function test_khong_the_checkout_2_lan_cung_1_phong(): void
     {
         [$booking, $item, $room1, $room2] = $this->twoRoomBooking();

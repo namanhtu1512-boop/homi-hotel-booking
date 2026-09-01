@@ -32,7 +32,7 @@ class LateCheckoutRequestController extends Controller
 
     public function show(int $id): View
     {
-        $lateCheckoutRequest = LateCheckoutRequest::with(['booking.bookingItems.roomType', 'user', 'handledByUser'])
+        $lateCheckoutRequest = LateCheckoutRequest::with(['booking.bookingItems.roomType', 'booking.bookingItems.bookingItemRooms.room', 'user', 'handledByUser'])
             ->findOrFail($id);
 
         return view('admin.late-checkout-requests.show', ['lateCheckoutRequest' => $lateCheckoutRequest]);

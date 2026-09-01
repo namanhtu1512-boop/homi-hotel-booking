@@ -91,7 +91,7 @@
         @else
         <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">Điền thông tin bên dưới để tạo đơn đặt phòng thủ công cho đoàn này.</p>
 
-        <form method="POST" action="{{ route('admin.group-bookings.create-booking', $groupRequest->id) }}" class="space-y-4">
+        <form method="POST" action="{{ route('admin.group-bookings.create-booking', $groupRequest->id) }}" id="create-booking-form" class="space-y-4">
             @csrf
 
             <div class="grid grid-cols-2 gap-3">
@@ -145,7 +145,7 @@
                                     <input type="checkbox" name="items[{{ $i }}][extra_bed]" class="item-extra-bed" value="1" @checked(! empty($row['extra_bed']))>
                                     Giường phụ?
                                 </label>
-                                <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm ml-auto">✕</button>
+                                <button type="button" onclick="this.closest('.item-row').remove();" class="btn btn-danger btn-sm ml-auto">✕</button>
                             </div>
                         </div>
                     @endforeach
@@ -241,7 +241,7 @@
                 <input type="checkbox" name="items[__I__][extra_bed]" class="item-extra-bed" value="1">
                 Giường phụ?
             </label>
-            <button type="button" onclick="this.closest('.item-row').remove()" class="btn btn-danger btn-sm ml-auto">✕</button>
+            <button type="button" onclick="this.closest('.item-row').remove();" class="btn btn-danger btn-sm ml-auto">✕</button>
         </div>
     </div>
 </template>

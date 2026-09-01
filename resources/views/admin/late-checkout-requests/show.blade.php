@@ -32,6 +32,14 @@
             <span class="value">{{ substr($lateCheckoutRequest->requested_checkout_time, 0, 5) }}</span>
         </div>
         <div class="info-item">
+            <span class="label">Phòng trả muộn</span>
+            <span class="value">
+                @foreach ($lateCheckoutRequest->selectedBookingItemRooms() as $bir)
+                    <span class="badge badge-blue">Phòng {{ $bir->room->room_number }} ({{ $bir->bookingItem->roomType->name ?? 'Phòng' }})</span>
+                @endforeach
+            </span>
+        </div>
+        <div class="info-item">
             <span class="label">Số giờ trễ</span>
             <span class="value">{{ $lateCheckoutRequest->hours_late }} giờ</span>
         </div>

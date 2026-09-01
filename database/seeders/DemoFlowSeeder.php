@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Booking;
+use App\Models\BookingItemRoom;
 use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\User;
@@ -107,6 +108,20 @@ class DemoFlowSeeder extends Seeder
     private function alreadySeeded(string $tag): bool
     {
         return Booking::where('note', 'like', $tag . '%')->exists();
+    }
+
+    /** Trả hết các phòng đã nhận phòng nhưng chưa trả của 1 đơn (giống BookingController::checkOut() nhưng trả cả đơn 1 lượt). */
+    private function checkOutAllRooms(Booking $booking): void
+    {
+        BookingItemRoom::query()
+            ->whereHas('bookingItem', fn ($q) => $q->where('booking_id', $booking->id))
+            ->whereNotNull('checked_in_at')
+            ->whereNull('checked_out_at')
+            ->get()
+            ->each(function (BookingItemRoom $bookingItemRoom) use (&$booking) {
+                $result = $this->bookings->checkOutRoom($booking, $bookingItemRoom, ['method' => 'cash']);
+                $booking = $result['booking'];
+            });
     }
 
     private function roomTypeId(string $name): int
@@ -329,7 +344,7 @@ class DemoFlowSeeder extends Seeder
             $item = $fresh->bookingItems->first();
             $this->bookings->checkIn($fresh, [$item->id => [$this->firstRoomId($item->room_type_id)]]);
 
-            $this->bookings->checkOut(Booking::find($booking->id));
+            $this->checkOutAllRooms(Booking::find($booking->id));
         });
 
         $this->reviews->create($this->customer, [
@@ -496,7 +511,7 @@ class DemoFlowSeeder extends Seeder
             'reason' => 'Chuyến bay tối muộn, muốn thư giãn thêm buổi chiều.',
         ]);
 
-        $this->summary[] = ['scenario' => 'I — Yêu cầu trả phòng muộn chờ duyệt (demo duyệt + trả phòng)', 'code' => $booking->booking_code, 'note' => 'Vào "Yêu cầu trả phòng muộn" để duyệt (phí 750.000đ, 50% giá phòng), rồi trả phòng đơn này để thấy phụ phí ghi vào hóa đơn phát sinh.'];
+        $this->summary[] = ['scenario' => 'I — Yêu cầu trả phòng muộn chờ duyệt (demo duyệt + trả phòng)', 'code' => $booking->booking_code, 'note' => 'Vào "Yêu cầu trả phòng muộn" để duyệt (phí 450.000đ, 30% giá phòng — trễ 3 giờ), rồi trả phòng đơn này để thấy phụ phí ghi vào hóa đơn phát sinh.'];
     }
 
     // ------------------------------------------------------------

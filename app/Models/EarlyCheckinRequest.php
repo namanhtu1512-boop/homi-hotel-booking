@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasRoomSelections;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EarlyCheckinRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasRoomSelections;
 
     protected $fillable = [
         'booking_id',
@@ -16,6 +17,7 @@ class EarlyCheckinRequest extends Model
         'hours_early',
         'fee_amount',
         'reason',
+        'room_selections',
         'status',
         'staff_note',
         'handled_by',
@@ -23,9 +25,10 @@ class EarlyCheckinRequest extends Model
     ];
 
     protected $casts = [
-        'hours_early' => 'integer',
-        'fee_amount'  => 'decimal:2',
-        'handled_at'  => 'datetime',
+        'hours_early'      => 'integer',
+        'fee_amount'       => 'decimal:2',
+        'room_selections'  => 'array',
+        'handled_at'       => 'datetime',
     ];
 
     public function booking()

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\NewGroupBookingRequest;
+use App\Services\ExtraBedInventoryService;
 use App\Services\GroupBookingRequestService;
 use App\Services\GroupBookingSuggestionService;
 use App\Services\HotelInfoService;
@@ -23,6 +24,7 @@ class GroupBookingController extends Controller
         private readonly HotelInfoService $hotelInfoService,
         private readonly RoomTypeService $roomTypeService,
         private readonly PromotionService $promotionService,
+        private readonly ExtraBedInventoryService $extraBedInventoryService,
     ) {}
 
     public function show(): View
@@ -95,21 +97,45 @@ class GroupBookingController extends Controller
     public function suggestOptions(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'check_in'   => ['required', 'date'],
-            'check_out'  => ['required', 'date', 'after:check_in'],
-            'num_guests' => ['required', 'integer', 'min:1'],
+            'check_in'     => ['required', 'date'],
+            'check_out'    => ['required', 'date', 'after:check_in'],
+            'num_guests'   => ['required', 'integer', 'min:1'],
+            'num_children' => ['nullable', 'integer', 'min:0'],
         ], [], [
-            'check_in'   => 'ngày nhận phòng',
-            'check_out'  => 'ngày trả phòng',
-            'num_guests' => 'số lượng khách',
+            'check_in'     => 'ngày nhận phòng',
+            'check_out'    => 'ngày trả phòng',
+            'num_guests'   => 'số lượng khách',
+            'num_children' => 'số trẻ em (6-11 tuổi)',
         ]);
 
         $result = $this->groupBookingSuggestionService->suggest(
             $data['check_in'],
             $data['check_out'],
             $data['num_guests'],
+            $data['num_children'] ?? 0,
         );
 
         return response()->json($result);
+    }
+
+    /**
+     * Tra cứu nhanh số giường phụ CÒN LẠI thật trong kho chung toàn khách
+     * sạn cho 1 khoảng ngày — tách riêng khỏi suggestOptions() vì chỉ phụ
+     * thuộc ngày (không cần "Số lượng khách"), nên gọi được ngay khi khách
+     * vừa chọn xong ngày, không cần đợi bấm "Xem gợi ý phòng".
+     */
+    public function extraBedAvailability(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'check_in'  => ['required', 'date'],
+            'check_out' => ['required', 'date', 'after:check_in'],
+        ], [], [
+            'check_in'  => 'ngày nhận phòng',
+            'check_out' => 'ngày trả phòng',
+        ]);
+
+        return response()->json([
+            'extra_beds_available' => $this->extraBedInventoryService->countAvailable($data['check_in'], $data['check_out']),
+        ]);
     }
 }

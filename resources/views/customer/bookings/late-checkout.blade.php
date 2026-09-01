@@ -12,18 +12,37 @@
     $standardTime = substr($hotel->check_out_time ?? '12:00:00', 0, 5);
     $minHours = \App\Services\LateCheckoutRequestService::MIN_HOURS_BEFORE_STANDARD_CHECKOUT;
     $autoApproveMaxHours = \App\Services\LateCheckoutRequestService::AUTO_APPROVE_MAX_HOURS;
-    $lastNightTotal = \App\Services\LateCheckoutRequestService::lastNightTotal($booking);
 
-    $hourOptions = collect(range(1, 6))->map(function (int $h) use ($standardTime, $autoApproveMaxHours, $lastNightTotal) {
+    $hourOptions = collect(range(1, 6))->map(function (int $h) use ($standardTime, $autoApproveMaxHours) {
         $checkoutTime = \Carbon\Carbon::createFromFormat('H:i', $standardTime)->addHours($h)->format('H:i');
 
         return [
-            'hours' => $h,
-            'time'  => $checkoutTime,
-            'fee'   => \App\Services\LateCheckoutRequestService::calculateFee($h, $checkoutTime >= '18:00', $lastNightTotal),
-            'auto'  => $h <= $autoApproveMaxHours,
+            'hours'   => $h,
+            'time'    => $checkoutTime,
+            'after18' => $checkoutTime >= '18:00',
+            'auto'    => $h <= $autoApproveMaxHours,
         ];
     });
+
+    // Giá đêm cuối/phòng của từng dòng (mọi phòng cùng dòng đơn cùng giá) —
+    // phí trả phòng muộn là % giá phòng nên PHẢI tính lại theo đúng PHÒNG
+    // VẬT LÝ khách chọn ở dưới (khác phí nhận phòng sớm, cố định không phụ
+    // thuộc số phòng), xem LateCheckoutRequestService::lastNightTotal(). JS
+    // dùng data-nightly để tính lại phí ngay khi khách tick/bỏ tick phòng,
+    // khớp với calculateFee() ở server (server vẫn là nguồn tính phí thật
+    // khi submit).
+    $nightlyRateByItemId = $booking->bookingItems->mapWithKeys(function ($item) {
+        $breakdown = $item->price_breakdown ?? [];
+        $lastNight = $breakdown !== [] ? (end($breakdown)['nightly_total'] ?? $item->price_per_night) : $item->price_per_night;
+
+        return [$item->id => (float) $lastNight];
+    });
+
+    // Chỉ phòng ĐANG THỰC SỰ LƯU TRÚ (đã check-in, chưa check-out) mới có ý
+    // nghĩa để xin trả muộn — đơn nhiều phòng có thể check-in từng phần nên
+    // không phải mọi phòng trong đơn đều chắc chắn đã có mặt (xem
+    // Booking::inHouseBookingItemRooms()).
+    $inHouseRooms = $booking->inHouseBookingItemRooms();
 @endphp
 
 <div class="card auth-card" style="max-width: 640px; margin: 0 auto;">
@@ -61,13 +80,32 @@
         @csrf
 
         <div class="form-group">
+            <label>Chọn phòng muốn trả muộn</label>
+            @if ($inHouseRooms->isEmpty())
+                <p class="text-xs text-red-500">Chưa có phòng nào trong đơn được xác nhận đang lưu trú — vui lòng liên hệ quầy lễ tân.</p>
+            @else
+                <div class="checkbox-grid">
+                    @foreach ($inHouseRooms as $bir)
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="room_selections[]" value="{{ $bir->id }}" class="room-checkbox"
+                                data-nightly="{{ (int) ($nightlyRateByItemId[$bir->booking_item_id] ?? 0) }}"
+                                @checked(in_array((string) $bir->id, old('room_selections', $inHouseRooms->pluck('id')->all())))>
+                            Phòng {{ $bir->room->room_number }} ({{ $bir->bookingItem->roomType->name ?? 'Phòng' }})
+                        </label>
+                    @endforeach
+                </div>
+                <p class="text-xs text-slate-400 mt-1.5">Mặc định chọn hết — phụ phí sẽ tính theo đúng phòng bạn chọn ở đây. Chỉ hiện phòng đang thực sự lưu trú.</p>
+            @endif
+        </div>
+
+        <div class="form-group">
             <label for="hours_late">Bạn muốn trả phòng trễ bao lâu?</label>
             <select id="hours_late" name="hours_late" required>
                 <option value="">-- Chọn số giờ --</option>
                 @foreach ($hourOptions as $opt)
                     <option
                         value="{{ $opt['hours'] }}"
-                        data-fee="{{ (int) $opt['fee'] }}"
+                        data-after18="{{ $opt['after18'] ? '1' : '0' }}"
                         data-auto="{{ $opt['auto'] ? '1' : '0' }}"
                         @selected(old('hours_late') == $opt['hours'])
                     >Trễ {{ $opt['hours'] }} giờ (khoảng {{ $opt['time'] }})</option>
@@ -93,7 +131,23 @@
     (function () {
         var select = document.getElementById('hours_late');
         var preview = document.getElementById('hours-late-fee-preview');
+        var roomCheckboxes = document.querySelectorAll('.room-checkbox');
         if (! select || ! preview) return;
+
+        // Mirror đúng LateCheckoutRequestService::calculateFee() — chỉ để
+        // xem trước, server vẫn là nơi tính phí thật khi submit.
+        function calculateFee(hours, isAfter18, lastNightTotal) {
+            if (isAfter18 || hours > 5) return Math.round(lastNightTotal);
+            return Math.round(lastNightTotal * hours * 0.10);
+        }
+
+        function selectedLastNightTotal() {
+            var total = 0;
+            roomCheckboxes.forEach(function (checkbox) {
+                if (checkbox.checked) total += Number(checkbox.dataset.nightly) || 0;
+            });
+            return total;
+        }
 
         function render() {
             var opt = select.options[select.selectedIndex];
@@ -102,12 +156,13 @@
                 return;
             }
 
-            var fee = Number(opt.dataset.fee).toLocaleString('vi-VN') + 'đ';
+            var fee = calculateFee(Number(opt.value), opt.dataset.after18 === '1', selectedLastNightTotal());
             var note = opt.dataset.auto === '1' ? 'tự động duyệt ngay' : 'cần khách sạn duyệt';
-            preview.textContent = 'Phụ phí dự kiến: ' + fee + ' — ' + note + '.';
+            preview.textContent = 'Phụ phí dự kiến: ' + fee.toLocaleString('vi-VN') + 'đ — ' + note + '.';
         }
 
         select.addEventListener('change', render);
+        roomCheckboxes.forEach(function (checkbox) { checkbox.addEventListener('change', render); });
         render();
     })();
 </script>

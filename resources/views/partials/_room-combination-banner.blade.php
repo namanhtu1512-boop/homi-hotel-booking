@@ -42,6 +42,39 @@
             <div class="alert alert-danger !mb-0">Không còn phòng trống trong khoảng ngày bạn chọn.</div>
         @endif
 
+        @if (! empty($combination['plans']))
+            <div class="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+                <span class="section-kicker">Gợi ý phương án phân bổ phòng</span>
+                <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                    @foreach ($combination['plans'] as $plan)
+                        <div class="card space-y-2 p-3 text-sm">
+                            <div class="font-semibold">{{ $plan['label'] }}</div>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach ($plan['rooms'] as $room)
+                                    <span class="badge badge-blue">{{ $room['quantity'] }} x {{ $room['name'] }}</span>
+                                @endforeach
+                            </div>
+                            <p class="text-slate-500 dark:text-slate-400">
+                                {{ $plan['total_rooms'] }} phòng · sức chứa {{ $plan['total_capacity'] }} khách
+                                @if ($plan['excess'] > 0)
+                                    (dư {{ $plan['excess'] }} chỗ)
+                                @endif
+                            </p>
+                            <p class="font-semibold">{{ number_format($plan['total_price'], 0, ',', '.') }}đ/đêm</p>
+                            <a href="{{ route('customer.bookings.create', [
+                                    'check_in'  => $filters['check_in'] ?? null,
+                                    'check_out' => $filters['check_out'] ?? null,
+                                    'items'     => collect($plan['rooms'])->map(fn ($r) => [
+                                        'room_type_id' => $r['room_type_id'],
+                                        'quantity'     => $r['quantity'],
+                                    ])->all(),
+                                ]) }}" class="btn-outline btn-sm block w-full text-center">Chọn phương án này</a>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         @if (! empty($combination['alternative_categories']))
             <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
                 <span class="text-slate-500 dark:text-slate-400">Loại phòng khác đang còn đủ chỗ:</span>

@@ -90,10 +90,10 @@ class LateCheckoutAutoFeeTest extends TestCase
         $room = $booking->bookingItemRooms()->first();
         $result = $this->service()->checkOutRoom($booking, $room);
 
-        // 13:30 - giờ chuẩn 12:00 = trễ 1.5h → rơi vào bậc "đến 2 giờ" = 30% giá phòng đêm cuối (1.000.000đ) = 300.000đ.
-        $this->assertSame(300000.0, $result['late_checkout_fee']);
+        // 13:30 - giờ chuẩn 12:00 = trễ 1.5h → 10%/giờ x 1.5 = 15% giá phòng đêm cuối (1.000.000đ) = 150.000đ.
+        $this->assertSame(150000.0, $result['late_checkout_fee']);
         $this->assertSame(BookingStatus::COMPLETED, $result['booking']->status);
-        $this->assertSame(300000.0, (float) $booking->fresh()->incidentalInvoice->total_amount);
+        $this->assertSame(150000.0, (float) $booking->fresh()->incidentalInvoice->total_amount);
     }
 
     public function test_tra_phong_dung_gio_khong_bi_tinh_phi(): void

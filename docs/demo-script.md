@@ -7,6 +7,12 @@ duyệt, đặt đoàn, khuyến mãi nhóm) và góc nhìn vận hành (dashboa
 phòng). Đi kèm là `database/seeders/DemoFlowSeeder.php` — dựng sẵn dữ liệu cho
 từng bước để không phải thao tác tay từ đầu ngay trên sân khấu.
 
+Phần 1–9 là mạch chính (vòng đời 1 đơn). **Phần 10–15** đi tiếp qua toàn bộ
+tính năng còn lại của hệ thống — không nằm trong vòng đời 1 đơn nên tách
+riêng: đăng nhập mạng xã hội & tài khoản bị khóa, trợ lý ảo AI & chat hỗ trợ,
+yêu thích & thông báo, đặt phòng tại quầy & giường phụ hết tồn kho, giảm giá
+đoàn theo đơn, và các trang quản trị cấu hình/nội dung.
+
 ## Chuẩn bị (làm ngay trước buổi demo)
 
 1. Đảm bảo MySQL đang chạy (Laragon), server đang chạy (`php artisan serve`
@@ -33,8 +39,12 @@ từng bước để không phải thao tác tay từ đầu ngay trên sân kh�
 |---|---|---|---|
 | Khách hàng (chính) | `/customer/login` | `customer@homi.test` | `123456` |
 | Khách hàng (phụ, dùng ở vài kịch bản) | `/customer/login` | `user@gmail.com` | `123456` |
+| Khách hàng bị khóa (demo Phần 10/15) | `/customer/login` | `locked@homi.test` | `123456` |
 | Lễ tân / nhân viên | `/staff/login` | `staff@homi.test` | `123456` |
 | Quản trị viên | `/admin/login` | `admin@homi.test` | `123456` |
+
+Đăng nhập bằng Google/Facebook chỉ có ở `/customer/login` (không có ở cổng lễ
+tân/admin) — xem Phần 10.
 
 ---
 
@@ -96,16 +106,18 @@ Dùng kịch bản **C** (đang lưu trú, nhận phòng từ hôm qua, còn 1 �
 
 Trên trang chi tiết đơn (`/staff/bookings/{id}` hoặc `/admin/bookings/{id}`):
 
-1. **Thêm dịch vụ** — chọn 1 dịch vụ trong catalog (vd "Ăn sáng buffet"),
-   ghi vào "hóa đơn phát sinh" riêng (không đụng tiền phòng gốc).
-2. **Thêm phụ phí** — vd phí hư hỏng đồ đạc, chọn từ danh mục phụ phí có sẵn
-   hoặc nhập tay.
+1. **🔵 Dịch vụ** — chọn 1 dịch vụ trong catalog (vd "Ăn sáng buffet"), ghi
+   vào "hóa đơn phát sinh" riêng (không đụng tiền phòng gốc).
+2. **3 nhóm phụ phí còn lại** trong "Thao tác trong lưu trú" — **🔴 Hỏng/mất
+   đồ**, **🟠 Vi phạm quy định**, **🟡 Vệ sinh đặc biệt** — mỗi nhóm có danh
+   mục phụ phí riêng, chọn từ danh mục có sẵn hoặc nhập tay số tiền.
 3. **Gia hạn thêm đêm** — chọn ngày trả phòng mới; nếu loại phòng hiện tại
    hết chỗ, hệ thống gợi ý phương án đổi sang loại phòng khác còn trống.
 4. **Trả phòng** — bấm "Trả phòng", xem toàn bộ hóa đơn phát sinh được gộp
    vào 1 lần thu, đơn chuyển thẳng sang **"Hoàn tất"**.
 5. *(Tùy chọn)* đăng nhập lại `customer@homi.test`, vào đơn vừa hoàn tất →
-   viết đánh giá ngay — nối tiếp sang Phần 6.
+   viết đánh giá ngay (có thể đính kèm tối đa 2 video bằng chứng, mỗi video
+   ≤ 50MB) — nối tiếp sang Phần 6.
 
 ---
 
@@ -127,7 +139,7 @@ duyệt** (khách xin đến sớm 2h30, trước giờ chuẩn 14:00).
 Đơn I đang lưu trú, có sẵn 1 **yêu cầu trả phòng muộn đang chờ duyệt** (khách
 xin trả tới 15:00, giờ chuẩn 12:00).
 
-1. "Yêu cầu trả phòng muộn" → mở yêu cầu của đơn I → Duyệt (phí 750.000đ, 50% giá phòng Deluxe).
+1. "Yêu cầu trả phòng muộn" → mở yêu cầu của đơn I → Duyệt (phí 450.000đ, 30% giá phòng Deluxe — trễ 3 giờ).
 2. Trả phòng đơn I — phí vừa duyệt đã nằm sẵn trong hóa đơn phát sinh, thu 1
    lần cùng lúc trả phòng.
 
@@ -199,6 +211,122 @@ Nhân viên đã đề xuất sẵn mã `DEMOVIP10` (giảm 10%), đang chờ ad
 
 ---
 
+## Phần 10 — Đăng nhập: mạng xã hội & tài khoản bị khóa (2 phút)
+
+1. Trang `/customer/login` (hoặc `/register`) có thêm 2 nút **"Đăng nhập với
+   Google"** / **"Đăng nhập với Facebook"** — bấm vào sẽ redirect thật sang
+   `/auth/{google|facebook}` rồi `/auth/{provider}/callback` để đăng nhập
+   hoặc tự tạo tài khoản mới. *(Cần `GOOGLE_CLIENT_ID`/`FACEBOOK_CLIENT_ID`
+   thật trong `.env` + mạng ra ngoài; nếu môi trường demo offline, chỉ cần
+   trỏ chuột vào nút và giải thích luồng OAuth, không cần bấm thật.)*
+2. Thử đăng nhập bằng tài khoản đã bị khóa: `locked@homi.test` / `123456`
+   tại `/customer/login` → hệ thống chặn ngay với thông báo **"Tài khoản
+   đang bị khóa hoặc chưa hoạt động."** — minh họa cho nút khóa/mở khóa tài
+   khoản của admin (xem Phần 15).
+3. Lưu ý: `/staff/login` và `/admin/login` là 2 cổng đăng nhập tách riêng
+   khỏi khách hàng, không có nút đăng nhập mạng xã hội.
+
+---
+
+## Phần 11 — Trợ lý ảo AI & Chat hỗ trợ trực tuyến (3 phút)
+
+1. Trên mọi trang công khai/khách hàng có 1 nút tròn hình robot ở góc dưới
+   bên phải (không xuất hiện ở layout lễ tân/admin) → bấm để mở khung **trợ
+   lý ảo AI**. Hỏi thử: *"Khách sạn có những loại phòng nào?"* rồi *"Phòng
+   Superior còn trống ngày [chọn 1 ngày] không?"* — chỉ ra: AI trả lời dựa
+   trên dữ liệu thật (gọi thẳng `AvailabilityService` qua 2 công cụ
+   `list_room_types`/`check_room_availability`), không tự bịa số phòng
+   trống. Hỏi tiếp *"Đặt giúp tôi phòng đó luôn"* — AI sẽ từ chối và hướng
+   khách sang khung "Hỗ trợ" hoặc form đặt phòng, vì AI không có quyền tạo/
+   sửa/hủy đơn.
+2. Chat hỗ trợ với người thật: đăng nhập `customer@homi.test` → menu **"Hỗ
+   trợ"** (`/customer/chat`) → gửi 1 tin nhắn bất kỳ.
+3. Mở tab khác, đăng nhập `staff@homi.test` (hoặc `admin@homi.test`) → cũng
+   vào mục "Hỗ trợ"/Chat → chỉ ra đây là **hộp thư chung** (không phân theo
+   nhân viên phụ trách, ai đăng nhập cũng thấy và trả lời được mọi khách) →
+   trả lời tin nhắn.
+4. Quay lại tài khoản khách hàng → chuông thông báo có tin mới và badge số
+   tin chưa đọc trên menu "Hỗ trợ" cập nhật ngay.
+
+---
+
+## Phần 12 — Yêu thích & Thông báo (1 phút)
+
+1. `/rooms` hoặc trang chi tiết 1 phòng — bấm biểu tượng trái tim để thêm
+   vào **Yêu thích** → menu "Yêu thích (n)" trên thanh điều hướng cập nhật
+   số lượng ngay.
+2. `/customer/wishlist` — xem danh sách phòng đã lưu, có thể bỏ yêu thích.
+3. Chuông thông báo trên thanh điều hướng khách hàng — gộp các sự kiện liên
+   quan tới tài khoản (tin nhắn chat mới, yêu cầu được duyệt...), bấm để
+   đánh dấu đã đọc.
+
+---
+
+## Phần 13 — Đặt phòng tại quầy & giường phụ hết tồn kho chung (3 phút)
+
+1. Đăng nhập `staff@homi.test` → `/staff/bookings/create` — **đặt phòng tại
+   quầy**: cùng 1 form nghiệp vụ với khách tự đặt (Phần 2), nhưng do lễ tân
+   điền thay cho khách đến trực tiếp quầy, không cần khách có tài khoản.
+   Đặt xong, nhật ký thao tác của đơn (Phần 8) ghi rõ hành động **"Tạo đơn
+   tại quầy"** — phân biệt với đơn khách tự đặt online.
+2. Giường phụ dùng chung **1 kho duy nhất cho toàn khách sạn** (mặc định 5
+   giường, phụ phí 200.000đ/đêm/giường — cấu hình ở Phần 15). Để minh họa
+   lúc hết giường phụ: vào `/admin/hotel-info`, tạm hạ **"Tổng số giường
+   phụ"** xuống 0, lưu lại → quay lại đặt 1 đơn cần giường phụ (số khách
+   vượt sức chứa phòng, tick "cần giường phụ") → đơn tự chuyển trạng thái
+   **"Chờ tư vấn"** thay vì xác nhận thẳng, đồng thời sinh 1 **"Yêu cầu
+   giường phụ"** chờ xử lý trong mục cùng tên (staff/admin) → nhớ đặt lại số
+   giường phụ về 5 sau khi demo xong.
+
+---
+
+## Phần 14 — Giảm giá đoàn theo đơn (khác mã khuyến mãi ở Phần 9b) (2 phút)
+
+Đây là giảm giá áp **trực tiếp vào 1 đơn cụ thể** đủ điều kiện "đoàn" (đủ số
+phòng/khách theo `GroupDiscountPolicy` cấu hình ở Phần 15) — khác với mã
+khuyến mãi dùng chung cho nhiều khách ở Phần 9b.
+
+1. Trên trang chi tiết 1 đơn đủ điều kiện đoàn (staff) — mục **"Đề xuất
+   giảm giá đoàn thêm"**: nhập % giảm (bị giới hạn trần theo chính sách đang
+   áp dụng) → gửi → trạng thái "Chờ duyệt".
+2. Đăng nhập `admin@homi.test` → **"Yêu cầu giảm giá đoàn"** → mở đề xuất
+   vừa gửi → **Duyệt** (có thể điều chỉnh % khác với đề xuất của lễ tân)
+   hoặc **Từ chối**.
+3. *(Tùy chọn)* Admin cũng có thể vào thẳng 1 đơn đủ điều kiện để áp % giảm
+   giá đoàn trực tiếp, không bị giới hạn trần chính sách như lễ tân.
+
+---
+
+## Phần 15 — Quản trị: cấu hình & nội dung hệ thống (4–5 phút)
+
+Đăng nhập `admin@homi.test`, đi nhanh qua các trang cấu hình (lễ tân dùng
+song song một phần, trừ các mục có ghi chú admin-only):
+
+- **Thông tin khách sạn** (`/admin/hotel-info`) — mô tả, giờ nhận/trả phòng
+  chuẩn, tổng số giường phụ & phụ phí/đêm (Phần 13), bật/tắt **chế độ bảo
+  trì** (ẩn toàn bộ trang công khai, chỉ admin/staff truy cập được).
+- **Loại phòng & phòng** (`/admin/room-types`, `/admin/rooms`) — CRUD loại
+  phòng (sức chứa người lớn/trẻ em riêng, giá, ảnh, tiện nghi), CRUD phòng
+  vật lý, lịch phòng theo ngày, trạng thái dọn phòng. *(Lễ tân dùng chung
+  giao diện nhưng không được xóa loại phòng, không được thêm/sửa phòng vật
+  lý — admin-only.)*
+- **Giá theo mùa** (`/admin/seasonal-rates`) — set giá tăng/giảm theo
+  khoảng ngày, hiện badge giảm giá trên `/rooms` (đã thấy ở Phần 1).
+- **Khuyến mãi & chính sách giảm giá đoàn** (`/admin/promotions`,
+  `/admin/group-discount-policies`) — CRUD mã khuyến mãi công khai, cấu
+  hình trần % giảm giá đoàn theo quy mô (dùng ở Phần 14).
+- **Nội dung marketing** — Banner trang chủ (`/admin/banners`), Tin tức
+  (`/admin/news`), Liên hệ (`/admin/contact-messages` — xem/đánh dấu đã đọc
+  tin nhắn gửi từ form `/contact` công khai).
+- **Người dùng & khách hàng** (`/admin/users`, `/admin/customers`) — khóa
+  tài khoản `user@gmail.com`, thử đăng nhập lại như Phần 10 để thấy bị
+  chặn, rồi mở khóa lại.
+- **Danh mục dịch vụ & phụ phí** (`/admin/services`, `/admin/surcharge-items`)
+  — nguồn dữ liệu cho 4 nhóm "Thao tác trong lưu trú" ở Phần 4 (🔵 Dịch vụ /
+  🔴 Hỏng-mất / 🟠 Vi phạm / 🟡 Vệ sinh đặc biệt).
+
+---
+
 ## Phụ lục — Danh sách kịch bản & trạng thái seed sẵn
 
 | Mã | Trạng thái khi seed xong | Dùng để demo |
@@ -217,3 +345,7 @@ Nhân viên đã đề xuất sẵn mã `DEMOVIP10` (giảm 10%), đang chờ ad
 
 Nguồn seed: `database/seeders/DemoFlowSeeder.php` (chạy độc lập, không nằm
 trong `DatabaseSeeder` mặc định).
+
+Phần 10–15 **không** dùng dữ liệu từ `DemoFlowSeeder` — chỉ cần dữ liệu nền
+(loại phòng, phòng, khuyến mãi...) đã có sẵn từ `DatabaseSeeder` mặc định,
+thao tác trực tiếp ngay lúc demo.

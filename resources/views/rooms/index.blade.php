@@ -77,21 +77,6 @@
                 </select>
             </div>
 
-            <div>
-                <label class="form-label" for="capacity">Sức chứa tối thiểu / phòng</label>
-                <select id="capacity" name="capacity" class="input">
-                    <option value="">Bất kỳ</option>
-                    @foreach ([1,2,3,4,5,6] as $n)
-                        <option value="{{ $n }}" @selected(($filters['capacity'] ?? '') == $n)>{{ $n }} khách</option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div>
-                <label class="form-label" for="bed_type">Kiểu giường</label>
-                <input id="bed_type" type="text" name="bed_type" class="input" value="{{ $filters['bed_type'] ?? '' }}" placeholder="VD: 1 giường đôi">
-            </div>
-
             <input type="hidden" name="sort" value="{{ $filters['sort'] ?? '' }}">
 
             <div class="flex gap-2">
