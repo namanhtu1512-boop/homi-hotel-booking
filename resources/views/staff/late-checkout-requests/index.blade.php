@@ -34,8 +34,8 @@
                 <tbody>
                     @foreach ($usage as $row)
                         <tr>
-                            <td>{{ $row['bookingItem']->rooms->isNotEmpty() ? $row['bookingItem']->rooms->pluck('room_number')->implode(', ') : 'Chưa gán phòng' }}</td>
-                            <td>{{ $row['bookingItem']->roomType->name ?? '—' }}</td>
+                            <td>{{ $row['bookingItemRoom']->room->room_number }}</td>
+                            <td>{{ $row['bookingItemRoom']->bookingItem->roomType->name ?? '—' }}</td>
                             <td>{{ $row['booking']->booking_code }}</td>
                             <td>{{ $row['booking']->customer_name }}</td>
                             <td>{{ substr($row['request']->requested_checkout_time, 0, 5) }}</td>

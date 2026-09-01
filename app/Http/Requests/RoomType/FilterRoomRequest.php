@@ -15,10 +15,8 @@ use App\Http\Requests\BaseFormRequest;
  *   keyword    — tìm theo tên/mô tả loại phòng (nullable, max 255)
  *   min_price  — giá tối thiểu/đêm (nullable, numeric, >= 0)
  *   max_price  — giá tối đa/đêm (nullable, numeric, >= 0, >= min_price)
- *   capacity   — sức chứa tối thiểu CỦA MỘT PHÒNG (nullable, integer, >= 1)
  *   guests     — tổng số khách của cả đoàn (nullable, integer, >= 1) — dùng
- *                cho thuật toán tìm tổ hợp nhiều phòng (RoomCombinationService),
- *                khác với `capacity` (yêu cầu riêng cho từng phòng)
+ *                cho thuật toán tìm tổ hợp nhiều phòng (RoomCombinationService)
  *   category   — loại phòng cụ thể (nullable, standard/superior/deluxe/family/suite)
  *   check_in   — ngày nhận phòng dự kiến (nullable, Y-m-d, không ở quá khứ)
  *   check_out  — ngày trả phòng dự kiến (nullable, Y-m-d, sau check_in)
@@ -36,11 +34,9 @@ class FilterRoomRequest extends BaseFormRequest
             'keyword'      => ['nullable', 'string', 'max:255'],
             'min_price'    => ['nullable', 'numeric', 'min:0'],
             'max_price'    => ['nullable', 'numeric', 'min:0', 'gte:min_price'],
-            'capacity'     => ['nullable', 'integer', 'min:1'],
             'guests'       => ['nullable', 'integer', 'min:1', 'max:8'],
             'category'     => ['nullable', 'in:standard,superior,deluxe,family,suite'],
             'quantity'     => ['nullable', 'integer', 'min:1', 'max:4'],
-            'bed_type'     => ['nullable', 'string', 'max:100'],
             'sort'         => ['nullable', 'in:price_asc,price_desc,rating,newest,popularity,best_match'],
             'check_in'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:' . $this->todayVn(), 'required_with:check_out'],
             'check_out'    => ['nullable', 'date_format:Y-m-d', 'after:check_in', 'required_with:check_in'],
@@ -53,7 +49,6 @@ class FilterRoomRequest extends BaseFormRequest
             'keyword'     => 'từ khóa tìm kiếm',
             'min_price'   => 'giá tối thiểu',
             'max_price'   => 'giá tối đa',
-            'capacity'    => 'sức chứa',
             'guests'      => 'số khách',
             'category'    => 'loại phòng',
             'check_in'    => 'ngày nhận phòng',

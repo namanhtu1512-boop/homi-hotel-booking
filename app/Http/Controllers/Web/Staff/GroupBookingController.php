@@ -83,6 +83,7 @@ class GroupBookingController extends Controller
             'items.*.quantity'     => ['required', 'integer', 'min:1'],
             'items.*.adults'       => ['required', 'integer', 'min:1'],
             'items.*.children'     => ['nullable', 'integer', 'min:0'],
+            'items.*.infants'      => ['nullable', 'integer', 'min:0'],
             'items.*.extra_bed'    => ['nullable', 'boolean'],
             'customer_name'        => ['required', 'string', 'max:100'],
             'customer_phone'       => ['required', 'string', 'max:20'],

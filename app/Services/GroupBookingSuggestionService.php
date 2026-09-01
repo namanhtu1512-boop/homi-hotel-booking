@@ -13,16 +13,19 @@ class GroupBookingSuggestionService
 {
     public function __construct(
         private readonly AvailabilityService $availability,
+        private readonly ExtraBedInventoryService $extraBedInventory,
     ) {}
 
     /**
      * @return array{
      *     error?: string,
      *     max_capacity_available?: int,
+     *     extra_beds_needed?: int,
+     *     extra_beds_available?: int|null,
      *     options?: array<int, array>,
      * }
      */
-    public function suggest(string $checkIn, string $checkOut, int $numGuests): array
+    public function suggest(string $checkIn, string $checkOut, int $numGuests, int $numChildren = 0): array
     {
         $roomTypes = $this->availableRoomTypes($checkIn, $checkOut);
 
@@ -35,13 +38,49 @@ class GroupBookingSuggestionService
             ];
         }
 
+        // Ước tính đơn giản khớp với children-bed-hint trên form: mỗi trẻ
+        // 6-11 tuổi cần 1 giường phụ, tối đa 1 giường/phòng — không tách theo
+        // từng loại phòng như BookingService::extraBedsNeeded() thật vì form
+        // này không hỏi adults/children riêng theo từng phòng. Giường phụ là
+        // 1 kho DÙNG CHUNG toàn khách sạn (xem ExtraBedInventoryService).
+        $extraBedsNeeded    = max(0, $numChildren);
+        $extraBedsAvailable = $extraBedsNeeded > 0
+            ? $this->extraBedInventory->countAvailable($checkIn, $checkOut)
+            : null;
+
+        if ($extraBedsNeeded > 0 && $extraBedsAvailable < $extraBedsNeeded) {
+            return [
+                'error'                 => 'insufficient_extra_beds',
+                'extra_beds_needed'     => $extraBedsNeeded,
+                'extra_beds_available'  => $extraBedsAvailable,
+            ];
+        }
+
         $options = collect([
             $this->tietKiem($roomTypes, $numGuests),
             $this->dongNhat($roomTypes, $numGuests),
             $this->itPhongNhat($roomTypes, $numGuests),
-        ])->filter()->values();
+        ])
+            ->filter()
+            // Mỗi phòng nhận tối đa 1 giường phụ — phương án nào không đủ số
+            // phòng để xếp hết giường phụ cần thiết thì loại luôn, tránh gợi
+            // ý sai (khách chọn rồi mới biết không khả thi).
+            ->filter(fn (array $o) => $extraBedsNeeded === 0 || $o['total_rooms'] >= $extraBedsNeeded)
+            ->values();
 
-        return ['options' => $options->all()];
+        if ($options->isEmpty() && $extraBedsNeeded > 0) {
+            return [
+                'error'                 => 'extra_beds_need_more_rooms',
+                'extra_beds_needed'     => $extraBedsNeeded,
+                'extra_beds_available'  => $extraBedsAvailable,
+            ];
+        }
+
+        return [
+            'options'               => $options->all(),
+            'extra_beds_needed'     => $extraBedsNeeded,
+            'extra_beds_available'  => $extraBedsAvailable,
+        ];
     }
 
     /**

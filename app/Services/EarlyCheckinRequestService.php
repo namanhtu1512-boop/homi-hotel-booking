@@ -9,6 +9,7 @@ use App\Models\HotelInfo;
 use App\Models\User;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewEarlyCheckinRequest;
+use App\Services\Concerns\NormalizesRoomSelections;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -35,6 +36,8 @@ use Illuminate\Validation\ValidationException;
  */
 class EarlyCheckinRequestService
 {
+    use NormalizesRoomSelections;
+
     public const FEE_PER_HOUR = 100000;
 
     /**
@@ -92,6 +95,7 @@ class EarlyCheckinRequestService
             'hours_early'             => $hoursEarly,
             'fee_amount'              => $hoursEarly * self::FEE_PER_HOUR,
             'reason'                  => $data['reason'] ?? null,
+            'room_selections'         => $this->normalizeRoomSelections($booking, $data['room_selections'] ?? null),
             'status'                  => $autoApprove ? 'approved' : 'pending',
             'handled_at'              => $autoApprove ? now() : null,
         ];
@@ -128,11 +132,16 @@ class EarlyCheckinRequestService
             $booking, 'surcharge', "Phụ phí nhận phòng sớm {$request->hours_early} giờ (đã duyệt)", $fee
         );
 
+        $request->setRelation('booking', $booking);
+        $roomsText = $request->selectedRoomLines()
+            ->map(fn (array $line) => "{$line['quantity']} x {$line['item']->roomType->name}")
+            ->implode(', ');
+
         $feeText = number_format($fee, 0, ',', '.') . 'đ';
         $arrivalTime = substr($request->requested_arrival_time, 0, 5);
         $booking->user?->notify(new BookingStatusChanged(
             $booking,
-            "Yêu cầu nhận phòng sớm lúc {$arrivalTime} cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.{$extraNote}"
+            "Yêu cầu nhận phòng sớm lúc {$arrivalTime} ({$roomsText}) cho đơn {$booking->booking_code} đã được duyệt. Phụ phí {$feeText} đã ghi vào hóa đơn phát sinh, thanh toán khi trả phòng.{$extraNote}"
         ));
     }
 
@@ -151,8 +160,9 @@ class EarlyCheckinRequestService
      * Danh sách phòng đang nhận phòng sớm trong 1 ngày cụ thể — chỉ tính các
      * yêu cầu ĐÃ DUYỆT có booking.check_in đúng ngày đó (nhận phòng sớm chỉ
      * áp dụng cho đúng ngày nhận phòng), loại đơn đã hủy. Trả về 1 dòng cho
-     * mỗi booking_item của đơn vì yêu cầu là theo cả đơn, không tách theo
-     * từng phòng.
+     * mỗi dòng phòng khách đã CHỌN nhận sớm (selectedRoomLines() — toàn bộ
+     * đơn nếu khách không chọn cụ thể, tương thích ngược yêu cầu cũ), kèm số
+     * lượng thực tế đã chọn (có thể ít hơn quantity gốc của dòng).
      */
     public function usageOnDate(string $date): Collection
     {
@@ -163,10 +173,11 @@ class EarlyCheckinRequestService
                 ->where('status', '!=', BookingStatus::CANCELLED->value)
             )
             ->get()
-            ->flatMap(fn (EarlyCheckinRequest $request) => $request->booking->bookingItems->map(fn ($item) => [
+            ->flatMap(fn (EarlyCheckinRequest $request) => $request->selectedRoomLines()->map(fn (array $line) => [
                 'request'     => $request,
                 'booking'     => $request->booking,
-                'bookingItem' => $item,
+                'bookingItem' => $line['item'],
+                'quantity'    => $line['quantity'],
             ]))
             ->values();
     }

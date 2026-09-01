@@ -32,9 +32,9 @@ class BookingExtendStaySwitchTest extends TestCase
         $roomType = RoomType::factory()->create(['total_rooms' => 10, 'capacity' => 2]);
         $room     = Room::create(['room_type_id' => $roomType->id, 'room_number' => 'A101', 'housekeeping_status' => 'clean']);
 
-        $oldCheckIn  = now()->startOfDay()->subDays(2);
-        $oldCheckOut = now()->startOfDay();
-        $newCheckOut = now()->startOfDay()->addDays(2);
+        $oldCheckIn  = now('Asia/Ho_Chi_Minh')->startOfDay()->subDays(2);
+        $oldCheckOut = now('Asia/Ho_Chi_Minh')->startOfDay();
+        $newCheckOut = now('Asia/Ho_Chi_Minh')->startOfDay()->addDays(2);
 
         $booking = Booking::factory()->create([
             'status'    => BookingStatus::CHECKED_IN,
@@ -89,9 +89,9 @@ class BookingExtendStaySwitchTest extends TestCase
         $roomTypeB = RoomType::factory()->create(['total_rooms' => 1, 'capacity' => 2, 'price_per_night' => 700000]);
         $roomB     = Room::create(['room_type_id' => $roomTypeB->id, 'room_number' => 'B201', 'housekeeping_status' => 'clean']);
 
-        $oldCheckIn  = now()->startOfDay()->subDays(2);
-        $oldCheckOut = now()->startOfDay();
-        $newCheckOut = now()->startOfDay()->addDays(2);
+        $oldCheckIn  = now('Asia/Ho_Chi_Minh')->startOfDay()->subDays(2);
+        $oldCheckOut = now('Asia/Ho_Chi_Minh')->startOfDay();
+        $newCheckOut = now('Asia/Ho_Chi_Minh')->startOfDay()->addDays(2);
 
         $booking = Booking::factory()->create([
             'status'    => BookingStatus::CHECKED_IN,
@@ -171,9 +171,9 @@ class BookingExtendStaySwitchTest extends TestCase
         $roomTypeA = RoomType::factory()->create(['total_rooms' => 1, 'capacity' => 2]);
         $roomA     = Room::create(['room_type_id' => $roomTypeA->id, 'room_number' => 'A101', 'housekeeping_status' => 'clean']);
 
-        $oldCheckIn  = now()->startOfDay()->subDays(2);
-        $oldCheckOut = now()->startOfDay();
-        $newCheckOut = now()->startOfDay()->addDays(2);
+        $oldCheckIn  = now('Asia/Ho_Chi_Minh')->startOfDay()->subDays(2);
+        $oldCheckOut = now('Asia/Ho_Chi_Minh')->startOfDay();
+        $newCheckOut = now('Asia/Ho_Chi_Minh')->startOfDay()->addDays(2);
 
         $booking = Booking::factory()->create([
             'status'    => BookingStatus::CHECKED_IN,

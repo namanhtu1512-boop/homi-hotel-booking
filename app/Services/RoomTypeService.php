@@ -102,10 +102,6 @@ class RoomTypeService
             $query->where('capacity', '>=', $filters['capacity']);
         }
 
-        if (! empty($filters['bed_type'])) {
-            $query->where('bed_type', $filters['bed_type']);
-        }
-
         if (! empty($filters['category'])) {
             $query->where('category', $filters['category']);
         }

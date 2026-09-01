@@ -34,10 +34,8 @@ class RoomController extends Controller
             'keyword'   => $request->keyword(),
             'min_price' => $request->input('min_price'),
             'max_price' => $request->input('max_price'),
-            'capacity'  => $request->input('capacity'),
             'guests'    => $request->input('guests'),
             'category'  => $request->input('category'),
-            'bed_type'  => $request->input('bed_type'),
             'sort'      => $request->input('sort'),
             'quantity'  => $request->input('quantity'),
             'check_in'  => $request->input('check_in'),
@@ -75,7 +73,7 @@ class RoomController extends Controller
 
         return view('rooms.index', [
             'roomTypes'   => $roomTypes,
-            'filters'     => $request->only(['keyword', 'min_price', 'max_price', 'capacity', 'guests', 'category', 'bed_type', 'sort', 'quantity', 'check_in', 'check_out']),
+            'filters'     => $request->only(['keyword', 'min_price', 'max_price', 'guests', 'category', 'sort', 'quantity', 'check_in', 'check_out']),
             'hotel'       => $this->hotelInfoService->current(),
             'ratings'     => $this->reviewService->summaryForMany($roomTypeIds),
             'combination' => $combination,
@@ -91,6 +89,17 @@ class RoomController extends Controller
      * là "không tìm thấy", chỉ đơn giản là khách chưa yêu cầu tính tổ hợp).
      * Khi thất bại và có lọc theo `category`, gắn thêm gợi ý category khác
      * đang khả dụng (KHÔNG tự áp dụng thay khách hàng).
+     * Luôn gắn thêm `plans` (3 phương án tiết kiệm nhất/ít phòng nhất/hợp lý
+     * nhất, không cố định theo `quantity` khách đã chọn) khi tính được ít
+     * nhất 1 phương án khả thi — kể cả khi combination chính thất bại, vì
+     * nguyên nhân thường là khách chọn số phòng chưa đủ, còn plans thử nhiều
+     * số phòng khác nhau nên vẫn có thể tìm ra phương án hợp lệ. Khác với
+     * combination chính (tôn trọng đúng `category` khách đang lọc), `plans`
+     * luôn tìm trên TẤT CẢ loại phòng còn trống — vì đây là gợi ý khách chủ
+     * động bấm "Chọn phương án này" mới áp dụng, nên có thể trộn loại phòng
+     * (VD 1 Standard + 1 Family) để ra phương án tốt hơn hẳn việc chỉ dùng 1
+     * category, thay vì chỉ gợi ý đổi hẳn sang category khác như
+     * alternative_categories.
      */
     private function buildCombination(FilterRoomRequest $request, array $filters, Collection $candidates): ?array
     {
@@ -101,18 +110,26 @@ class RoomController extends Controller
         $quantity = max(1, (int) ($filters['quantity'] ?? 1));
         $guests   = (int) $filters['guests'];
 
-        $combination = $this->roomCombinationService->find(
-            $this->toCombinationCandidates($candidates), $quantity, $guests
-        );
+        $combinationCandidates = $this->toCombinationCandidates($candidates);
 
-        if ($combination['status'] !== 'ok' && ! empty($filters['category'])) {
+        $combination = $this->roomCombinationService->find($combinationCandidates, $quantity, $guests);
+
+        $unrestrictedCandidates = $combinationCandidates;
+
+        if (! empty($filters['category'])) {
             $unrestrictedFilters = $filters;
             unset($unrestrictedFilters['category']);
 
-            $allCandidates = $this->roomTypeService->searchCandidates($unrestrictedFilters);
+            $unrestrictedCandidates = $this->toCombinationCandidates(
+                $this->roomTypeService->searchCandidates($unrestrictedFilters)
+            );
+        }
 
+        $combination['plans'] = $this->roomCombinationService->suggestPlans($unrestrictedCandidates, $guests);
+
+        if ($combination['status'] !== 'ok' && ! empty($filters['category'])) {
             $combination['alternative_categories'] = $this->roomCombinationService->suggestAlternativeCategories(
-                $this->toCombinationCandidates($allCandidates), $quantity, $guests, $filters['category']
+                $unrestrictedCandidates, $quantity, $guests, $filters['category']
             );
         }
 

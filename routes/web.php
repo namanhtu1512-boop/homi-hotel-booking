@@ -82,6 +82,7 @@ Route::get('/contact', [ContactController::class, 'show'])->name('contact.show')
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
 Route::get('/group-bookings', [GroupBookingController::class, 'show'])->name('group-bookings.show');
 Route::post('/group-bookings/suggest-options', [GroupBookingController::class, 'suggestOptions'])->middleware('throttle:20,1')->name('group-bookings.suggest-options');
+Route::post('/group-bookings/extra-bed-availability', [GroupBookingController::class, 'extraBedAvailability'])->middleware('throttle:30,1')->name('group-bookings.extra-bed-availability');
 Route::post('/ai-assistant/chat', [AiAssistantController::class, 'chat'])->middleware('throttle:20,1')->name('ai-assistant.chat');
 Route::post('/group-bookings', [GroupBookingController::class, 'store'])->middleware(['auth', 'role:customer', 'throttle:5,1'])->name('group-bookings.store');
 

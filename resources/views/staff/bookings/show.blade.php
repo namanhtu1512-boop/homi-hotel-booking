@@ -576,7 +576,7 @@
                             @method('PATCH')
                             <input type="hidden" name="status" value="paid">
                             <button type="submit" class="btn btn-primary btn-sm">
-                                {{ $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID ? 'Xác nhận đã thu đủ tiền mặt còn lại' : 'Đánh dấu đã thanh toán' }}
+                                {{ $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID ? 'Xác nhận đã thu đủ số tiền còn lại' : 'Đánh dấu đã thanh toán' }}
                             </button>
                         </form>
                     @endif

@@ -1633,6 +1633,17 @@ class BookingService
 
         $oldCheckOut = $booking->check_out->toDateString();
 
+        // Khách trả phòng trễ (đã qua ngày check_out cũ mà chưa check-out) vẫn
+        // phải gia hạn được — nhưng AvailabilityService/DateRangeService validate
+        // "checkIn" theo giờ VN (todayVn()), nên nếu để oldCheckOut là ngày quá
+        // khứ (kể cả chỉ "hôm qua" do lệch múi giờ app UTC vs nghiệp vụ VN) thì
+        // bước check phòng trống bên dưới sẽ bị từ chối oan. Không cho phép tính
+        // khoảng gia hạn bắt đầu trước hôm nay theo giờ VN.
+        $todayVn = now('Asia/Ho_Chi_Minh')->toDateString();
+        if ($oldCheckOut < $todayVn) {
+            $oldCheckOut = $todayVn;
+        }
+
         if ($newCheckOut <= $oldCheckOut) {
             throw ValidationException::withMessages([
                 'new_check_out' => ["Ngày trả phòng mới phải sau ngày trả phòng hiện tại ({$booking->check_out->format('d/m/Y')})."],
@@ -2078,44 +2089,67 @@ class BookingService
      */
     private function computeRoomSettlementAmounts(Booking $booking, BookingItemRoom $bookingItemRoom, BookingItem $bookingItem): array
     {
-        $totalRooms = $booking->totalRoomsRequired();
+        // Tổng tiền phòng (TRƯỚC giảm giá) của TẤT CẢ phòng vật lý trong đơn —
+        // cơ sở để chia TỶ LỆ (không chia đều theo đầu phòng) giảm giá + tiền
+        // đã thanh toán cho từng phòng. Đơn nhiều phòng có thể gồm nhiều loại
+        // phòng khác giá nhau (VD 2 Standard 900k + 1 Family 1,9tr) — chia
+        // đều theo đầu phòng sẽ khiến phòng rẻ báo "dư tiền" còn phòng đắt
+        // báo "còn thiếu" dù tổng cả đơn đã thu đủ (bug thật gặp — phòng
+        // Family báo thiếu 666.667đ dù đơn đã thanh toán đủ 3.700.000đ).
+        $totalRoomChargeAllRooms = (float) $booking->bookingItems->sum(
+            fn (BookingItem $i) => (float) $i->subtotal + (float) $i->child_surcharge + (float) $i->extra_bed_surcharge
+        );
 
         // Tiền phòng CỦA RIÊNG phòng này = chia đều subtotal (đã gồm phụ thu
-        // trẻ em/giường phụ) của dòng đơn cho số phòng thuộc dòng đó — xấp xỉ
-        // hợp lý cho thesis, không tách giá theo từng phòng vật lý cụ thể
-        // (mọi phòng cùng dòng đơn có cùng loại + cùng giá).
+        // trẻ em/giường phụ) của dòng đơn cho số phòng thuộc dòng đó — mọi
+        // phòng CÙNG 1 dòng đơn có cùng loại + cùng giá nên chia đều trong
+        // PHẠM VI 1 DÒNG là chính xác (khác chia đều cho CẢ ĐƠN ở trên).
         //
         // bookingItem->subtotal là giá TRƯỚC giảm giá (discount_amount trừ
         // riêng ở cấp đơn, xem createByAdmin()/create()) — phải trừ phần
-        // giảm giá chia đều cho phòng này ở đây, nếu không "còn phải thu" sẽ
-        // bị cộng khống đúng bằng discount_amount/tổng số phòng cho MỌI
-        // phòng (kể cả phòng đã thanh toán đủ 100% giá đã giảm), vì
-        // deposit_credit bên dưới chia đều paidAmount() vốn đã là số tiền
-        // SAU giảm giá.
+        // giảm giá của phòng này ở đây, nếu không "còn phải thu" sẽ bị cộng
+        // khống, vì deposit_credit bên dưới đã dựa trên paidAmount() vốn là
+        // số tiền SAU giảm giá.
         $roomChargeTotal = (float) $bookingItem->subtotal + (float) $bookingItem->child_surcharge + (float) $bookingItem->extra_bed_surcharge;
-        $roomCharge = round($roomChargeTotal / max(1, $bookingItem->quantity));
-        $discountShare = $totalRooms > 0 ? round((float) $booking->discount_amount / $totalRooms) : 0.0;
-        $roomCharge = max(0, $roomCharge - $discountShare);
+        $preDiscountRoomCharge = round($roomChargeTotal / max(1, $bookingItem->quantity));
+        $discountShare = $totalRoomChargeAllRooms > 0
+            ? round((float) $booking->discount_amount * $preDiscountRoomCharge / $totalRoomChargeAllRooms)
+            : 0.0;
+        $roomCharge = max(0, $preDiscountRoomCharge - $discountShare);
 
+        // Phòng CUỐI CÙNG chưa trả trong đơn (trả xong phòng này thì cả đơn
+        // hoàn tất) sẽ "gánh" luôn mọi khoản phụ phí phát sinh CHƯA gắn phòng
+        // cụ thể (booking_item_room_id null — VD phí nhận phòng sớm cố định
+        // không chia theo phòng, hoặc phí trả phòng muộn tự động không quy
+        // được cho 1 phòng) — đảm bảo hóa đơn phát sinh luôn được thu ĐỦ khi
+        // đơn hoàn tất, bất kể khách trả phòng nào trước/sau. Đơn chỉ 1
+        // phòng thì phòng đó luôn là "cuối cùng" (giữ đúng hành vi cũ).
+        //
         // Dịch vụ/phụ phí gắn ĐÚNG phòng này — LUÔN đọc từ incidental_invoice_
         // items (hóa đơn phát sinh), không phải booking_services: mọi dịch vụ
         // thêm trong lúc lưu trú (addServiceItem()) đều ghi 1 dòng ở CẢ 2 bảng
         // (booking_services là bản ghi mô tả để hiển thị, incidental_invoice_
         // items mới là sổ thu tiền thật — xem addServiceItem()) — cộng cả 2
-        // sẽ tính TRÙNG. Cộng thêm khoản CHƯA gắn phòng nào (phụ phí trả
-        // phòng muộn tự động không quy được cho 1 phòng cụ thể, hoặc đơn chỉ
-        // có đúng 1 phòng nên không cần chọn) khi đơn CHỈ có 1 phòng.
+        // sẽ tính TRÙNG.
+        $isLastRoomCheckingOut = ! $booking->bookingItemRooms()
+            ->whereNull('checked_out_at')
+            ->where('booking_item_rooms.id', '!=', $bookingItemRoom->id)
+            ->exists();
+
         $serviceCharge = $booking->incidentalInvoice
-            ? (float) (($totalRooms === 1
+            ? (float) (($isLastRoomCheckingOut
                 ? $booking->incidentalInvoice->items()->where(fn ($q) => $q->where('booking_item_room_id', $bookingItemRoom->id)->orWhereNull('booking_item_room_id'))
                 : $booking->incidentalInvoice->items()->where('booking_item_room_id', $bookingItemRoom->id)
               )->sum('amount'))
             : 0.0;
 
-        // Tín dụng đặt cọc/trả trước — chia đều số tiền ĐÃ thu (Payment,
-        // không đổi) cho tổng số phòng của đơn, mỗi phòng chỉ được tính 1 lần
-        // khi chính nó check-out.
-        $depositCredit = $totalRooms > 0 ? round($booking->paidAmount() / $totalRooms) : 0.0;
+        // Tín dụng đặt cọc/trả trước — chia TỶ LỆ số tiền ĐÃ thu (Payment,
+        // không đổi) theo đúng tỷ trọng giá phòng này trong tổng đơn (cùng cơ
+        // sở $totalRoomChargeAllRooms với discountShare ở trên), mỗi phòng
+        // chỉ được tính 1 lần khi chính nó check-out.
+        $depositCredit = $totalRoomChargeAllRooms > 0
+            ? round($booking->paidAmount() * $preDiscountRoomCharge / $totalRoomChargeAllRooms)
+            : 0.0;
 
         $amountDue = round($roomCharge + $serviceCharge - $depositCredit);
 

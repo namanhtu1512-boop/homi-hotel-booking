@@ -131,11 +131,19 @@
                 <li>Không phải đặt phòng tự động — đây là yêu cầu tư vấn, chưa phát sinh chi phí.</li>
             </ul>
 
-            @if ($groupPromotions->isNotEmpty())
+            @php
+                // Mã ưu đãi "khách quen" do nhân viên đề xuất (xem
+                // PromotionRequestService::approve()) cũng dùng chung cờ
+                // is_group_promo=true nhưng description có thể để trống nếu
+                // admin duyệt không kèm lý do — bỏ qua để không hiện bullet
+                // trống trong danh sách marketing công khai này.
+                $visibleGroupPromotions = $groupPromotions->filter(fn ($promo) => filled($promo->description));
+            @endphp
+            @if ($visibleGroupPromotions->isNotEmpty())
                 <div class="mt-4 border-t border-slate-200 pt-4 dark:border-slate-700">
                     <span class="text-xs font-bold uppercase tracking-wide text-primary">Ưu đãi đoàn/nhóm hiện có:</span>
                     <ul class="mt-2 list-disc space-y-2 pl-4 text-sm text-slate-500 dark:text-slate-400">
-                        @foreach ($groupPromotions as $promo)
+                        @foreach ($visibleGroupPromotions as $promo)
                             <li>{{ $promo->description }}</li>
                         @endforeach
                     </ul>
@@ -150,7 +158,11 @@
     const childrenInput  = document.getElementById('num_children');
     const infantsInput   = document.getElementById('num_infants');
     const roomCountInput = document.getElementById('room_count');
+    const checkInInput   = document.getElementById('check_in');
+    const checkOutInput  = document.getElementById('check_out');
     const hintEl          = document.getElementById('children-bed-hint');
+    const EXTRA_BED_AVAILABILITY_URL = '{{ route('group-bookings.extra-bed-availability') }}';
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '{{ csrf_token() }}';
 
     if (! childrenInput || ! infantsInput || ! roomCountInput || ! hintEl) return;
 
@@ -162,6 +174,64 @@
     // Riêng trẻ sơ sinh 0-5 tuổi: giới hạn 2 trẻ/phòng là LUẬT THẬT đã áp
     // dụng ở BookingService::MAX_INFANTS_PER_ROOM (đồng nhất mọi category),
     // không phải ước tính — khớp đúng số liệu server sẽ validate.
+    //
+    // Số giường phụ CÒN LẠI trong kho chung toàn khách sạn (hotel_info
+    // extra_beds_total, trừ đi phần đã bị booking khác chiếm trong đúng
+    // khoảng ngày này — xem ExtraBedInventoryService::countAvailable()) là
+    // số PHỤ THUỘC NGÀY, không phải hằng số — tự tra cứu ngay khi đủ ngày +
+    // có trẻ em, KHÔNG đợi khách bấm "Xem gợi ý phòng" (nút đó còn cần cả
+    // "Số lượng khách" nên không phải lúc nào cũng bấm được).
+    let lastExtraBedsAvailable = null;
+    let extraBedsFetchTimer    = null;
+
+    async function fetchExtraBedsAvailable() {
+        const children = parseInt(childrenInput.value, 10) || 0;
+        const checkIn  = checkInInput?.value;
+        const checkOut = checkOutInput?.value;
+
+        if (children <= 0 || ! checkIn || ! checkOut || checkOut <= checkIn) {
+            lastExtraBedsAvailable = null;
+            updateChildrenHint();
+            return;
+        }
+
+        try {
+            const res = await fetch(EXTRA_BED_AVAILABILITY_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': CSRF,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ check_in: checkIn, check_out: checkOut }),
+            });
+
+            if (! res.ok) return;
+
+            const data = await res.json();
+            lastExtraBedsAvailable = typeof data.extra_beds_available === 'number' ? data.extra_beds_available : null;
+        } catch (e) {
+            // Bỏ qua — không chặn form, hintEl vẫn còn dòng ước tính cơ bản.
+        } finally {
+            updateChildrenHint();
+        }
+    }
+
+    function scheduleExtraBedsFetch() {
+        clearTimeout(extraBedsFetchTimer);
+        extraBedsFetchTimer = setTimeout(fetchExtraBedsAvailable, 400);
+    }
+
+    // "Xem gợi ý phòng" (script bên dưới) cũng tính lại đúng số này khi khách
+    // bấm — nghe thêm sự kiện đó để không phải chờ debounce nếu khách bấm
+    // ngay, 2 nguồn luôn cho cùng kết quả vì gọi chung ExtraBedInventoryService.
+    document.addEventListener('group-booking:extra-beds-info', (e) => {
+        clearTimeout(extraBedsFetchTimer);
+        lastExtraBedsAvailable = typeof e.detail?.available === 'number' ? e.detail.available : null;
+        updateChildrenHint();
+    });
+
     function updateChildrenHint() {
         const children = parseInt(childrenInput.value, 10) || 0;
         const infants  = parseInt(infantsInput.value, 10) || 0;
@@ -172,8 +242,19 @@
 
         if (children > 0) {
             lines.push(`Ước tính cần khoảng ${children} giường phụ cho trẻ em 6-11 tuổi (mỗi trẻ 1 giường, tối đa 1 giường/phòng).`);
+
+            if (lastExtraBedsAvailable !== null) {
+                lines.push(
+                    lastExtraBedsAvailable >= children
+                        ? `Kho giường phụ còn ${lastExtraBedsAvailable} giường trống trong khoảng ngày đã chọn (đủ đáp ứng).`
+                        : `Kho giường phụ còn ${lastExtraBedsAvailable} giường trống trong khoảng ngày đã chọn — KHÔNG đủ ${children} giường cần, vui lòng chat với nhân viên để được tư vấn phương án khác.`
+                );
+            } else {
+                lines.push('Chọn đủ Ngày nhận phòng và Ngày trả phòng để xem chính xác kho giường phụ còn trống.');
+            }
+
             if (rooms > 0 && children > rooms) {
-                lines.push(`Vượt quá ${rooms} phòng dự kiến — nhân viên sẽ tư vấn thêm phòng khi báo giá.`);
+                lines.push(`Cần tối thiểu ${children} phòng để xếp đủ giường phụ (tối đa 1 giường/phòng) — nhiều hơn ${rooms} phòng dự kiến hiện tại.`);
             }
         }
 
@@ -193,16 +274,25 @@
         el.addEventListener('input', updateChildrenHint);
     });
 
+    [childrenInput, checkInInput, checkOutInput].forEach((el) => {
+        if (! el) return;
+        el.addEventListener('input', scheduleExtraBedsFetch);
+        el.addEventListener('change', scheduleExtraBedsFetch);
+    });
+
     updateChildrenHint();
+    scheduleExtraBedsFetch();
 })();
 </script>
 
 <script>
 (function () {
     const SUGGEST_URL = '{{ route('group-bookings.suggest-options') }}';
+    const CHAT_URL    = '{{ route('customer.chat.index') }}';
     const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '{{ csrf_token() }}';
 
     const groupSizeInput   = document.getElementById('group_size');
+    const childrenInput    = document.getElementById('num_children');
     const roomCountInput   = document.getElementById('room_count');
     const roomCountHintEl  = document.getElementById('room-count-hint');
     const earlyHintEl      = document.getElementById('room-count-early-hint');
@@ -362,6 +452,9 @@
         lastMinTotalRooms = null;
         updateRoomCountWarning();
         updateRoomCountEarlyHint();
+        document.dispatchEvent(new CustomEvent('group-booking:extra-beds-info', { detail: { needed: null, available: null } }));
+
+        const chatLink = `<a href="${CHAT_URL}" class="font-semibold underline">chat trực tiếp với nhân viên</a>`;
 
         try {
             const res = await fetch(SUGGEST_URL, {
@@ -376,6 +469,7 @@
                     check_in: checkInInput.value,
                     check_out: checkOutInput.value,
                     num_guests: parseInt(groupSizeInput.value, 10),
+                    num_children: parseInt(childrenInput?.value, 10) || 0,
                 }),
             });
 
@@ -394,6 +488,20 @@
                 return;
             }
 
+            if (data.error === 'insufficient_extra_beds') {
+                errorEl.innerHTML = `Kho giường phụ chung của khách sạn không đủ trong khoảng ngày này (cần ${data.extra_beds_needed}, chỉ còn ${data.extra_beds_available}). Vui lòng ${chatLink} để được tư vấn phương án khác.`;
+                errorEl.classList.remove('hidden');
+                document.dispatchEvent(new CustomEvent('group-booking:extra-beds-info', { detail: { needed: data.extra_beds_needed, available: data.extra_beds_available } }));
+                return;
+            }
+
+            if (data.error === 'extra_beds_need_more_rooms') {
+                errorEl.innerHTML = `Cần khoảng ${data.extra_beds_needed} giường phụ (tối đa 1 giường/phòng) nên phải đặt tối thiểu ${data.extra_beds_needed} phòng — nhiều hơn số phòng cần theo sức chứa thông thường của ${lastNumGuests ?? parseInt(groupSizeInput.value, 10)} khách. Không có phương án tự động phù hợp, vui lòng ${chatLink} để được tư vấn phương án phòng + giường phụ.`;
+                errorEl.classList.remove('hidden');
+                document.dispatchEvent(new CustomEvent('group-booking:extra-beds-info', { detail: { needed: data.extra_beds_needed, available: data.extra_beds_available } }));
+                return;
+            }
+
             if (! data.options || data.options.length === 0) {
                 errorEl.textContent = 'Không tìm được phương án phù hợp, vui lòng thử khoảng ngày khác.';
                 errorEl.classList.remove('hidden');
@@ -406,6 +514,7 @@
             lastNumGuests     = parseInt(groupSizeInput.value, 10);
             updateRoomCountWarning();
             updateRoomCountEarlyHint();
+            document.dispatchEvent(new CustomEvent('group-booking:extra-beds-info', { detail: { needed: data.extra_beds_needed ?? null, available: data.extra_beds_available ?? null } }));
         } catch (e) {
             errorEl.textContent = 'Không thể kết nối máy chủ, vui lòng thử lại.';
             errorEl.classList.remove('hidden');
