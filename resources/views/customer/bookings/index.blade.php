@@ -53,7 +53,7 @@
                         <div class="mt-1 flex gap-1.5">
                             <span class="badge {{ $booking->status->badgeClass() }}">{{ $booking->status->label() }}</span>
                             @if ($booking->payment)
-                                <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span>
+                                <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->displayStatusLabel() }}</span>
                             @endif
                         </div>
                     </div>

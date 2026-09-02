@@ -98,7 +98,7 @@
                             <td><span class="badge {{ $booking->status->badgeClass() }}">{{ $booking->status->label() }}</span></td>
                             <td>
                                 @if ($booking->payment)
-                                    <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span>
+                                    <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->displayStatusLabel() }}</span>
                                 @else
                                     <span class="text-slate-400">—</span>
                                 @endif

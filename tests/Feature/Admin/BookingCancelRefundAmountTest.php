@@ -43,7 +43,7 @@ class BookingCancelRefundAmountTest extends TestCase
         return $booking;
     }
 
-    public function test_huy_don_da_thanh_toan_du_thu_cong_thi_hoan_toan_bo_va_hien_so_tien(): void
+    public function test_huy_don_da_thanh_toan_thu_cong_thi_cho_admin_bam_xac_nhan_da_hoan_tien(): void
     {
         $this->loginAsAdmin();
         $booking = $this->confirmedBooking();
@@ -60,7 +60,24 @@ class BookingCancelRefundAmountTest extends TestCase
         $response = $this->post(route('admin.bookings.cancel', $booking->id));
 
         $response->assertRedirect(route('admin.bookings.show', $booking->id));
-        $response->assertSessionHas('success', "Đã hủy đơn {$booking->booking_code} — đã hoàn 2.000.000đ cho khách.");
+        $response->assertSessionHas('error', "Đã hủy đơn {$booking->booking_code} — cần xử lý hoàn tiền thủ công 2.000.000đ cho khách (bấm \"Xác nhận đã hoàn tiền\" sau khi đã trả tiền thật cho khách).");
+
+        // Chưa bấm xác nhận — payment vẫn PAID, GIỮ NGUYÊN amount_collected
+        // (đã trừ phí hủy) để nút "Xác nhận đã hoàn tiền cho khách" tự hiện
+        // đúng số trên trang chi tiết đơn (xem _payment-confirm-modal.blade.php).
+        $this->assertDatabaseHas('payments', [
+            'booking_id'       => $booking->id,
+            'status'           => PaymentStatus::PAID->value,
+            'amount_collected' => 2_000_000,
+        ]);
+
+        $show = $this->get(route('admin.bookings.show', $booking->id));
+        $show->assertOk();
+        $show->assertSee('Xác nhận đã hoàn tiền cho khách');
+
+        // Admin bấm nút xác nhận sau khi đã trả tiền thật cho khách ngoài đời.
+        $confirm = $this->patch(route('admin.bookings.update-payment', $booking->id), ['status' => 'refunded']);
+        $confirm->assertRedirect(route('admin.bookings.show', $booking->id));
 
         $this->assertDatabaseHas('payments', [
             'booking_id'       => $booking->id,
@@ -108,7 +125,7 @@ class BookingCancelRefundAmountTest extends TestCase
         $response = $this->post(route('admin.bookings.cancel', $booking->id));
 
         $response->assertRedirect(route('admin.bookings.show', $booking->id));
-        $response->assertSessionHas('error', "Đã hủy đơn {$booking->booking_code}, nhưng hoàn tiền tự động qua VNPay không thành công — cần xử lý hoàn tiền thủ công 2.000.000đ.");
+        $response->assertSessionHas('error', "Đã hủy đơn {$booking->booking_code} — cần xử lý hoàn tiền thủ công 2.000.000đ cho khách (bấm \"Xác nhận đã hoàn tiền\" sau khi đã trả tiền thật cho khách).");
     }
 
     public function test_trang_chi_tiet_hien_canh_bao_so_tien_hoan_truoc_khi_huy(): void

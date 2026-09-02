@@ -57,7 +57,10 @@
             </div>
             <div class="form-group">
                 <label for="area">Diện tích (m²)</label>
-                <input id="area" type="number" min="0" step="0.1" name="area" value="{{ old('area', $roomType->area ?? '') }}">
+                <input id="area" type="number" min="0" step="0.1" name="area" value="{{ old('area', $roomType->area ?? '') }}" @if ($isEdit) readonly @endif>
+                @if ($isEdit)
+                    <p class="section-desc">Không thể đổi diện tích sau khi đã tạo loại phòng.</p>
+                @endif
             </div>
         </div>
 

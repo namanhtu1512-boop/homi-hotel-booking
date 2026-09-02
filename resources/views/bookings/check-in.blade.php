@@ -12,12 +12,12 @@
     </div>
 
     @php
-        $approvedEarlyCheckin = $booking->earlyCheckinRequests->firstWhere('status', 'approved');
+        $amountDueAtCheckIn = (float) $booking->amountDue();
     @endphp
-    @if ($approvedEarlyCheckin)
-        <div class="alert alert-success">
-            ✅ Đã duyệt nhận phòng sớm lúc {{ substr($approvedEarlyCheckin->requested_arrival_time, 0, 5) }}
-            (phụ phí {{ number_format($approvedEarlyCheckin->fee_amount, 0, ',', '.') }}đ đã cộng vào đơn).
+    @if ($amountDueAtCheckIn > 0)
+        <div class="alert alert-warning">
+            ⚠️ Đơn còn <strong>{{ number_format($amountDueAtCheckIn, 0, ',', '.') }}đ</strong> chưa thanh toán
+            (kể cả phần phát sinh do đổi phòng nếu có) — thu đủ trước khi giao phòng cho khách.
         </div>
     @endif
 

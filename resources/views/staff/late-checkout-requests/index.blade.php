@@ -7,21 +7,29 @@
 @section('content')
 <div class="card" style="margin-bottom: 20px;">
     <div class="section-kicker">Trả phòng muộn đang áp dụng</div>
-    <h2 class="section-title" style="font-size: 18px;">Phòng nào đang trả phòng muộn trong ngày</h2>
+    <h2 class="section-title" style="font-size: 18px;">Phòng nào đang trả phòng muộn trong khoảng ngày</h2>
 
     <form method="GET" class="filter-bar">
         <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
-        <input type="date" name="date" value="{{ $usageDate }}" onchange="this.form.submit()">
+        <div class="form-group">
+            <label for="start_date">Từ ngày</label>
+            <input type="date" id="start_date" name="start_date" value="{{ $usageStartDate }}">
+        </div>
+        <div class="form-group">
+            <label for="end_date">Đến ngày</label>
+            <input type="date" id="end_date" name="end_date" value="{{ $usageEndDate }}">
+        </div>
         <button type="submit" class="btn btn-outline btn-sm">Xem</button>
     </form>
 
     @if ($usage->isEmpty())
-        <div class="empty-box">Không có phòng nào trả phòng muộn trong ngày {{ \Carbon\Carbon::parse($usageDate)->format('d/m/Y') }}.</div>
+        <div class="empty-box">Không có phòng nào trả phòng muộn từ ngày {{ \Carbon\Carbon::parse($usageStartDate)->format('d/m/Y') }} đến {{ \Carbon\Carbon::parse($usageEndDate)->format('d/m/Y') }}.</div>
     @else
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
+                        <th>Ngày trả phòng</th>
                         <th>Phòng</th>
                         <th>Loại phòng</th>
                         <th>Đơn</th>
@@ -34,6 +42,7 @@
                 <tbody>
                     @foreach ($usage as $row)
                         <tr>
+                            <td>{{ $row['booking']->check_out->format('d/m/Y') }}</td>
                             <td>{{ $row['bookingItemRoom']->room->room_number }}</td>
                             <td>{{ $row['bookingItemRoom']->bookingItem->roomType->name ?? '—' }}</td>
                             <td>{{ $row['booking']->booking_code }}</td>
@@ -51,7 +60,8 @@
 
 <div class="card">
     <form method="GET" class="filter-bar">
-        <input type="hidden" name="date" value="{{ $usageDate }}">
+        <input type="hidden" name="start_date" value="{{ $usageStartDate }}">
+        <input type="hidden" name="end_date" value="{{ $usageEndDate }}">
         <select name="status" onchange="this.form.submit()">
             <option value="">Tất cả trạng thái</option>
             <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>Chờ duyệt</option>

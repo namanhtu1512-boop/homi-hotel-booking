@@ -2,7 +2,7 @@
 
 @section('title', 'Loại phòng · Homi Nhân viên')
 @section('page_title', 'Quản lý loại phòng')
-@section('page_subtitle', 'Thêm, sửa và theo dõi tồn phòng.')
+@section('page_subtitle', 'Theo dõi tồn phòng và trạng thái hiển thị.')
 
 @section('content')
 <div class="card">
@@ -11,8 +11,6 @@
             <div class="section-kicker">Danh sách</div>
             <h2 class="section-title">{{ $roomTypes->count() }} loại phòng</h2>
         </div>
-
-        <a href="{{ route('staff.room-types.create') }}" class="btn btn-primary">+ Thêm loại phòng</a>
     </div>
 
     <form method="GET" action="{{ route('staff.room-types.index') }}" class="filter-bar mb-4">
@@ -87,7 +85,6 @@
                             <td>
                                 <div class="action-row">
                                     <a href="{{ route('staff.room-types.show', $room->id) }}" class="btn btn-outline btn-sm">Xem</a>
-                                    <a href="{{ route('staff.room-types.edit', $room->id) }}" class="btn btn-outline btn-sm">Sửa</a>
                                     <form method="POST" action="{{ route('staff.room-types.toggle-status', $room->id) }}">
                                         @csrf
                                         @method('PATCH')

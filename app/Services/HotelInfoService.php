@@ -51,7 +51,6 @@ class HotelInfoService
             'star_rating'    => $data['star_rating'] ?? null,
             'weekend_surcharge_percent' => $data['weekend_surcharge_percent'] ?? null,
             'child_surcharge_per_night' => $data['child_surcharge_per_night'] ?? null,
-            'early_checkin_surcharge_percent' => $data['early_checkin_surcharge_percent'] ?? null,
             'cancellation_hours_before'       => $data['cancellation_hours_before'] ?? null,
             'extra_beds_total'                => $data['extra_beds_total'] ?? null,
             'extra_bed_surcharge_per_night'   => $data['extra_bed_surcharge_per_night'] ?? null,

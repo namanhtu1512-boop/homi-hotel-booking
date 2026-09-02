@@ -65,6 +65,25 @@ class Payment extends Model
         return $this->status->isPaid();
     }
 
+    /**
+     * Nhãn hiển thị thân thiện hơn status->label() thuần — PENDING vốn dùng
+     * chung cho nhiều lý do khác nhau (đang chờ VNPay xác nhận, khách vừa
+     * báo chuyển khoản...), những trường hợp đó chưa thu được đồng nào
+     * (amount_collected = 0). Riêng trường hợp ĐÃ thu 1 phần rồi mới bị mở
+     * lại PENDING (VD tổng tiền tăng do đổi phòng sau khi đã thanh toán đủ
+     * — xem RoomChangeRequestService::approve()) thì amount_collected > 0,
+     * hiển thị "Đã thanh toán 1 phần" cho đúng bản chất, tránh gây cảm giác
+     * đơn chưa thu được gì.
+     */
+    public function displayStatusLabel(): string
+    {
+        if ($this->status === PaymentStatus::PENDING && (float) $this->amount_collected > 0) {
+            return 'Đã thanh toán 1 phần';
+        }
+
+        return $this->status->label();
+    }
+
     public function canRefund(): bool
     {
         return $this->status->canRefund();

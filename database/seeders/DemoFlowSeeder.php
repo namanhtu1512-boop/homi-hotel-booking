@@ -8,7 +8,6 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Services\BookingService;
-use App\Services\EarlyCheckinRequestService;
 use App\Services\GroupBookingRequestService;
 use App\Services\LateCheckoutRequestService;
 use App\Services\PromotionRequestService;
@@ -39,7 +38,6 @@ class DemoFlowSeeder extends Seeder
 {
     private BookingService $bookings;
     private RoomChangeRequestService $roomChange;
-    private EarlyCheckinRequestService $earlyCheckin;
     private LateCheckoutRequestService $lateCheckout;
     private GroupBookingRequestService $groupBooking;
     private PromotionRequestService $promotionRequest;
@@ -57,7 +55,6 @@ class DemoFlowSeeder extends Seeder
     {
         $this->bookings = app(BookingService::class);
         $this->roomChange = app(RoomChangeRequestService::class);
-        $this->earlyCheckin = app(EarlyCheckinRequestService::class);
         $this->lateCheckout = app(LateCheckoutRequestService::class);
         $this->groupBooking = app(GroupBookingRequestService::class);
         $this->promotionRequest = app(PromotionRequestService::class);
@@ -81,7 +78,6 @@ class DemoFlowSeeder extends Seeder
         $this->scenarioE_CompletedWithReview();
         $this->scenarioF_CancelledWithRefund();
         $this->scenarioG_PendingRoomChange();
-        $this->scenarioH_PendingEarlyCheckin();
         $this->scenarioI_PendingLateCheckout();
         $this->scenarioJ_GroupBookingInquiry();
         $this->scenarioK_PromotionProposal();
@@ -428,44 +424,6 @@ class DemoFlowSeeder extends Seeder
         ]);
 
         $this->summary[] = ['scenario' => 'G — Yêu cầu đổi phòng chờ duyệt (demo duyệt/từ chối)', 'code' => $booking->booking_code, 'note' => 'Vào "Yêu cầu đổi phòng" (admin/staff) để duyệt hoặc từ chối trực tiếp.'];
-    }
-
-    // ------------------------------------------------------------
-    // H — Đã xác nhận, check-in hôm nay, có yêu cầu nhận phòng sớm
-    // đang chờ duyệt — demo duyệt xong rồi nhận phòng sớm luôn.
-    // ------------------------------------------------------------
-    private function scenarioH_PendingEarlyCheckin(): void
-    {
-        $tag = '[DEMO-H]';
-        if ($this->alreadySeeded($tag)) {
-            return;
-        }
-
-        $superior = $this->roomTypeId('Phòng Superior');
-
-        $booking = $this->asUser($this->customer2, fn () => $this->bookings->create($this->customer2, [
-            'check_in'  => now()->toDateString(),
-            'check_out' => now()->addDays(2)->toDateString(),
-            'items' => [[
-                'room_type_id' => $superior,
-                'quantity'     => 1,
-                'adults'       => 2,
-                'children'     => 0,
-                'infants'      => 0,
-            ]],
-            'customer_name'  => 'Hoàng Thị D',
-            'customer_phone' => '0911000004',
-            'note' => $tag . ' Sẵn sàng demo: duyệt yêu cầu nhận phòng sớm rồi check-in ngay.',
-        ]));
-
-        $this->asUser($this->staff, fn () => $this->bookings->updatePaymentStatus($booking->fresh(), 'paid'));
-
-        $this->earlyCheckin->create($booking->fresh(), $this->customer2, [
-            'requested_arrival_time' => '11:30',
-            'reason' => 'Chuyến bay tới sớm, muốn nhận phòng ngay khi tới.',
-        ]);
-
-        $this->summary[] = ['scenario' => 'H — Yêu cầu nhận phòng sớm chờ duyệt (demo duyệt + check-in)', 'code' => $booking->booking_code, 'note' => 'Vào "Yêu cầu nhận phòng sớm" để duyệt (phí 300.000đ, 3 giờ sớm), rồi check-in đơn này để thấy phụ phí ghi vào hóa đơn phát sinh.'];
     }
 
     // ------------------------------------------------------------

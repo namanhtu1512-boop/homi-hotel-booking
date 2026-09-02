@@ -39,7 +39,6 @@
                         ['route' => 'staff.group-discount-requests.index', 'pattern' => 'staff.group-discount-requests.*', 'label' => 'Ưu đãi đoàn cho khách quen'],
                         ['route' => 'staff.room-change-requests.index', 'pattern' => 'staff.room-change-requests.*', 'label' => 'Yêu cầu đổi phòng'],
                         ['route' => 'staff.extra-bed-requests.index', 'pattern' => 'staff.extra-bed-requests.*', 'label' => 'Yêu cầu giường phụ'],
-                        ['route' => 'staff.early-checkin-requests.index', 'pattern' => 'staff.early-checkin-requests.*', 'label' => 'Yêu cầu nhận phòng sớm'],
                         ['route' => 'staff.late-checkout-requests.index', 'pattern' => 'staff.late-checkout-requests.*', 'label' => 'Yêu cầu trả phòng muộn'],
                     ];
                 @endphp

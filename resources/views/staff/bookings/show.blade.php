@@ -10,13 +10,17 @@
         <div>
             <span class="badge {{ $booking->status->badgeClass() }}">{{ $booking->status->label() }}</span>
             @if ($booking->payment)
-                <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span>
+                <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->displayStatusLabel() }}</span>
             @endif
         </div>
 
         <div class="action-row">
             @if ($booking->payment)
                 <a href="{{ route('staff.bookings.invoice', $booking->id) }}" target="_blank" class="btn btn-outline">🖨 Xem hóa đơn</a>
+                @include('partials._payment-confirm-modal', [
+                    'booking' => $booking,
+                    'action' => route('staff.bookings.update-payment', $booking->id),
+                ])
             @endif
 
             @if ($booking->canConfirm())
@@ -107,6 +111,12 @@
         </table>
     </div>
 
+    @include('partials._room-change-history', [
+        'booking' => $booking,
+        'roomOnlyTotal' => $booking->bookingItems->sum(fn ($item) => $item->subtotal + $item->child_surcharge),
+        'wrapCard' => false,
+    ])
+
     @php
         $extraBedItems = $booking->bookingItems->where('extra_bed_surcharge', '>', 0);
         // "Bồi thường/hư hỏng - vi phạm - vệ sinh đặc biệt" (3 nút phụ phí,
@@ -134,7 +144,7 @@
                             <td>
                                 Phụ thu giường phụ ({{ $item->roomType->name ?? '—' }})
                                 @if ($booking->payment)
-                                    <div class="mt-1"><span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span></div>
+                                    <div class="mt-1"><span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->displayStatusLabel() }}</span></div>
                                 @endif
                             </td>
                             <td>
@@ -341,9 +351,17 @@
                 @endphp
                 <div class="section-kicker mt-4">Tổng số tiền phải trả</div>
                 <div class="info-list mt-2">
+                    @php
+                        $roomChangeDeltaTotal = (float) $booking->roomChangeRequests->where('status', 'approved')->whereNotNull('price_delta')->sum('price_delta');
+                    @endphp
                     <div class="info-item">
                         <span class="label">Tiền phòng</span>
-                        <span class="value">{{ number_format($roomOnlyTotal, 0, ',', '.') }}đ</span>
+                        <span class="value">
+                            {{ number_format($roomOnlyTotal, 0, ',', '.') }}đ
+                            @if ($roomChangeDeltaTotal != 0.0)
+                                <div class="text-xs font-normal text-slate-500 dark:text-slate-400">Trước khi đổi phòng: {{ number_format($roomOnlyTotal - $roomChangeDeltaTotal, 0, ',', '.') }}đ</div>
+                            @endif
+                        </span>
                     </div>
                     @if ($extraBedTotal > 0)
                         <div class="info-item">
@@ -409,27 +427,6 @@
                         <span class="value {{ $totalDue < 0 ? 'text-accent' : 'text-red-600 dark:text-red-400' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
                     </div>
                 </div>
-
-                @php
-                    $latestEarlyCheckin = $booking->earlyCheckinRequests->sortByDesc('created_at')->first();
-                @endphp
-                @if ($latestEarlyCheckin)
-                    @php
-                        $eciBadge = ['pending' => 'badge-orange', 'approved' => 'badge-green', 'rejected' => 'badge-red'][$latestEarlyCheckin->status] ?? 'badge-green';
-                        $eciLabel = ['pending' => 'Chờ duyệt', 'approved' => 'Đã duyệt', 'rejected' => 'Đã từ chối'][$latestEarlyCheckin->status] ?? $latestEarlyCheckin->status;
-                    @endphp
-                    <div class="info-list mt-3">
-                        <div class="info-item">
-                            <span class="label">Yêu cầu nhận phòng sớm</span>
-                            <span class="value">
-                                Lúc {{ substr($latestEarlyCheckin->requested_arrival_time, 0, 5) }}
-                                ({{ $latestEarlyCheckin->hours_early }} giờ, {{ number_format($latestEarlyCheckin->fee_amount, 0, ',', '.') }}đ)
-                                <span class="badge {{ $eciBadge }}">{{ $eciLabel }}</span>
-                                — <a href="{{ route('staff.early-checkin-requests.show', $latestEarlyCheckin->id) }}">Xem</a>
-                            </span>
-                        </div>
-                    </div>
-                @endif
 
                 @php
                     $latestLateCheckout = $booking->lateCheckoutRequests->sortByDesc('created_at')->first();
@@ -518,36 +515,6 @@
                             <button type="submit" class="btn btn-outline btn-sm">🔵 Thêm dịch vụ phát sinh</button>
                         </form>
 
-                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $damageItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm đồ hỏng/mất...', 'notePrefix' => 'Bồi thường: '])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
-                            @include('partials._room-select')
-                            <button type="submit" class="btn btn-outline btn-sm">🔴 Thêm phụ phí hỏng/mất đồ</button>
-                        </form>
-
-                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $violationItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm vi phạm...', 'notePrefix' => 'Vi phạm: '])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
-                            @include('partials._room-select')
-                            <button type="submit" class="btn btn-outline btn-sm">🟠 Thêm phụ phí vi phạm</button>
-                        </form>
-
-                        <form method="POST" action="{{ route('staff.bookings.surcharge.store', $booking->id) }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                            @csrf
-                            @include('partials.surcharge-item-select', ['items' => $cleaningItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm khoản vệ sinh...', 'notePrefix' => 'Vệ sinh đặc biệt: '])
-                            <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
-                            <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
-                            <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
-                            @include('partials._room-select')
-                            <button type="submit" class="btn btn-outline btn-sm">🟡 Thêm phụ phí vệ sinh đặc biệt</button>
-                        </form>
-
                         <form method="POST" action="{{ route('staff.bookings.extend-stay.store', $booking->id) }}" id="extend-stay-form" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                             @csrf
                             <span style="font-size: 12px; color: #64748b;">Từ {{ $booking->check_out->format('d/m/Y') }} đến:</span>
@@ -569,27 +536,6 @@
                     </div>
                 @endif
 
-                <div class="action-row" style="margin-top: 16px;">
-                    @if ($booking->canMarkPaymentAsPaid())
-                        <form method="POST" action="{{ route('staff.bookings.update-payment', $booking->id) }}">
-                            @csrf
-                            @method('PATCH')
-                            <input type="hidden" name="status" value="paid">
-                            <button type="submit" class="btn btn-primary btn-sm">
-                                {{ $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID ? 'Xác nhận đã thu đủ số tiền còn lại' : 'Đánh dấu đã thanh toán' }}
-                            </button>
-                        </form>
-                    @endif
-
-                    @if ($booking->status === \App\Enums\BookingStatus::CANCELLED && $booking->payment->status->canTransitionTo(\App\Enums\PaymentStatus::REFUNDED))
-                        <form method="POST" action="{{ route('staff.bookings.update-payment', $booking->id) }}">
-                            @csrf
-                            @method('PATCH')
-                            <input type="hidden" name="status" value="refunded">
-                            <button type="submit" class="btn btn-outline btn-sm">Đánh dấu đã hoàn tiền</button>
-                        </form>
-                    @endif
-                </div>
             @else
                 <div class="empty-box">Đơn này chưa có thông tin thanh toán.</div>
             @endif

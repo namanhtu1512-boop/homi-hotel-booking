@@ -206,15 +206,20 @@ class BookingController extends Controller
     {
         $result = $this->bookingService->cancelByCustomer($id, $request->user());
 
+        $redirect = redirect()->route('customer.bookings.show', $id);
+
         if (! $result['refund_ok']) {
-            return redirect()
-                ->route('customer.bookings.show', $id)
-                ->with('error', 'Đã hủy đơn, nhưng hoàn tiền tự động không thành công. Khách sạn sẽ liên hệ để hoàn tiền thủ công.');
+            $redirect->with('error', 'Đã hủy đơn. Khách sạn sẽ hoàn tiền sớm nhất cho bạn.');
+        } else {
+            $redirect->with('success', 'Đã hủy đơn đặt phòng.');
         }
 
-        return redirect()
-            ->route('customer.bookings.show', $id)
-            ->with('success', 'Đã hủy đơn đặt phòng.');
+        if ($result['refund_amount'] > 0) {
+            $refundAmount = number_format($result['refund_amount'], 0, ',', '.') . 'đ';
+            $redirect->with('refund_note', "Quý khách sẽ được hoàn lại {$refundAmount}. Chúng tôi sẽ hoàn trả trong thời gian sớm nhất có thể.");
+        }
+
+        return $redirect;
     }
 
     public function payOnline(int $id, Request $request): RedirectResponse
@@ -230,7 +235,7 @@ class BookingController extends Controller
 
         return redirect()
             ->route('customer.bookings.show', $booking->id)
-            ->with('success', 'Đã ghi nhận, chờ khách sạn xác nhận chuyển khoản.');
+            ->with('success', "Đã ghi nhận thanh toán, đơn {$booking->booking_code} đã được xác nhận!");
     }
 
     public function payDeposit(int $id, Request $request): RedirectResponse

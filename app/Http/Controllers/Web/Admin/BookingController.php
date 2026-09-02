@@ -137,7 +137,7 @@ class BookingController extends Controller
         if (! $result['refund_ok']) {
             return redirect()
                 ->route('admin.bookings.show', $id)
-                ->with('error', "Đã hủy đơn {$booking->booking_code}, nhưng hoàn tiền tự động qua VNPay không thành công — cần xử lý hoàn tiền thủ công {$refundAmount}.");
+                ->with('error', "Đã hủy đơn {$booking->booking_code} — cần xử lý hoàn tiền thủ công {$refundAmount} cho khách (bấm \"Xác nhận đã hoàn tiền\" sau khi đã trả tiền thật cho khách).");
         }
 
         $message = $result['refund_amount'] > 0
@@ -174,18 +174,13 @@ class BookingController extends Controller
             ->map(fn ($roomIds) => array_map('intval', (array) $roomIds))
             ->all();
 
-        $result = $this->bookingService->checkIn($booking, $roomAssignments);
+        $this->bookingService->checkIn($booking, $roomAssignments);
 
         $this->auditLog->log('booking.checked_in', $booking, "Check-in đơn \"{$booking->booking_code}\".");
 
-        $message = "Đã check-in đơn {$booking->booking_code}.";
-        if ($result['early_checkin_fee']) {
-            $message .= ' Đã tự động cộng phụ phí nhận phòng sớm ' . number_format($result['early_checkin_fee'], 0, ',', '.') . 'đ.';
-        }
-
         return redirect()
             ->route('admin.bookings.show', $id)
-            ->with('success', $message);
+            ->with('success', "Đã check-in đơn {$booking->booking_code}.");
     }
 
     public function showCheckOut(int $id): View
@@ -203,11 +198,16 @@ class BookingController extends Controller
             ]);
 
         return view('bookings.check-out', [
-            'booking'      => $booking,
-            'pendingRooms' => $pendingRooms,
-            'formAction'   => route('admin.bookings.check-out', $id),
-            'backRoute'    => route('admin.bookings.show', $id),
-            'layout'       => 'layouts.admin',
+            'booking'             => $booking,
+            'pendingRooms'        => $pendingRooms,
+            'formAction'          => route('admin.bookings.check-out', $id),
+            'surchargeFormAction' => route('admin.bookings.surcharge.store', $id),
+            'backRoute'           => route('admin.bookings.show', $id),
+            'layout'              => 'layouts.admin',
+            'damageItems'         => $this->surchargeItemService->activePublic(SurchargeCategory::Damage),
+            'violationItems'      => $this->surchargeItemService->activePublic(SurchargeCategory::Violation),
+            'cleaningItems'       => $this->surchargeItemService->activePublic(SurchargeCategory::Cleaning),
+            'checkedInRooms'      => $pendingRooms->pluck('room'),
         ]);
     }
 

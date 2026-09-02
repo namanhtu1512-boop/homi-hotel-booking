@@ -12,6 +12,7 @@ use App\Models\RoomType;
 use App\Models\User;
 use App\Notifications\BookingStatusChanged;
 use App\Notifications\NewRoomChangeRequest;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -30,11 +31,22 @@ use Illuminate\Validation\ValidationException;
  * khách/trẻ em của phần đổi được chia tỉ lệ theo số phòng.
  *
  * Khi duyệt, hệ thống tự tính lại giá + re-check availability cho tổ hợp
- * loại phòng/ngày mới rồi cập nhật thẳng vào booking; nhưng việc thu thêm
- * hay hoàn lại phần tiền chênh lệch do STAFF xử lý thủ công ở ngoài luồng
- * (giống cơ chế addSurcharge() của BookingService) — hệ thống chỉ mở lại
- * payment về PENDING nếu đơn đã PAID trước đó để staff biết cần đối soát lại,
- * không tự động trừ/hoàn qua cổng thanh toán.
+ * loại phòng/ngày mới rồi cập nhật thẳng vào booking (booking_items +
+ * total_amount luôn phản ánh ĐÚNG giá trị phòng hiện tại).
+ *
+ * Nếu đơn ĐÃ thanh toán đủ mà tổng tiền thay đổi (tăng HOẶC giảm): mở lại
+ * payment về PENDING — KHÔNG chặn cứng bằng cách xóa dữ liệu, mà tận dụng
+ * đúng cơ chế sẵn có của Booking::canCheckIn() (chỉ cho check-in khi PAID)
+ * để tự động ẩn nút "Check-in" + hiện cảnh báo "Khách cần đặt cọc hoặc thanh
+ * toán trước khi có thể check-in" cho tới khi staff xác nhận đã thu đủ phần
+ * chênh lệch (nút "Xác nhận đã thu đủ số tiền còn lại" tự xuất hiện qua
+ * Booking::canMarkPaymentAsPaid()) — tránh phải phân bổ số tiền còn thiếu
+ * dở dang cho TỪNG phòng vật lý lúc trả phòng (computeRoomSettlementAmounts()
+ * chia theo tỷ lệ, sẽ lắt nhắt/khó hiểu nếu để tới lúc đó mới thu). Badge
+ * hiển thị "Đã thanh toán 1 phần" (không phải "Đang xử lý" mặc định của
+ * PENDING) — xem Payment::displayStatusLabel().
+ *
+ * Nếu đơn CHƯA thanh toán đủ: chỉ cập nhật thẳng payment.amount theo tổng mới.
  */
 class RoomChangeRequestService
 {
@@ -294,33 +306,61 @@ class RoomChangeRequestService
 
             $delta = round($newTotal - $oldTotal, 2);
 
+            // Mô tả CHÍNH XÁC thứ đã đổi (loại phòng và/hoặc ngày ở) để ghi
+            // vào cả lịch sử thanh toán lẫn thông báo cho khách — tránh câu
+            // chung chung kiểu "làm thay đổi tổng tiền" khiến khách không
+            // biết vì sao số tiền phải trả lại tăng/giảm.
+            $changeParts = [];
+            if ($roomChangeRequest->requested_room_type_id) {
+                $fromRoomName = $roomChangeRequest->currentRoomType?->name ?? 'phòng cũ';
+                $changeParts[] = "đổi {$changeQuantity} phòng {$fromRoomName} sang {$roomType->name}";
+            }
+            if ($roomChangeRequest->requested_check_in) {
+                $changeParts[] = 'đổi ngày ở sang ' . Carbon::parse($targetCheckIn)->format('d/m/Y') . ' - ' . Carbon::parse($targetCheckOut)->format('d/m/Y');
+            }
+            $changeDesc = $changeParts ? implode(', ', $changeParts) : 'cập nhật đơn';
+
             if ($booking->payment) {
                 $wasPaid = $booking->payment->status === PaymentStatus::PAID;
-                $booking->payment->update(['amount' => $newTotal]);
 
                 if ($wasPaid && $delta !== 0.0) {
-                    $booking->payment->update(['status' => PaymentStatus::PENDING]);
+                    // Đã thu đủ THEO GIÁ CŨ — tổng tiền đổi khác giá mới nên
+                    // mở lại PENDING để chặn check-in (Booking::canCheckIn()
+                    // chỉ chấp nhận PAID) cho tới khi staff xác nhận thu đủ
+                    // phần chênh lệch (nút "Xác nhận đã thu đủ số tiền còn
+                    // lại" xuất hiện tự động qua canMarkPaymentAsPaid() —
+                    // xem Payment::displayStatusLabel() để hiển thị badge
+                    // "Đã thanh toán 1 phần" thay vì "Đang xử lý" gây hiểu
+                    // lầm là đơn CHƯA thu đồng nào).
+                    $booking->payment->update(['amount' => $newTotal, 'status' => PaymentStatus::PENDING]);
+                    $deltaNoteText = number_format(abs($delta), 0, ',', '.') . 'đ';
                     PaymentStatusLog::create([
                         'payment_id'  => $booking->payment->id,
                         'changed_by'  => $staff->id,
                         'from_status' => PaymentStatus::PAID->value,
                         'to_status'   => PaymentStatus::PENDING->value,
-                        'note'        => "Duyệt yêu cầu đổi phòng #{$roomChangeRequest->id} làm thay đổi tổng tiền, mở lại chờ thu/hoàn phần chênh lệch.",
+                        'note'        => $delta > 0
+                            ? "Duyệt yêu cầu đổi phòng #{$roomChangeRequest->id} ({$changeDesc}): phát sinh thêm {$deltaNoteText}, mở lại chờ thu phần chênh lệch trước khi check-in."
+                            : "Duyệt yêu cầu đổi phòng #{$roomChangeRequest->id} ({$changeDesc}): giảm {$deltaNoteText}, mở lại chờ hoàn phần chênh lệch cho khách.",
                     ]);
+                } elseif (! $wasPaid) {
+                    // Chưa thanh toán đủ — cập nhật số tiền cần thu theo tổng mới.
+                    $booking->payment->update(['amount' => $newTotal]);
                 }
             }
 
             $roomChangeRequest->update([
-                'status'     => 'approved',
-                'handled_by' => $staff->id,
-                'handled_at' => now(),
+                'status'      => 'approved',
+                'price_delta' => $delta,
+                'handled_by'  => $staff->id,
+                'handled_at'  => now(),
             ]);
 
             $deltaText = number_format(abs($delta), 0, ',', '.') . 'đ';
             $message = match (true) {
-                $delta > 0 => "Yêu cầu đổi phòng cho đơn {$booking->booking_code} đã được duyệt. Tổng tiền tăng thêm {$deltaText}, vui lòng thanh toán phần chênh lệch.",
-                $delta < 0 => "Yêu cầu đổi phòng cho đơn {$booking->booking_code} đã được duyệt. Tổng tiền giảm {$deltaText}, khách sạn sẽ liên hệ hoàn lại nếu bạn đã thanh toán trước đó.",
-                default    => "Yêu cầu đổi phòng cho đơn {$booking->booking_code} đã được duyệt.",
+                $delta > 0 => "Yêu cầu đổi phòng cho đơn {$booking->booking_code} đã được duyệt ({$changeDesc}). Phát sinh thêm {$deltaText} do đổi phòng, vui lòng thanh toán phần chênh lệch này để được nhận/tiếp tục nhận phòng.",
+                $delta < 0 => "Yêu cầu đổi phòng cho đơn {$booking->booking_code} đã được duyệt ({$changeDesc}). Tổng tiền giảm {$deltaText} do đổi phòng, khách sạn sẽ liên hệ hoàn lại nếu bạn đã thanh toán trước đó.",
+                default    => "Yêu cầu đổi phòng cho đơn {$booking->booking_code} đã được duyệt ({$changeDesc}).",
             };
             $booking->user?->notify(new BookingStatusChanged($booking, $message));
 

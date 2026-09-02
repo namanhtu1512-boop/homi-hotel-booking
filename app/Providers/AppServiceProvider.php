@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Models\Banner;
 use App\Models\Booking;
 use App\Models\ContactMessage;
-use App\Models\EarlyCheckinRequest;
 use App\Models\ExtraBedRequest;
 use App\Models\GroupBookingRequest;
 use App\Models\GroupDiscountPolicy;
@@ -61,7 +60,6 @@ class AppServiceProvider extends ServiceProvider
             'group_booking_requests' => GroupBookingRequest::class,
             'rooms' => Room::class,
             'room_change_requests' => RoomChangeRequest::class,
-            'early_checkin_requests' => EarlyCheckinRequest::class,
             'group_discount_policies' => GroupDiscountPolicy::class,
             'promotion_requests' => PromotionRequest::class,
         ]);
@@ -82,7 +80,6 @@ class AppServiceProvider extends ServiceProvider
             $view->with('groupBookingNewCount', GroupBookingRequest::where('status', 'new')->count());
             $view->with('roomChangeNewCount', RoomChangeRequest::where('status', 'pending')->count());
             $view->with('extraBedNewCount', ExtraBedRequest::where('status', 'pending')->count());
-            $view->with('earlyCheckinNewCount', EarlyCheckinRequest::where('status', 'pending')->count());
             $view->with('lateCheckoutNewCount', LateCheckoutRequest::where('status', 'pending')->count());
             $view->with('groupDiscountRequestNewCount', GroupDiscountRequest::where('status', 'pending')->where('type', 'staff_extra')->count());
             $view->with('promotionRequestNewCount', PromotionRequest::where('status', 'pending')->count());
