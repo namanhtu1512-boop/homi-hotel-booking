@@ -103,6 +103,9 @@ class RoomTypeController extends Controller
 
         $data = $this->validateRoomType($request);
 
+        // Diện tích chỉ được đặt lúc tạo, không cho sửa lại sau đó.
+        unset($data['area']);
+
         $this->roomTypeService->update($roomType, $data);
 
         $this->auditLog->log('room_type.updated', $roomType->fresh(), "Cập nhật loại phòng \"{$roomType->name}\".");

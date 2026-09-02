@@ -6,10 +6,10 @@ use App\Models\Booking;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Dùng chung cho EarlyCheckinRequestService/LateCheckoutRequestService —
- * chuẩn hóa + validate `room_selections` (map booking_item_id => số lượng
- * phòng của dòng đó khách chọn) khách gửi lên từ form: bỏ entry <= 0, chặn
- * item_id không thuộc đơn, chặn quantity vượt quá số lượng thật của dòng.
+ * Dùng cho LateCheckoutRequestService — chuẩn hóa + validate
+ * `room_selections` (map booking_item_id => số lượng phòng của dòng đó
+ * khách chọn) khách gửi lên từ form: bỏ entry <= 0, chặn item_id không
+ * thuộc đơn, chặn quantity vượt quá số lượng thật của dòng.
  */
 trait NormalizesRoomSelections
 {

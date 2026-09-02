@@ -2,8 +2,8 @@
 
 Kịch bản này đi qua **toàn bộ vòng đời 1 đơn đặt phòng**: đặt phòng → thanh
 toán → nhận phòng → phát sinh giữa kỳ ở → trả phòng → hoàn tất → đánh giá,
-cùng các nhánh phụ (hủy/hoàn tiền, đổi phòng, nhận phòng sớm/trả phòng muộn có
-duyệt, đặt đoàn, khuyến mãi nhóm) và góc nhìn vận hành (dashboard, lịch sử
+cùng các nhánh phụ (hủy/hoàn tiền, đổi phòng, trả phòng muộn có duyệt, đặt
+đoàn, khuyến mãi nhóm) và góc nhìn vận hành (dashboard, lịch sử
 phòng). Đi kèm là `database/seeders/DemoFlowSeeder.php` — dựng sẵn dữ liệu cho
 từng bước để không phải thao tác tay từ đầu ngay trên sân khấu.
 
@@ -92,11 +92,9 @@ Dùng kịch bản **B** (đã xác nhận + đã thanh toán, ngày nhận phò
 
 1. Đăng nhập `staff@homi.test` (hoặc `admin@homi.test`).
 2. `/staff/bookings` → tìm đơn B (theo mã đơn đã ghi) → "Nhận phòng".
-3. Chọn phòng vật lý cụ thể cho từng loại phòng trong đơn → xác nhận.
-4. Nếu đến **trước** giờ nhận phòng chuẩn của khách sạn (mặc định 14:00) mà
-   **chưa có** yêu cầu nhận phòng sớm được duyệt, hệ thống sẽ chặn và yêu cầu
-   duyệt trước — đây là tính năng thật (chống nhận phòng sớm "chui"), có thể
-   minh họa bằng cách nhảy sang Phần 5a trước rồi quay lại.
+3. Chọn phòng vật lý cụ thể cho từng loại phòng trong đơn → xác nhận. Nhận
+   phòng sớm hơn giờ chuẩn của khách sạn (mặc định 14:00) hoàn toàn tự do,
+   không cần duyệt, không thu phí.
 
 ---
 
@@ -123,18 +121,7 @@ Trên trang chi tiết đơn (`/staff/bookings/{id}` hoặc `/admin/bookings/{id
 
 ## Phần 5 — Các luồng yêu cầu cần duyệt
 
-### 5a. Nhận phòng sớm (kịch bản H)
-
-Đơn H đã xác nhận + thanh toán, có sẵn 1 **yêu cầu nhận phòng sớm đang chờ
-duyệt** (khách xin đến sớm 2h30, trước giờ chuẩn 14:00).
-
-1. `staff`/`admin` → "Yêu cầu nhận phòng sớm" → mở yêu cầu của đơn H → Duyệt.
-2. Phí cố định (300.000đ cho 3 giờ, làm tròn lên) được ghi vào hóa đơn phát
-   sinh của đơn.
-3. Nhận phòng ngay đơn H (giống Phần 3) — không còn bị chặn vì đã có yêu cầu
-   được duyệt.
-
-### 5b. Trả phòng muộn (kịch bản I)
+### 5a. Trả phòng muộn (kịch bản I)
 
 Đơn I đang lưu trú, có sẵn 1 **yêu cầu trả phòng muộn đang chờ duyệt** (khách
 xin trả tới 15:00, giờ chuẩn 12:00).
@@ -143,7 +130,7 @@ xin trả tới 15:00, giờ chuẩn 12:00).
 2. Trả phòng đơn I — phí vừa duyệt đã nằm sẵn trong hóa đơn phát sinh, thu 1
    lần cùng lúc trả phòng.
 
-### 5c. Đổi loại phòng (kịch bản G)
+### 5b. Đổi loại phòng (kịch bản G)
 
 Đơn G đã xác nhận, **chưa nhận phòng**, có sẵn 1 yêu cầu đổi từ Phòng Standard
 sang Phòng Deluxe.
@@ -338,7 +325,6 @@ song song một phần, trừ các mục có ghi chú admin-only):
 | E | Đã hoàn tất, đã có đánh giá 5 sao | Hiển thị đánh giá |
 | F | Đã hủy (hủy ngay trong ngày nhận phòng), đã hoàn tiền | Phí hủy theo bậc + hoàn tiền |
 | G | Đã xác nhận, có yêu cầu đổi phòng chờ duyệt | Duyệt/từ chối đổi phòng |
-| H | Đã xác nhận, có yêu cầu nhận phòng sớm chờ duyệt | Duyệt nhận phòng sớm |
 | I | Đang lưu trú, có yêu cầu trả phòng muộn chờ duyệt | Duyệt trả phòng muộn |
 | J | Yêu cầu tư vấn đặt đoàn (public form) | Xử lý yêu cầu đoàn |
 | K | Đề xuất mã khuyến mãi nhóm chờ duyệt | Duyệt khuyến mãi nhóm |

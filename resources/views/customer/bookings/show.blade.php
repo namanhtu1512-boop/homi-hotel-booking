@@ -17,6 +17,10 @@
     <div class="alert alert-danger">{{ session('error') }}</div>
 @endif
 
+@if (session('refund_note'))
+    <div class="alert alert-success">{{ session('refund_note') }}</div>
+@endif
+
 @if ($errors->any())
     <div class="alert alert-danger">
         @foreach ($errors->all() as $error)
@@ -141,19 +145,6 @@
                     </p>
                 </div>
             </div>
-        </div>
-    </div>
-@elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
-    <div class="card border-2 border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40">
-        <div class="flex flex-wrap items-center gap-4">
-            <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-emerald-500 text-2xl text-white">✓</div>
-            <div class="flex-1">
-                <h2 class="font-heading text-xl font-bold text-emerald-700 dark:text-emerald-300">Đặt phòng thành công!</h2>
-                <p class="mt-1 text-sm text-emerald-700/80 dark:text-emerald-300/80">
-                    Mã đơn <strong>{{ $booking->booking_code }}</strong> đang chờ khách sạn xác nhận. Bạn có thể thanh toán ngay bây giờ — không cần chờ xác nhận, nhân viên sẽ đối soát và xác nhận đơn sau khi nhận được thanh toán.
-                </p>
-            </div>
-            <a href="{{ route('customer.bookings.index') }}" class="btn-primary shrink-0">Xem lịch sử đặt phòng</a>
         </div>
     </div>
 @endif
@@ -284,7 +275,7 @@
             <div class="info-item">
                 <span class="label">Thanh toán</span>
                 <span class="value">
-                    <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->status->label() }}</span>
+                    <span class="badge {{ $booking->payment->status->badgeClass() }}">{{ $booking->payment->displayStatusLabel() }}</span>
                 </span>
             </div>
             @if ($booking->payment->deposit_paid_at)
@@ -340,9 +331,17 @@
     @endphp
     <span class="section-kicker mt-5 block">Tổng số tiền phải trả</span>
     <div class="info-list mt-2.5">
+        @php
+            $roomChangeDeltaTotal = (float) $booking->roomChangeRequests->where('status', 'approved')->whereNotNull('price_delta')->sum('price_delta');
+        @endphp
         <div class="info-item">
             <span class="label">Tiền phòng</span>
-            <span class="value">{{ number_format($roomOnlyTotal, 0, ',', '.') }}đ</span>
+            <span class="value">
+                {{ number_format($roomOnlyTotal, 0, ',', '.') }}đ
+                @if ($roomChangeDeltaTotal != 0.0)
+                    <div class="text-xs font-normal text-slate-500 dark:text-slate-400">Trước khi đổi phòng: {{ number_format($roomOnlyTotal - $roomChangeDeltaTotal, 0, ',', '.') }}đ</div>
+                @endif
+            </span>
         </div>
         @if ($extraBedTotal > 0)
             <div class="info-item">
@@ -379,7 +378,16 @@
         </div>
         <div class="info-item">
             <span class="label">{{ $totalDue < 0 ? 'Số dư hoàn lại' : 'Còn phải thanh toán' }}</span>
-            <span class="value {{ $totalDue < 0 ? 'text-accent' : '' }}">{{ number_format(abs($totalDue), 0, ',', '.') }}đ</span>
+            <span class="value {{ $totalDue < 0 ? 'text-accent' : '' }}">
+                {{ number_format(abs($totalDue), 0, ',', '.') }}đ
+                @if ($totalDue > 0 && $booking->payment)
+                    @if ($booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID)
+                        <div class="text-xs font-normal text-slate-500 dark:text-slate-400">Còn lại sau khi đặt cọc 30% — thanh toán tiền mặt khi nhận phòng.</div>
+                    @elseif ($booking->payment->status === \App\Enums\PaymentStatus::PENDING && (float) $booking->payment->amount_collected > 0)
+                        <div class="text-xs font-normal text-slate-500 dark:text-slate-400">Phát sinh thêm do đổi phòng — cần thanh toán phần chênh lệch này.</div>
+                    @endif
+                @endif
+            </span>
         </div>
     </div>
 
@@ -410,14 +418,6 @@
     <div class="quick-actions-row">
         <a href="{{ route('customer.bookings.index') }}" class="btn-outline">Quay lại danh sách</a>
 
-        @if ($booking->earlyCheckinRequests->contains(fn ($r) => $r->status === 'pending'))
-            <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu nhận phòng sớm chờ khách sạn duyệt.</p>
-        @elseif ($booking->earlyCheckinRequests->isNotEmpty())
-            <p class="text-xs text-slate-500 dark:text-slate-400">Đơn này đã gửi yêu cầu nhận phòng sớm (mỗi đơn chỉ được gửi 1 lần).</p>
-        @elseif ($booking->canRequestEarlyCheckin())
-            <a href="{{ route('customer.bookings.early-checkin.create', $booking->id) }}" class="btn-outline w-full text-center">🕒 Yêu cầu nhận phòng sớm</a>
-        @endif
-
         @if ($booking->lateCheckoutRequests->contains(fn ($r) => $r->status === 'pending'))
             <p class="text-xs text-slate-500 dark:text-slate-400">Đơn đang có 1 yêu cầu trả phòng muộn chờ khách sạn duyệt.</p>
         @elseif ($booking->canRequestLateCheckout())
@@ -426,7 +426,6 @@
 
         @if (
             in_array($booking->status, [\App\Enums\BookingStatus::PENDING, \App\Enums\BookingStatus::CONFIRMED], true)
-            && $booking->bookingItems->count() === 1
             && ! $booking->roomChangeRequests->contains(fn ($r) => $r->status === 'pending')
         )
             <a href="{{ route('customer.bookings.room-change.create', $booking->id) }}" class="btn-outline w-full text-center">🔁 Yêu cầu đổi phòng</a>
@@ -436,19 +435,22 @@
 
         @if ($booking->canCancelByCustomer())
             @php
-                // Hủy đơn đã thanh toán/cọc giờ kích hoạt hoàn tiền THẬT (attemptRefund())
+                // Hủy đơn đã thanh toán giờ kích hoạt hoàn tiền THẬT (attemptRefund())
                 // — báo trước cho khách biết việc này sẽ xảy ra, kèm % phí hủy
-                // theo bậc giờ hiện tại (Booking::cancellationFeePercent()).
+                // theo bậc giờ hiện tại (Booking::cancellationFeePercent()). Riêng
+                // tiền CỌC (DEPOSIT_PAID) không áp dụng bậc % này — cọc là "giữ chỗ",
+                // luôn mất 100% khi hủy bất kể còn bao lâu tới giờ nhận phòng (xem
+                // attemptRefund(): collected<=0 với cọc → refund_amount luôn = 0).
+                $isDepositOnly = $booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID;
                 $hasPaidAnything = $booking->payment && $booking->payment->status !== \App\Enums\PaymentStatus::UNPAID;
-                $feePercent = $hasPaidAnything ? $booking->cancellationFeePercent() : 0;
+                $feePercent = ($hasPaidAnything && ! $isDepositOnly) ? $booking->cancellationFeePercent() : 0;
                 $paidSoFar = (float) ($booking->payment->amount_collected ?? 0);
-                if ($paidSoFar <= 0 && $booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID) {
-                    $paidSoFar = (float) $booking->payment->deposit_amount;
-                }
                 $estimatedFee = $feePercent > 0 ? min($paidSoFar, round((float) $booking->total_amount * $feePercent / 100)) : 0;
 
                 $cancelConfirmMessage = 'Bạn chắc chắn muốn hủy đơn ' . $booking->booking_code . '?';
-                if ($estimatedFee > 0) {
+                if ($isDepositOnly) {
+                    $cancelConfirmMessage .= ' Tiền cọc đã đặt (' . number_format($booking->payment->deposit_amount, 0, ',', '.') . 'đ) sẽ KHÔNG được hoàn theo chính sách hủy đơn.';
+                } elseif ($estimatedFee > 0) {
                     $cancelConfirmMessage .= " Phí hủy {$feePercent}% theo chính sách hủy — bạn sẽ mất khoảng " . number_format($estimatedFee, 0, ',', '.') . 'đ, phần còn lại (nếu có) sẽ được hoàn.';
                 } elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PAID) {
                     $cancelConfirmMessage .= $booking->payment->method === \App\Enums\PaymentMethod::ONLINE_VNPAY
@@ -461,7 +463,11 @@
                 @csrf
                 <button type="submit" class="btn-danger w-full">Hủy đơn</button>
             </form>
-            @if ($feePercent > 0)
+            @if ($isDepositOnly)
+                <p class="mt-2 text-xs text-red-500">
+                    Hủy ngay bây giờ: tiền cọc đã đặt ({{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ) sẽ không được hoàn.
+                </p>
+            @elseif ($feePercent > 0)
                 <p class="mt-2 text-xs text-red-500">
                     Hủy ngay bây giờ: phí hủy {{ $feePercent }}%{{ $estimatedFee > 0 ? ' (khoảng ' . number_format($estimatedFee, 0, ',', '.') . 'đ)' : '' }}, hoàn {{ 100 - $feePercent }}%.
                 </p>
@@ -474,16 +480,18 @@
     </div>
 </div>
 
-@if ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING && $booking->status === \App\Enums\BookingStatus::CHECKED_IN)
-    {{-- PENDING trong lúc đang lưu trú (CHECKED_IN) không thể đến từ luồng
-    "khách tự báo chuyển khoản" (chỉ cho phép khi đơn còn ở CONFIRMED, xem
-    BookingService::markBankTransferPending()) — chắc chắn là do vừa phát
-    sinh thêm dịch vụ/phụ phí giữa lúc lưu trú (BookingService::applyExtraCharge()
-    mở lại PAID→PENDING, kể cả khi trước đó đã thanh toán xong qua VNPay),
-    nên phải kiểm tra nhánh này TRƯỚC nhánh theo method bên dưới — nếu không,
-    một đơn đã trả qua VNPay rồi bị cộng thêm phí sẽ hiển thị nhầm thông báo
-    "bạn có đóng trang thanh toán giữa chừng không" dù khách đã thanh toán
-    xong từ trước, hoặc thông báo "đã ghi nhận chuyển khoản" sai sự thật. --}}
+@include('partials._room-change-history', ['booking' => $booking, 'roomOnlyTotal' => $roomOnlyTotal])
+
+@if ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::PENDING && (float) $booking->payment->amount_collected > 0)
+    {{-- Đã từng thu tiền (amount_collected > 0) rồi bị mở lại PENDING do phát
+    sinh thêm phí SAU đó (VD đổi phòng làm tăng giá — xem
+    RoomChangeRequestService::approve()) — kiểm tra nhánh này TRƯỚC nhánh
+    theo method bên dưới, vì payment->method vẫn giữ nguyên phương thức đã
+    thanh toán trước đó (có thể là VNPay) nên nếu không sẽ hiển thị nhầm
+    thông báo "bạn có đóng trang thanh toán giữa chừng không" dù khách đã
+    thanh toán xong từ trước. markBankTransferPending() giờ tự động xác nhận
+    luôn (không còn tạo PENDING mới) nên KHÔNG còn nhánh "đã báo chuyển
+    khoản, chờ đối soát" nữa. --}}
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
         <div class="alert alert-warning mt-2.5">
@@ -513,16 +521,22 @@
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
         <div class="alert alert-success mt-2.5">
-            Đã ghi nhận bạn chuyển khoản — đang chờ khách sạn xác nhận. Vui lòng chờ, không cần thao tác thêm.
+            Đơn đang chờ khách sạn xác nhận thanh toán. Vui lòng chờ, không cần thao tác thêm.
         </div>
     </div>
 @elseif ($booking->payment && $booking->payment->status === \App\Enums\PaymentStatus::DEPOSIT_PAID)
     <div class="card">
         <span class="section-kicker">Thanh toán</span>
-        <div class="alert alert-success mt-2.5">
-            Đã đặt cọc {{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ (30%).
-            Vui lòng thanh toán <strong>{{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ</strong> còn lại bằng tiền mặt khi nhận phòng.
-        </div>
+        @if ($booking->status === \App\Enums\BookingStatus::CANCELLED)
+            <div class="alert alert-warning mt-2.5">
+                Đơn đã hủy. Tiền cọc đã đặt ({{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ) không được hoàn lại theo chính sách hủy đơn.
+            </div>
+        @else
+            <div class="alert alert-success mt-2.5">
+                Đã đặt cọc {{ number_format($booking->payment->deposit_amount, 0, ',', '.') }}đ (30%).
+                Vui lòng thanh toán <strong>{{ number_format($booking->remainingAfterDeposit(), 0, ',', '.') }}đ</strong> còn lại bằng tiền mặt khi nhận phòng.
+            </div>
+        @endif
     </div>
 @elseif ($booking->canMarkPaymentAsPaid())
     <div class="card" id="payment-section">
@@ -533,7 +547,7 @@
             @elseif ($booking->status === \App\Enums\BookingStatus::PENDING)
                 Đơn đang chờ xác nhận — bạn có thể thanh toán ngay, không cần chờ khách sạn duyệt đơn trước.
             @else
-                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (VNPay xác nhận tự động; chuyển khoản 100% qua QR sẽ được nhân viên đối soát và xác nhận thủ công; đặt cọc 30% là demo).
+                Đơn đã được xác nhận. Chọn một trong các hình thức thanh toán bên dưới (VNPay và chuyển khoản 100% qua QR đều tự động xác nhận đơn ngay khi bạn thanh toán/báo đã chuyển; đặt cọc 30% là demo).
             @endif
         </p>
 
@@ -554,7 +568,7 @@
                         <span class="grid h-9 w-9 place-items-center rounded-lg bg-primary-light text-primary dark:bg-primary/15">🏦</span>
                         Chuyển khoản ngân hàng — quét mã QR
                     </div>
-                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển khoản <strong>{{ number_format($outstandingAmount, 0, ',', '.') }}đ</strong> (100%) tới tài khoản khách sạn qua mã QR. Sau khi chuyển, nhân viên đối soát và xác nhận đơn.</p>
+                    <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Chuyển khoản <strong>{{ number_format($outstandingAmount, 0, ',', '.') }}đ</strong> (100%) tới tài khoản khách sạn qua mã QR, sau đó bấm "Tôi đã chuyển khoản" — đơn được xác nhận ngay.</p>
                     <button type="button" @click.stop="openQr()" class="btn-primary w-full">Chuyển khoản 100% — quét mã QR</button>
                 </div>
 
@@ -563,10 +577,11 @@
                 </form>
 
                 {{-- QR chuyển khoản THẬT (VietQR, tài khoản khách sạn cấu hình ở
-                config('services.bank_transfer')) — khác với modal "Đặt cọc 30%"
-                bên dưới (mô phỏng): xác nhận ở đây KHÔNG tự đánh dấu đã thanh
-                toán, chỉ báo "chờ xác nhận" qua BookingService::
-                markBankTransferPending(), nhân viên đối soát sao kê thủ công. --}}
+                config('services.bank_transfer')) — khách bấm "Tôi đã chuyển khoản"
+                là được TIN NGAY (đánh dấu đã thanh toán + tự xác nhận đơn), xem
+                BookingService::markBankTransferPending() — không có xác minh giao
+                dịch thật (VietQR chỉ là mã tĩnh, không phải cổng thanh toán có
+                callback), đây là đánh đổi có chủ ý lấy trải nghiệm nhanh cho khách. --}}
                 <template x-if="showQr">
                     <div class="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 p-4" @keydown.escape.window="closeQr()">
                         <div @click.outside="closeQr()" class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900">
@@ -602,7 +617,7 @@
                             <p class="mt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">Camera lỗi không quét được mã? Mở app ngân hàng, nhập tay số tài khoản ở trên.</p>
 
                             <p class="mt-3 rounded-lg bg-amber-50 p-2 text-center text-[11px] leading-relaxed text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                                ⚠️ Đây là chuyển khoản <strong>thật</strong> tới tài khoản khách sạn. Sau khi chuyển xong, bấm "Tôi đã chuyển khoản" — nhân viên sẽ đối soát sao kê và xác nhận đơn, không tự động xác nhận ngay.
+                                ⚠️ Đây là chuyển khoản <strong>thật</strong> tới tài khoản khách sạn. Chỉ bấm "Tôi đã chuyển khoản" SAU KHI đã chuyển xong — hệ thống ghi nhận đã thanh toán và xác nhận đơn ngay lập tức, không có bước kiểm tra lại.
                             </p>
 
                             <div class="mt-4 flex gap-2.5">

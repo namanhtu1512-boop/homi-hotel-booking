@@ -38,8 +38,6 @@ class AuditLog extends Model
         'room_change_request.approved'    => 'Duyệt yêu cầu đổi phòng',
         'room_change_request.rejected'    => 'Từ chối yêu cầu đổi phòng',
         'extra_bed_request.resolved'      => 'Xử lý yêu cầu giường phụ',
-        'early_checkin_request.approved'  => 'Duyệt yêu cầu nhận phòng sớm',
-        'early_checkin_request.rejected'  => 'Từ chối yêu cầu nhận phòng sớm',
         'late_checkout_request.approved'  => 'Duyệt yêu cầu trả phòng muộn',
         'late_checkout_request.rejected'  => 'Từ chối yêu cầu trả phòng muộn',
 

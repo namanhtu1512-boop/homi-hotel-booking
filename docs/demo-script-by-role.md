@@ -115,27 +115,25 @@ web trước khi vào nghiệp vụ đặt phòng.
 1. **Xác nhận chuyển khoản** (chỉ nếu ở Phần 1 có đặt đơn 2 trả bằng chuyển
    khoản QR) — `/staff/payments` → tìm đơn vừa báo → xác nhận.
 2. **Nhận phòng đơn B** — `/staff/bookings` → tìm B → Nhận phòng → chọn
-   phòng vật lý.
-3. **Xử lý yêu cầu nhận phòng sớm đơn H** — mục "Yêu cầu nhận phòng sớm" →
-   duyệt (phí 300.000đ) → quay lại nhận phòng H bình thường (không còn bị
-   chặn vì đã có yêu cầu được duyệt).
-4. **Trong lưu trú đơn C** — 🔵 Dịch vụ, 🔴 Hỏng/mất đồ, 🟠 Vi phạm, 🟡 Vệ
+   phòng vật lý (nhận phòng sớm hơn giờ chuẩn hoàn toàn tự do, không cần
+   duyệt).
+3. **Trong lưu trú đơn C** — 🔵 Dịch vụ, 🔴 Hỏng/mất đồ, 🟠 Vi phạm, 🟡 Vệ
    sinh đặc biệt, gia hạn thêm đêm, rồi **Trả phòng** → đơn C chuyển "Hoàn
    tất" (dùng để viết đánh giá sống ở Phần cuối).
-5. **Xử lý yêu cầu trả phòng muộn đơn I** — duyệt (phí 450.000đ) → trả phòng
+4. **Xử lý yêu cầu trả phòng muộn đơn I** — duyệt (phí 450.000đ) → trả phòng
    I.
-6. **Xử lý yêu cầu đổi phòng đơn G** — duyệt 1 yêu cầu; nếu có thời gian,
+5. **Xử lý yêu cầu đổi phòng đơn G** — duyệt 1 yêu cầu; nếu có thời gian,
    thử thêm 1 yêu cầu khác và bấm **Từ chối** kèm lý do.
-7. **Xử lý yêu cầu tư vấn đặt đoàn đơn J** — đánh dấu đã liên hệ → gửi báo
+6. **Xử lý yêu cầu tư vấn đặt đoàn đơn J** — đánh dấu đã liên hệ → gửi báo
    giá qua chat → tạo đơn thật từ yêu cầu.
-8. **Đặt phòng tại quầy** — `/staff/bookings/create`, đặt hộ 1 khách vãng
+7. **Đặt phòng tại quầy** — `/staff/bookings/create`, đặt hộ 1 khách vãng
    lai → chỉ ra nhật ký ghi "Tạo đơn tại quầy", phân biệt với đơn khách tự
    đặt online.
-9. **Đề xuất giảm giá đoàn thêm** cho 1 đơn đủ điều kiện — nhập % → gửi (sẽ
+8. **Đề xuất giảm giá đoàn thêm** cho 1 đơn đủ điều kiện — nhập % → gửi (sẽ
    duyệt ở Phần Admin).
-10. **Trả lời chat hỗ trợ** của khách (tin nhắn gửi ở Phần 1 bước 4) — hộp
-    thư chung, ai đăng nhập cũng thấy và trả lời được.
-11. **Dashboard** `/staff/dashboard` — cảnh báo "Quá hạn trả phòng" (đơn D).
+9. **Trả lời chat hỗ trợ** của khách (tin nhắn gửi ở Phần 1 bước 4) — hộp
+   thư chung, ai đăng nhập cũng thấy và trả lời được.
+10. **Dashboard** `/staff/dashboard` — cảnh báo "Quá hạn trả phòng" (đơn D).
 
 **Đăng xuất** trước khi sang vai Admin.
 

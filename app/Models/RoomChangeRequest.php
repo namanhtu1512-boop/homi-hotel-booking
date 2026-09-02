@@ -20,6 +20,7 @@ class RoomChangeRequest extends Model
         'current_check_out',
         'requested_check_in',
         'requested_check_out',
+        'price_delta',
         'reason',
         'status',
         'staff_note',
@@ -33,6 +34,7 @@ class RoomChangeRequest extends Model
         'current_check_out'   => 'date',
         'requested_check_in'  => 'date',
         'requested_check_out' => 'date',
+        'price_delta'         => 'decimal:2',
         'handled_at'          => 'datetime',
     ];
 

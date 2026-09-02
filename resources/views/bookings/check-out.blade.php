@@ -36,6 +36,44 @@
             $groupAmountDue = $pendingRooms->sum(fn ($row) => max(0, $row['preview']['amount_due']));
         @endphp
 
+        @if ($booking->status === \App\Enums\BookingStatus::CHECKED_IN)
+            <div class="card mt-4 mb-0" style="display:flex; flex-direction:column; gap:12px;">
+                <div class="section-kicker">Phát sinh khi kiểm tra phòng trước khi trả</div>
+
+                <form method="POST" action="{{ $surchargeFormAction }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                    @csrf
+                    @include('partials.surcharge-item-select', ['items' => $damageItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm đồ hỏng/mất...', 'notePrefix' => 'Bồi thường: '])
+                    <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
+                    <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                    <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do (VD: hư hỏng đồ...)" required>
+                    @include('partials._room-select')
+                    <button type="submit" class="btn btn-outline btn-sm">🔴 Thêm phụ phí hỏng/mất đồ</button>
+                </form>
+
+                <form method="POST" action="{{ $surchargeFormAction }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                    @csrf
+                    @include('partials.surcharge-item-select', ['items' => $violationItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm vi phạm...', 'notePrefix' => 'Vi phạm: '])
+                    <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
+                    <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                    <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
+                    @include('partials._room-select')
+                    <button type="submit" class="btn btn-outline btn-sm">🟠 Thêm phụ phí vi phạm</button>
+                </form>
+
+                <form method="POST" action="{{ $surchargeFormAction }}" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                    @csrf
+                    @include('partials.surcharge-item-select', ['items' => $cleaningItems, 'hiddenField' => 'surcharge_item_id', 'placeholder' => 'Gõ để tìm khoản vệ sinh...', 'notePrefix' => 'Vệ sinh đặc biệt: '])
+                    <input type="number" name="quantity" class="input surcharge-quantity" style="width:70px;" min="1" max="99" value="1" title="Số lượng">
+                    <input type="number" name="amount" class="input surcharge-amount" style="width:120px;" min="1000" step="1000" placeholder="Số tiền" required>
+                    <input type="text" name="note" class="input surcharge-note" style="width:220px;" placeholder="Lý do" required>
+                    @include('partials._room-select')
+                    <button type="submit" class="btn btn-outline btn-sm">🟡 Thêm phụ phí vệ sinh đặc biệt</button>
+                </form>
+
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-0">Thêm xong khoản nào, số tiền "Còn phải thu" bên dưới sẽ tự cập nhật theo phòng đã chọn.</p>
+            </div>
+        @endif
+
         @if ($pendingRooms->count() > 1)
             <div class="card mt-4 mb-0">
                 <div class="info-list">

@@ -67,13 +67,16 @@ class RoomLevelCheckoutTest extends TestCase
             'price_breakdown' => [['nightly_total' => 1000000]],
         ]);
 
+        // PAID (không phải DEPOSIT_PAID) — Booking::canCheckIn() giờ chỉ chấp
+        // nhận đơn đã thanh toán ĐỦ mới cho check-in (đặt cọc không còn đủ để
+        // check-in, phải xác nhận thu nốt phần còn lại trước).
         Payment::create([
-            'booking_id'      => $booking->id,
-            'method'          => PaymentMethod::PAY_AT_HOTEL,
-            'amount'          => 2000000,
-            'status'          => PaymentStatus::DEPOSIT_PAID,
-            'deposit_amount'  => 600000,
-            'deposit_paid_at' => now(),
+            'booking_id'        => $booking->id,
+            'method'            => PaymentMethod::PAY_AT_HOTEL,
+            'amount'            => 2000000,
+            'amount_collected'  => 2000000,
+            'status'            => PaymentStatus::PAID,
+            'paid_at'           => now(),
         ]);
 
         return [$booking->fresh(['bookingItems', 'payment']), $item, $room1, $room2];
@@ -116,16 +119,20 @@ class RoomLevelCheckoutTest extends TestCase
         $this->assertSame(BookingStatus::CHECKED_IN, $result1['booking']->status);
         $this->assertSame(1000000.0, (float) $result1['settlement']->room_charge);
         $this->assertSame(100000.0, (float) $result1['settlement']->service_charge);
-        $this->assertSame(300000.0, (float) $result1['settlement']->deposit_credit);
-        $this->assertSame(800000.0, (float) $result1['settlement']->amount_due);
+        // Đơn đã thanh toán ĐỦ trước khi check-in (bắt buộc từ khi
+        // canCheckIn() không còn chấp nhận DEPOSIT_PAID) — tiền phòng của
+        // phòng này (1.000.000) đã được trừ đủ vào deposit_credit, chỉ còn
+        // phải thu đúng phần dịch vụ mới phát sinh (100.000).
+        $this->assertSame(1000000.0, (float) $result1['settlement']->deposit_credit);
+        $this->assertSame(100000.0, (float) $result1['settlement']->amount_due);
 
-        // Phòng 2 chưa có dịch vụ riêng — chỉ tiền phòng trừ cọc phân bổ.
+        // Phòng 2 chưa có dịch vụ riêng, tiền phòng đã trả đủ — không còn nợ gì.
         $result2 = $this->service()->checkOutRoom($booking->fresh(), $bir2, ['method' => 'cash']);
 
         $this->assertTrue($result2['completed']);
         $this->assertSame(BookingStatus::COMPLETED, $result2['booking']->status);
         $this->assertSame(0.0, (float) $result2['settlement']->service_charge);
-        $this->assertSame(700000.0, (float) $result2['settlement']->amount_due);
+        $this->assertSame(0.0, (float) $result2['settlement']->amount_due);
 
         // Đơn hoàn tất — payment tổng được đồng bộ về PAID để các nơi khác
         // (dashboard, canComplete cũ...) vẫn đọc đúng trạng thái.

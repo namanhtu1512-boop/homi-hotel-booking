@@ -18,7 +18,6 @@
         </div>
 
         <div class="action-row">
-            <a href="{{ route('staff.room-types.edit', $roomType->id) }}" class="btn btn-primary">Sửa</a>
             <a href="{{ route('staff.room-types.index') }}" class="btn btn-outline">Quay lại danh sách</a>
         </div>
     </div>

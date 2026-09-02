@@ -20,13 +20,15 @@ class LateCheckoutRequestController extends Controller
 
     public function index(Request $request): View
     {
-        $date = $request->input('date') ?: now()->toDateString();
+        $startDate = $request->input('start_date') ?: now()->toDateString();
+        $endDate   = $request->input('end_date') ?: $startDate;
 
         return view('admin.late-checkout-requests.index', [
-            'requests' => $this->lateCheckoutRequestService->adminList($request->only('status')),
-            'filters'  => $request->only('status'),
-            'usage'    => $this->lateCheckoutRequestService->usageOnDate($date),
-            'usageDate' => $date,
+            'requests'  => $this->lateCheckoutRequestService->adminList($request->only('status')),
+            'filters'   => $request->only('status'),
+            'usage'     => $this->lateCheckoutRequestService->usageInRange($startDate, $endDate),
+            'usageStartDate' => $startDate,
+            'usageEndDate'   => $endDate,
         ]);
     }
 

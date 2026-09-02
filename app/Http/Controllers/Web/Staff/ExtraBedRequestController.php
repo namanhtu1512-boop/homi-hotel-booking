@@ -24,12 +24,13 @@ class ExtraBedRequestController extends Controller
 
     public function index(Request $request): View
     {
-        $date = $request->input('date') ?: now()->toDateString();
+        $startDate = $request->input('start_date') ?: now()->toDateString();
+        $endDate   = $request->input('end_date') ?: $startDate;
 
         return view('staff.extra-bed-requests.index', [
             'requests' => $this->extraBedRequestService->adminList($request->only('status')),
             'filters'  => $request->only('status'),
-            'usage'    => $this->extraBedInventoryService->usageOnDate($date),
+            'usage'    => $this->extraBedInventoryService->usageInRange($startDate, $endDate),
         ]);
     }
 

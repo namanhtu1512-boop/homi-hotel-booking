@@ -52,10 +52,9 @@ class LateCheckoutRequest extends Model
     }
 
     /**
-     * Các phòng vật lý (BookingItemRoom) khách chọn trả muộn — KHÁC
-     * EarlyCheckinRequest (chưa check-in nên chưa có phòng vật lý cụ thể),
-     * ở đây đơn ĐÃ check-in nên chọn đúng theo phòng thật đang ở, không phải
-     * số lượng trừu tượng theo dòng loại phòng. `room_selections` là mảng
+     * Các phòng vật lý (BookingItemRoom) khách chọn trả muộn — đơn ĐÃ
+     * check-in nên chọn đúng theo phòng thật đang ở, không phải số lượng
+     * trừu tượng theo dòng loại phòng. `room_selections` là mảng
      * booking_item_room_id. null/rỗng = TOÀN BỘ phòng đang lưu trú tại thời
      * điểm gọi (tương thích ngược + dùng cho phí tự động không xin phép
      * trước). Cần eager load `booking.bookingItems.bookingItemRooms.room`

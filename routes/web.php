@@ -45,9 +45,6 @@ use App\Http\Controllers\Web\Staff\RoomChangeRequestController as StaffRoomChang
 use App\Http\Controllers\Web\Customer\ExtraBedRequestController as CustomerExtraBedRequestController;
 use App\Http\Controllers\Web\Admin\ExtraBedRequestController as AdminExtraBedRequestController;
 use App\Http\Controllers\Web\Staff\ExtraBedRequestController as StaffExtraBedRequestController;
-use App\Http\Controllers\Web\Customer\EarlyCheckinRequestController as CustomerEarlyCheckinRequestController;
-use App\Http\Controllers\Web\Admin\EarlyCheckinRequestController as AdminEarlyCheckinRequestController;
-use App\Http\Controllers\Web\Staff\EarlyCheckinRequestController as StaffEarlyCheckinRequestController;
 use App\Http\Controllers\Web\Customer\LateCheckoutRequestController as CustomerLateCheckoutRequestController;
 use App\Http\Controllers\Web\Admin\LateCheckoutRequestController as AdminLateCheckoutRequestController;
 use App\Http\Controllers\Web\Staff\LateCheckoutRequestController as StaffLateCheckoutRequestController;
@@ -188,9 +185,6 @@ Route::middleware(['auth', 'role:customer'])->prefix('customer')->name('customer
         // thiếu giường phụ, xem BookingService::create()) — chỉ cần 1 action
         // để khách phản hồi phương án đã được gợi ý.
         Route::post('/{id}/extra-bed/resolve', [CustomerExtraBedRequestController::class, 'resolve'])->name('extra-bed.resolve');
-
-        Route::get('/{id}/early-checkin',  [CustomerEarlyCheckinRequestController::class, 'create'])->name('early-checkin.create');
-        Route::post('/{id}/early-checkin', [CustomerEarlyCheckinRequestController::class, 'store'])->name('early-checkin.store');
 
         Route::get('/{id}/late-checkout',  [CustomerLateCheckoutRequestController::class, 'create'])->name('late-checkout.create');
         Route::post('/{id}/late-checkout', [CustomerLateCheckoutRequestController::class, 'store'])->name('late-checkout.store');
@@ -399,13 +393,6 @@ Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(functi
         Route::post('/{id}/resolve', [AdminExtraBedRequestController::class, 'resolve'])->name('resolve');
     });
 
-    Route::prefix('early-checkin-requests')->name('early-checkin-requests.')->group(function () {
-        Route::get('/',              [AdminEarlyCheckinRequestController::class, 'index'])->name('index');
-        Route::get('/{id}',          [AdminEarlyCheckinRequestController::class, 'show'])->name('show');
-        Route::post('/{id}/approve', [AdminEarlyCheckinRequestController::class, 'approve'])->name('approve');
-        Route::post('/{id}/reject',  [AdminEarlyCheckinRequestController::class, 'reject'])->name('reject');
-    });
-
     Route::prefix('late-checkout-requests')->name('late-checkout-requests.')->group(function () {
         Route::get('/',              [AdminLateCheckoutRequestController::class, 'index'])->name('index');
         Route::get('/{id}',          [AdminLateCheckoutRequestController::class, 'show'])->name('show');
@@ -447,13 +434,9 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
     Route::get('/hotel-info', [StaffHotelInfoController::class, 'show'])->name('hotel-info.show');
 
     Route::prefix('room-types')->name('room-types.')->group(function () {
-        Route::get('/',          [StaffRoomTypeController::class, 'index'])->name('index');
-        Route::get('/create',    [StaffRoomTypeController::class, 'create'])->name('create');
-        Route::post('/',         [StaffRoomTypeController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [StaffRoomTypeController::class, 'edit'])->name('edit');
-        Route::get('/{id}',      [StaffRoomTypeController::class, 'show'])->name('show');
-        Route::put('/{id}',      [StaffRoomTypeController::class, 'update'])->name('update');
-        Route::patch('/{id}/toggle-status', [StaffRoomTypeController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/',      [StaffRoomTypeController::class, 'index'])->name('index');
+        Route::get('/{id}',  [StaffRoomTypeController::class, 'show'])->name('show')->whereNumber('id');
+        Route::patch('/{id}/toggle-status', [StaffRoomTypeController::class, 'toggleStatus'])->name('toggle-status')->whereNumber('id');
     });
 
     Route::prefix('rooms')->name('rooms.')->group(function () {
@@ -518,13 +501,6 @@ Route::middleware(['role:staff'])->prefix('staff')->name('staff.')->group(functi
         Route::get('/',              [StaffExtraBedRequestController::class, 'index'])->name('index');
         Route::get('/{id}',          [StaffExtraBedRequestController::class, 'show'])->name('show');
         Route::post('/{id}/resolve', [StaffExtraBedRequestController::class, 'resolve'])->name('resolve');
-    });
-
-    Route::prefix('early-checkin-requests')->name('early-checkin-requests.')->group(function () {
-        Route::get('/',              [StaffEarlyCheckinRequestController::class, 'index'])->name('index');
-        Route::get('/{id}',          [StaffEarlyCheckinRequestController::class, 'show'])->name('show');
-        Route::post('/{id}/approve', [StaffEarlyCheckinRequestController::class, 'approve'])->name('approve');
-        Route::post('/{id}/reject',  [StaffEarlyCheckinRequestController::class, 'reject'])->name('reject');
     });
 
     Route::prefix('late-checkout-requests')->name('late-checkout-requests.')->group(function () {

@@ -26,9 +26,15 @@ class PromotionService
         return Promotion::latest()->get();
     }
 
+    /**
+     * Khuyến mãi đang hiệu lực cho khách vãng lai/tài khoản khách hàng (trang
+     * /promotions, trang chủ) — ẩn các mã đặt đoàn/nhóm (is_group_promo),
+     * vì các mã đó chỉ có ý nghĩa khi lễ tân/admin báo giá cho đơn đoàn
+     * (xem activeGroupPromotions()), không dành cho khách đặt lẻ.
+     */
     public function activePublic(): Collection
     {
-        return $this->activeNowQuery()->orderBy('ends_at')->get();
+        return $this->activeNowQuery()->where('is_group_promo', false)->orderBy('ends_at')->get();
     }
 
     /**

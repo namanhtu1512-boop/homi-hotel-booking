@@ -7,11 +7,18 @@
 @section('content')
 <div class="card" style="margin-bottom: 20px;">
     <div class="section-kicker">Giường phụ đang sử dụng</div>
-    <h2 class="section-title" style="font-size: 18px;">Phòng nào đang dùng giường phụ trong ngày</h2>
+    <h2 class="section-title" style="font-size: 18px;">Phòng nào đang dùng giường phụ trong khoảng ngày</h2>
 
     <form method="GET" class="filter-bar">
         <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
-        <input type="date" name="date" value="{{ $usage['date'] }}" onchange="this.form.submit()">
+        <div class="form-group">
+            <label for="start_date">Từ ngày</label>
+            <input type="date" id="start_date" name="start_date" value="{{ $usage['start_date'] }}">
+        </div>
+        <div class="form-group">
+            <label for="end_date">Đến ngày</label>
+            <input type="date" id="end_date" name="end_date" value="{{ $usage['end_date'] }}">
+        </div>
         <button type="submit" class="btn btn-outline btn-sm">Xem</button>
     </form>
 
@@ -21,17 +28,46 @@
             <div class="stat-value">{{ $usage['total'] }}</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">Đang sử dụng</div>
-            <div class="stat-value">{{ $usage['used'] }}</div>
+            <div class="stat-label">Đang sử dụng (cao điểm)</div>
+            <div class="stat-value">{{ $usage['used_peak'] }}</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">Còn trống</div>
-            <div class="stat-value">{{ $usage['available'] }}</div>
+            <div class="stat-label">Còn trống (thấp điểm)</div>
+            <div class="stat-value">{{ $usage['available_min'] }}</div>
         </div>
     </div>
 
+    @if ($usage['daily']->count() > 1)
+        <div class="table-wrapper" style="margin-bottom: 16px;">
+            <table class="text-xs">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        @foreach ($usage['daily'] as $day)
+                            <th class="px-1 text-center">{{ $day['date']->format('d/m') }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Đang dùng / tổng</td>
+                        @foreach ($usage['daily'] as $day)
+                            @php
+                                $full = $usage['total'] > 0 && $day['used'] >= $usage['total'];
+                                $cellClass = $full
+                                    ? 'bg-red-100 text-red-700 font-bold dark:bg-red-900/40 dark:text-red-300'
+                                    : ($day['used'] > 0 ? 'bg-blue-100 text-blue-700 font-semibold dark:bg-blue-900/40 dark:text-blue-300' : 'text-slate-400');
+                            @endphp
+                            <td class="px-1 text-center {{ $cellClass }}">{{ $day['used'] }}/{{ $usage['total'] }}</td>
+                        @endforeach
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    @endif
+
     @if ($usage['items']->isEmpty())
-        <div class="empty-box">Không có phòng nào dùng giường phụ trong ngày {{ \Carbon\Carbon::parse($usage['date'])->format('d/m/Y') }}.</div>
+        <div class="empty-box">Không có phòng nào dùng giường phụ từ ngày {{ \Carbon\Carbon::parse($usage['start_date'])->format('d/m/Y') }} đến {{ \Carbon\Carbon::parse($usage['end_date'])->format('d/m/Y') }}.</div>
     @else
         <div class="table-wrapper">
             <table>
@@ -66,7 +102,8 @@
 
 <div class="card">
     <form method="GET" class="filter-bar">
-        <input type="hidden" name="date" value="{{ $usage['date'] }}">
+        <input type="hidden" name="start_date" value="{{ $usage['start_date'] }}">
+        <input type="hidden" name="end_date" value="{{ $usage['end_date'] }}">
         <select name="status" onchange="this.form.submit()">
             <option value="">Tất cả trạng thái</option>
             <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>Chờ xử lý</option>

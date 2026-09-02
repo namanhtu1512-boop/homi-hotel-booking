@@ -89,11 +89,6 @@
                 <label for="child_surcharge_per_night">Phụ thu trẻ em (VNĐ/trẻ/đêm)</label>
                 <input id="child_surcharge_per_night" type="number" min="0" name="child_surcharge_per_night" value="{{ old('child_surcharge_per_night', $hotel->child_surcharge_per_night) }}">
             </div>
-            <div class="form-group">
-                <label for="early_checkin_surcharge_percent">Phụ phí nhận phòng sớm (% giá phòng/đêm đầu)</label>
-                <input id="early_checkin_surcharge_percent" type="number" min="0" max="100" step="0.1" name="early_checkin_surcharge_percent" value="{{ old('early_checkin_surcharge_percent', $hotel->early_checkin_surcharge_percent) }}">
-                <p class="section-desc">Tự động tính khi khách nhận phòng trước giờ nhận phòng tiêu chuẩn ở trên. Để 0 nếu không thu phí.</p>
-            </div>
             {{-- cancellation_hours_before: đã thay bằng bảng phí hủy 4 bậc cố định
                  trong code (Booking::cancellationFeePercent()), không còn cấu hình
                  qua admin — ẩn field khỏi form để tránh admin chỉnh mà không thấy

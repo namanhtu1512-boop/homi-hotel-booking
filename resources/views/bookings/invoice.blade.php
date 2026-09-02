@@ -39,6 +39,12 @@
     $roomChildSurcharge = $room ? round((float) $room->bookingItem->child_surcharge / max(1, $room->bookingItem->quantity)) : 0;
     $roomExtraBedSurcharge = $room ? round((float) $room->bookingItem->extra_bed_surcharge / max(1, $room->bookingItem->quantity)) : 0;
     $discountShare = $room ? round((float) $booking->discount_amount / max(1, $booking->totalRoomsRequired())) : 0;
+
+    // Hóa đơn RIÊNG 1 phòng thì khỏi cần cột "Phòng" (đã lọc đúng phòng đó
+    // ở trên) — chỉ hiện khi xem hóa đơn CẢ ĐƠN và đơn có từ 2 phòng trở
+    // lên, nếu không dịch vụ/phụ phí gắn phòng cụ thể sẽ không rõ của
+    // phòng nào khi đơn có nhiều phòng cùng loại (VD 2 Phòng Standard).
+    $showRoomColumn = ! $room && $booking->totalRoomsRequired() > 1;
 @endphp
 
 @section('title', 'Hóa đơn ' . $booking->booking_code . ($room ? ' — Phòng ' . ($room->room->room_number ?? '') : '') . ' · Homi')
@@ -156,6 +162,9 @@
                     <thead>
                         <tr>
                             <th>Dịch vụ</th>
+                            @if ($showRoomColumn)
+                                <th>Phòng</th>
+                            @endif
                             <th class="text-center">SL</th>
                             <th class="text-right">Đơn giá</th>
                             <th class="text-right">Thành tiền</th>
@@ -165,6 +174,9 @@
                         @foreach ($serviceItems as $serviceItem)
                             <tr>
                                 <td class="font-semibold text-slate-800 dark:text-slate-100">{{ $serviceItem->service?->name ?? '—' }}</td>
+                                @if ($showRoomColumn)
+                                    <td>{{ $serviceItem->bookingItemRoom?->room?->room_number ?? 'Cả đơn' }}</td>
+                                @endif
                                 <td class="text-center">{{ $serviceItem->quantity }}</td>
                                 <td class="text-right">{{ number_format($serviceItem->unit_price, 0, ',', '.') }}đ</td>
                                 <td class="text-right font-bold">{{ number_format($serviceItem->subtotal, 0, ',', '.') }}đ</td>
@@ -183,6 +195,9 @@
                         <tr>
                             <th>Loại</th>
                             <th>Mô tả</th>
+                            @if ($showRoomColumn)
+                                <th>Phòng</th>
+                            @endif
                             <th class="text-right">Số tiền</th>
                         </tr>
                     </thead>
@@ -191,6 +206,9 @@
                             <tr>
                                 <td>{{ $item->type === 'service' ? 'Dịch vụ' : 'Phụ phí' }}</td>
                                 <td>{{ $item->description }}</td>
+                                @if ($showRoomColumn)
+                                    <td>{{ $item->bookingItemRoom?->room?->room_number ?? 'Cả đơn' }}</td>
+                                @endif
                                 <td class="text-right font-bold">{{ number_format($item->amount, 0, ',', '.') }}đ</td>
                             </tr>
                         @endforeach

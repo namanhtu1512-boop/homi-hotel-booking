@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  * của khách sạn. Trễ tối đa self::AUTO_APPROVE_MAX_HOURS (1 giờ): tự động
  * DUYỆT ngay lúc gửi, không cần chờ staff. Trễ hơn thế: vẫn phải chờ
  * staff/admin duyệt dựa trên tình trạng phòng trống thực tế (có khách mới
- * sắp nhận phòng này không) — đối xứng với EarlyCheckinRequestService.
+ * sắp nhận phòng này không).
  *
  * Đây là luồng THAY THẾ hoàn toàn phụ phí trả phòng muộn tự động trước đây
  * (xem BookingService::checkOut()) — khách không xin phép trước thì không
@@ -140,11 +140,10 @@ class LateCheckoutRequestService
 
     /**
      * Chuẩn hóa + validate `room_selections` khách gửi lên: mảng
-     * booking_item_room_id (khác EarlyCheckinRequestService — ở đó chưa
-     * check-in nên chọn theo SỐ LƯỢNG trừu tượng của dòng, còn ở đây đơn ĐÃ
-     * check-in nên chọn đúng theo PHÒNG VẬT LÝ đang ở). Chỉ chấp nhận phòng
-     * đang thực sự lưu trú (Booking::inHouseBookingItemRooms()) — chặn chọn
-     * phòng chưa check-in hoặc đã check-out, hoặc không thuộc đơn.
+     * booking_item_room_id — đơn ĐÃ check-in nên chọn đúng theo PHÒNG VẬT LÝ
+     * đang ở. Chỉ chấp nhận phòng đang thực sự lưu trú
+     * (Booking::inHouseBookingItemRooms()) — chặn chọn phòng chưa check-in
+     * hoặc đã check-out, hoặc không thuộc đơn.
      *
      * @param  array<int, int|string>|null  $raw
      * @return array<int, int>|null null = khách không chọn gì cụ thể, áp dụng TOÀN BỘ phòng đang ở
@@ -336,22 +335,35 @@ class LateCheckoutRequestService
     }
 
     /**
-     * Danh sách phòng đang trả phòng muộn trong 1 ngày cụ thể — chỉ tính các
-     * yêu cầu ĐÃ DUYỆT có booking.check_out đúng ngày đó, loại đơn đã hủy.
-     * Trả về 1 dòng cho mỗi PHÒNG VẬT LÝ khách đã CHỌN trả muộn
-     * (selectedBookingItemRooms()) — xem EarlyCheckinRequestService::usageOnDate()
-     * cho quy ước tương tự bên chưa check-in (chọn theo số lượng, không có
-     * phòng vật lý cụ thể).
+     * Danh sách phòng đang trả phòng muộn trong 1 khoảng ngày
+     * (start_date..end_date, cả 2 đầu đều tính; bằng nhau thì tương đương
+     * xem đúng 1 ngày) — chỉ tính các yêu cầu ĐÃ DUYỆT có booking.check_out
+     * rơi trong khoảng đó, loại đơn đã hủy. Trả về 1 dòng cho mỗi PHÒNG VẬT
+     * LÝ khách đã CHỌN trả muộn (selectedBookingItemRooms()). Giới hạn tối
+     * đa 31 ngày, giống ExtraBedInventoryService::usageInRange().
      */
-    public function usageOnDate(string $date): Collection
+    public function usageInRange(string $startDate, string $endDate): Collection
     {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end   = Carbon::parse($endDate)->startOfDay();
+
+        if ($end->lt($start)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        if ($start->diffInDays($end) > 30) {
+            $end = $start->copy()->addDays(30);
+        }
+
         return LateCheckoutRequest::with(['booking.bookingItems.roomType', 'booking.bookingItems.bookingItemRooms.room'])
             ->where('status', 'approved')
             ->whereHas('booking', fn ($q) => $q
-                ->whereDate('check_out', $date)
+                ->whereDate('check_out', '>=', $start)
+                ->whereDate('check_out', '<=', $end)
                 ->where('status', '!=', BookingStatus::CANCELLED->value)
             )
             ->get()
+            ->sortBy(fn (LateCheckoutRequest $request) => $request->booking->check_out)
             ->flatMap(fn (LateCheckoutRequest $request) => $request->selectedBookingItemRooms()->map(fn (BookingItemRoom $bir) => [
                 'request'         => $request,
                 'booking'         => $request->booking,

@@ -61,7 +61,7 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
         return $booking;
     }
 
-    public function test_nut_them_phu_phi_hien_thi_o_trang_chi_tiet_khi_dang_luu_tru(): void
+    public function test_trang_chi_tiet_chi_con_nut_dich_vu_khong_con_nut_phu_phi_hong_mat(): void
     {
         $this->loginAsAdmin();
 
@@ -73,10 +73,10 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Thêm dịch vụ phát sinh');
-        $response->assertSee('Thêm phụ phí hỏng/mất đồ');
+        $response->assertDontSee('Thêm phụ phí hỏng/mất đồ');
     }
 
-    public function test_khong_con_nut_them_phu_phi_o_trang_tra_phong(): void
+    public function test_trang_tra_phong_co_nut_phu_phi_hong_mat_nhung_khong_co_nut_dich_vu(): void
     {
         $this->loginAsAdmin();
 
@@ -88,6 +88,6 @@ class IncidentalFeeOnlyAtCheckoutTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Thêm dịch vụ phát sinh');
-        $response->assertDontSee('Thêm phụ phí hỏng/mất đồ');
+        $response->assertSee('Thêm phụ phí hỏng/mất đồ');
     }
 }

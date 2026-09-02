@@ -122,11 +122,6 @@ class Booking extends Model
         return $this->extraBedRequests->firstWhere('status', 'pending');
     }
 
-    public function earlyCheckinRequests()
-    {
-        return $this->hasMany(EarlyCheckinRequest::class);
-    }
-
     public function lateCheckoutRequests()
     {
         return $this->hasMany(LateCheckoutRequest::class);
@@ -252,17 +247,6 @@ class Booking extends Model
     }
 
     /**
-     * Yêu cầu nhận phòng sớm hợp lệ khi đơn đã được xác nhận (chưa nhận
-     * phòng) VÀ chưa từng gửi yêu cầu nhận phòng sớm nào trước đó — mỗi đơn
-     * chỉ được gửi đúng 1 lần, kể cả khi yêu cầu trước đã bị từ chối
-     * (xem EarlyCheckinRequestService::create()).
-     */
-    public function canRequestEarlyCheckin(): bool
-    {
-        return $this->status === BookingStatus::CONFIRMED && $this->earlyCheckinRequests->isEmpty();
-    }
-
-    /**
      * Chỉ được gửi yêu cầu trả phòng muộn khi đang lưu trú (đã nhận phòng,
      * chưa trả phòng) — xem LateCheckoutRequestService::create().
      */
@@ -326,19 +310,23 @@ class Booking extends Model
     }
 
     /**
-     * Check-in được khi đơn đã xác nhận VÀ đã cọc/thanh toán — tránh khách
-     * vào phòng mà chưa trả bất kỳ khoản nào (xem báo cáo lỗi: check-in xong
-     * là vào phòng luôn không cần thanh toán). Cũng cho phép gọi LẠI khi đơn
-     * đã CHECKED_IN nhưng còn dòng đơn nào đó chưa được gán đủ phòng — mỗi
-     * phòng được check-in RIÊNG, không bắt buộc gán hết trong 1 lượt (xem
-     * BookingService::checkIn()).
+     * Check-in được khi đơn đã xác nhận VÀ đã thanh toán ĐỦ (PAID) — đặt cọc
+     * 30% (DEPOSIT_PAID) KHÔNG đủ để check-in nữa, phải xác nhận đã thu nốt
+     * phần còn lại trước (staff bấm "Xác nhận đã thu đủ số tiền còn lại" —
+     * xem canMarkPaymentAsPaid()) — tránh khách vào phòng mà chưa trả đủ
+     * (xem báo cáo lỗi: check-in xong là vào phòng luôn không cần thanh toán
+     * đủ). Cùng cơ chế được tận dụng để chặn check-in khi tổng tiền phát
+     * sinh SAU khi đã thanh toán đủ (VD đổi phòng làm tăng giá — payment bị
+     * mở lại PENDING, xem RoomChangeRequestService::approve()), tránh phải
+     * phân bổ phần còn thiếu dở dang cho từng phòng vật lý lúc trả phòng.
+     *
+     * Cũng cho phép gọi LẠI khi đơn đã CHECKED_IN nhưng còn dòng đơn nào đó
+     * chưa được gán đủ phòng — mỗi phòng được check-in RIÊNG, không bắt buộc
+     * gán hết trong 1 lượt (xem BookingService::checkIn()).
      */
     public function canCheckIn(): bool
     {
-        $hasDepositOrPaid = $this->payment
-            && in_array($this->payment->status, [PaymentStatus::DEPOSIT_PAID, PaymentStatus::PAID], true);
-
-        if (! $hasDepositOrPaid) {
+        if (! $this->payment || $this->payment->status !== PaymentStatus::PAID) {
             return false;
         }
 
